@@ -8,6 +8,11 @@ import TrialExpiredScreen from './components/TrialExpiredScreen'
 import GuestOnboarding from './components/GuestOnboarding'
 import LoadingScreen from './components/LoadingScreen'
 
+// ─── TEST MODE ────────────────────────────────────────────────
+// Set to true to bypass login for UI testing.
+// Set back to false before launching to real users.
+const TEST_MODE = true
+
 // ─── Inner app (has access to auth context) ──────────────────
 function AppInner() {
   const { user, session, loading, trialExpired, hasPoolProfile } = useAuth()
@@ -21,6 +26,11 @@ function AppInner() {
       setShowOnboarding(true)
     }
   }, [loading, user, hasPoolProfile])
+
+  // ── TEST MODE: skip all auth gates ──────────────────────────
+  if (TEST_MODE) {
+    return <Dashboard />
+  }
 
   if (loading) return <LoadingScreen />
 
