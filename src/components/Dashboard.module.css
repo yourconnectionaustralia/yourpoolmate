@@ -1,0 +1,168 @@
+/* File: src/components/Dashboard.module.css */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--color-bg-subtle);
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  padding-top: env(safe-area-inset-top);
+}
+
+.headerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+  min-height: var(--tap-target);
+}
+
+.logoArea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.appName {
+  font-family: var(--font-heading);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.menuBtn {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-2);
+}
+
+.menuBtn:hover { color: var(--color-text-secondary); }
+
+/* ── Main ────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4);
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ── Score section ───────────────────────────────────────── */
+.scoreSection {
+  display: flex;
+  justify-content: center;
+}
+
+.scoreSkeleton {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--color-bg-muted) 25%, var(--color-border) 50%, var(--color-bg-muted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ── Insights section ────────────────────────────────────── */
+.insightsSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cardsSkeleton {
+  height: 240px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, var(--color-bg-muted) 25%, var(--color-border) 50%, var(--color-bg-muted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-10) var(--space-4);
+  gap: var(--space-3);
+}
+
+.emptyIcon {
+  font-size: 2.5rem;
+}
+
+.emptyHeading {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  color: var(--color-text-primary);
+}
+
+.emptyBody {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  max-width: 280px;
+}
+
+/* ── FAB (Floating action button) ────────────────────────── */
+.fab {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--space-4);
+  padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--color-bg) 70%, transparent);
+  pointer-events: none;
+  z-index: 20;
+}
+
+.fabBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 52px;
+  background: var(--color-ocean);
+  color: var(--color-text-inverse);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  border: none;
+  box-shadow: var(--shadow-lg);
+  cursor: pointer;
+  pointer-events: all;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.fabBtn:hover { background: #005f8e; }
+.fabBtn:active { transform: scale(0.98); }
+
+/* ── Shimmer animation ───────────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
