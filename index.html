@@ -1,29 +1,927 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0077B6" />
-    <meta name="description" content="Your pool. Your mate. Your water, sorted." />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Your Pool Mate" />
-    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Pool Mate — Pool water management for Australian homeowners</title>
+  <meta name="description" content="Stop guessing. Stop wasting money on chemicals. Your Pool Mate gives you a live Health Score for your pool and tells you exactly what to do." />
 
-    <!-- Typography: Inter (UI/body) + Newsreader (headings) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,wght@0,500;0,600;1,500&display=swap"
-      rel="stylesheet"
-    />
+  <script>
+    const CONFIG = {
+      SUPABASE_URL: "https://YOUR_PROJECT.supabase.co",
+      SUPABASE_ANON_KEY: "YOUR_ANON_KEY",
+      EDGE_FUNCTION_URL: "https://YOUR_PROJECT.supabase.co/functions/v1/stripe-checkout",
+      STRIPE_PUBLISHABLE_KEY: "pk_test_YOUR_STRIPE_PUBLISHABLE_KEY",
+      APP_URL: "https://yourpoolmate.pages.dev",
+      PRICE_AUD: 79,
+      SPOTS_TOTAL: 200,
+      SPOTS_FOMO_THRESHOLD: 175,
+      TEST_MODE: true,
+      TEST_CARD: "4242 4242 4242 4242 · Any future date · Any CVC",
+    };
+  </script>
 
-    <title>Your Pool Mate</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&display=swap" rel="stylesheet" />
+  <script src="https://js.stripe.com/v3/"></script>
+
+  <style>
+    :root {
+      --black:      #191919;
+      --near-black: #252525;
+      --gray-dark:  #37352F;
+      --gray-mid:   #6B6B6B;
+      --gray-light: #9B9A97;
+      --gray-line:  #E9E9E7;
+      --gray-bg:    #F7F7F5;
+      --white:      #FFFFFF;
+      --blue:       #2383E2;
+      --blue-light: #EBF3FD;
+      --water-deep: #0A3554;
+      --water-mid:  #1565A0;
+      --water-light:#4A90C4;
+      --water-pale: #E8F4FA;
+      --green:      #0F7B6C;
+      --green-bg:   #EDFAF7;
+      --amber:      #C17D39;
+      --amber-bg:   #FBF3E4;
+      --red:        #C73535;
+      --font-ui:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-read:  'Newsreader', Georgia, serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-ui);
+      color: var(--gray-dark);
+      background: var(--white);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: var(--font-ui); cursor: pointer; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+    @keyframes scoreFill {
+      from { stroke-dashoffset: 220; }
+      to   { stroke-dashoffset: 43; }
+    }
+    @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+
+    /* ── NAV ─────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      height: 52px;
+      display: flex; align-items: center; padding: 0 24px;
+      background: rgba(255,255,255,0.94);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--gray-line);
+    }
+    .nav-inner {
+      width: 100%; max-width: 1100px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; font-weight: 500; color: var(--black); letter-spacing: -0.1px;
+    }
+    .logo-mark {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: var(--water-deep);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .logo-mark svg { width: 16px; height: 16px; }
+    .nav-right { display: flex; align-items: center; gap: 8px; }
+    .nav-link {
+      font-size: 14px; color: var(--gray-mid); padding: 6px 10px;
+      border-radius: 4px; transition: background 0.12s, color 0.12s; border: none; background: none;
+    }
+    .nav-link:hover { background: var(--gray-bg); color: var(--black); }
+    .nav-btn {
+      font-size: 14px; font-weight: 500; color: var(--white); background: var(--black);
+      border: none; padding: 7px 14px; border-radius: 4px; transition: background 0.12s;
+    }
+    .nav-btn:hover { background: var(--near-black); }
+
+    /* ── HERO ────────────────────────────────────── */
+    .hero {
+      padding: 120px 24px 72px;
+      text-align: center; max-width: 760px; margin: 0 auto;
+    }
+    .hero-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 500; color: var(--water-mid);
+      background: var(--water-pale); border: 1px solid rgba(21,101,160,0.15);
+      padding: 4px 10px; border-radius: 100px; margin-bottom: 28px;
+      animation: fadeIn 0.5s ease both;
+    }
+    .chip-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--water-light);
+      animation: pulseDot 2s ease-in-out infinite;
+    }
+    .hero h1 {
+      font-family: var(--font-read);
+      font-size: clamp(42px, 6.5vw, 72px);
+      font-weight: 300; line-height: 1.1; letter-spacing: -0.5px;
+      color: var(--black); margin-bottom: 20px;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+    .hero h1 em { font-style: italic; color: var(--gray-mid); }
+    .hero-sub {
+      font-size: 18px; font-weight: 300; line-height: 1.65; color: var(--gray-mid);
+      max-width: 520px; margin: 0 auto 36px;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+    .hero-actions {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; flex-wrap: wrap;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+    .btn-cta {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 15px; font-weight: 500; color: var(--white); background: var(--black);
+      border: none; padding: 11px 22px; border-radius: 4px;
+      transition: background 0.12s, transform 0.12s; position: relative; overflow: hidden;
+    }
+    .btn-cta:hover { background: var(--near-black); transform: translateY(-1px); }
+    .btn-ghost {
+      font-size: 14px; color: var(--gray-mid); background: none;
+      border: 1px solid var(--gray-line); padding: 10px 18px; border-radius: 4px; transition: all 0.12s;
+    }
+    .btn-ghost:hover { border-color: var(--gray-dark); color: var(--black); }
+
+    /* ── APP PREVIEW ─────────────────────────────── */
+    .preview-wrap { padding: 0 24px 72px; animation: fadeUp 0.8s 0.45s ease both; }
+    .preview-inner {
+      max-width: 960px; margin: 0 auto;
+      background: var(--gray-bg);
+      border: 1px solid var(--gray-line); border-radius: 12px; overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 4px 8px rgba(0,0,0,0.04), 0 16px 40px rgba(0,0,0,0.08);
+    }
+    .preview-chrome {
+      height: 40px; background: #EFEFEE;
+      border-bottom: 1px solid var(--gray-line);
+      display: flex; align-items: center; padding: 0 16px; gap: 12px;
+    }
+    .chrome-dots { display: flex; gap: 6px; }
+    .chrome-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .chrome-dot:nth-child(1) { background: #FF5F57; }
+    .chrome-dot:nth-child(2) { background: #FEBC2E; }
+    .chrome-dot:nth-child(3) { background: #28C840; }
+    .chrome-bar {
+      flex: 1; max-width: 280px; height: 22px; background: var(--white);
+      border-radius: 4px; border: 1px solid var(--gray-line); margin: 0 auto;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: var(--gray-light);
+    }
+    .preview-content { display: grid; grid-template-columns: 220px 1fr; min-height: 420px; }
+
+    /* Sidebar */
+    .app-sidebar { background: #FAFAF9; border-right: 1px solid var(--gray-line); padding: 16px 8px; }
+    .sidebar-section { margin-bottom: 20px; }
+    .sidebar-label {
+      font-size: 11px; font-weight: 500; color: var(--gray-light);
+      text-transform: uppercase; letter-spacing: 0.8px; padding: 4px 12px; margin-bottom: 4px;
+    }
+    .sidebar-item {
+      display: flex; align-items: center; gap: 8px; padding: 5px 12px;
+      border-radius: 4px; font-size: 13px; color: var(--gray-mid); cursor: pointer; transition: background 0.1s;
+    }
+    .sidebar-item:hover, .sidebar-item.active { background: var(--gray-line); color: var(--black); }
+    .sidebar-item.active { font-weight: 500; }
+    .sidebar-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+    .sidebar-badge {
+      margin-left: auto; background: var(--amber-bg); color: var(--amber);
+      font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 100px;
+    }
+
+    /* App main */
+    .app-main { padding: 28px 32px; background: var(--white); }
+    .app-page-title {
+      font-family: var(--font-read); font-size: 28px; font-weight: 400;
+      color: var(--black); margin-bottom: 4px;
+    }
+    .app-page-sub { font-size: 13px; color: var(--gray-light); margin-bottom: 24px; }
+
+    .score-row {
+      display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center;
+      background: var(--gray-bg); border: 1px solid var(--gray-line);
+      border-radius: 8px; padding: 20px 24px; margin-bottom: 16px;
+    }
+    .score-ring-wrap { position: relative; }
+    .score-ring-wrap svg { display: block; }
+    .score-ring-track { fill: none; stroke: var(--gray-line); stroke-width: 8; }
+    .score-ring-fill {
+      fill: none; stroke: var(--water-mid); stroke-width: 8; stroke-linecap: round;
+      stroke-dasharray: 220; stroke-dashoffset: 220;
+      transform-origin: center; transform: rotate(-90deg);
+      animation: scoreFill 1.8s 0.8s cubic-bezier(0.16,1,0.3,1) forwards;
+    }
+    .score-label {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .score-num { font-family: var(--font-read); font-size: 28px; font-weight: 400; color: var(--black); line-height: 1; }
+    .score-of { font-size: 10px; color: var(--gray-light); }
+    .score-detail h4 { font-size: 15px; font-weight: 500; color: var(--black); margin-bottom: 4px; }
+    .score-detail p { font-size: 13px; color: var(--gray-mid); line-height: 1.5; margin-bottom: 12px; }
+    .score-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag { font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 4px; }
+    .tag-good { background: var(--green-bg); color: var(--green); }
+    .tag-warn { background: var(--amber-bg); color: var(--amber); }
+
+    .callout {
+      display: flex; align-items: flex-start; gap: 10px;
+      background: var(--amber-bg); border-radius: 4px; padding: 12px 14px; margin-bottom: 12px;
+    }
+    .callout-icon { font-size: 16px; flex-shrink: 0; line-height: 1.4; }
+    .callout p { font-size: 13px; color: var(--gray-dark); line-height: 1.55; }
+    .callout p strong { font-weight: 600; }
+
+    .readings-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .readings-table th {
+      text-align: left; font-size: 11px; font-weight: 500; color: var(--gray-light);
+      text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 12px; border-bottom: 1px solid var(--gray-line);
+    }
+    .readings-table td { padding: 8px 12px; border-bottom: 1px solid var(--gray-bg); color: var(--gray-dark); }
+    .readings-table tr:last-child td { border-bottom: none; }
+    .r-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 3px; }
+
+    /* ── DIVIDER ─────────────────────────────────── */
+    .divider { max-width: 1100px; margin: 0 auto; padding: 0 24px; height: 1px; background: var(--gray-line); }
+
+    /* ── PROBLEM ─────────────────────────────────── */
+    .problem {
+      max-width: 1100px; margin: 0 auto; padding: 80px 24px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center;
+    }
+    .problem-left h2 {
+      font-family: var(--font-read); font-size: clamp(30px, 4vw, 44px); font-weight: 300;
+      color: var(--black); line-height: 1.18; letter-spacing: -0.3px; margin-bottom: 20px;
+    }
+    .problem-left h2 em { font-style: italic; color: var(--gray-mid); }
+    .problem-left p {
+      font-size: 16px; line-height: 1.7; color: var(--gray-mid); margin-bottom: 28px; font-weight: 300;
+    }
+    .problem-stat { padding: 20px 0; border-top: 1px solid var(--gray-line); }
+    .stat-num {
+      font-family: var(--font-read); font-size: 48px; font-weight: 300;
+      color: var(--black); line-height: 1; margin-bottom: 6px;
+    }
+    .stat-desc { font-size: 14px; color: var(--gray-mid); }
+
+    .problem-page {
+      background: var(--white); border: 1px solid var(--gray-line); border-radius: 8px;
+      overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .page-header { padding: 20px 24px 12px; border-bottom: 1px solid var(--gray-bg); }
+    .page-emoji { font-size: 28px; margin-bottom: 8px; }
+    .page-title { font-family: var(--font-read); font-size: 20px; font-weight: 400; color: var(--black); }
+    .page-body { padding: 16px 24px 20px; display: flex; flex-direction: column; gap: 10px; }
+    .page-block {
+      padding: 10px 12px; border-radius: 4px;
+      font-size: 13px; line-height: 1.55; color: var(--gray-dark);
+    }
+    .page-block-pain { background: #FEF3F2; border-left: 3px solid #F4A89A; color: #7A2A22; }
+    .page-block-neutral { background: var(--gray-bg); border-left: 3px solid var(--gray-line); }
+    .block-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 3px; opacity: 0.6; }
+
+    /* ── FEATURES ────────────────────────────────── */
+    .features {
+      background: var(--gray-bg);
+      border-top: 1px solid var(--gray-line); border-bottom: 1px solid var(--gray-line);
+      padding: 80px 24px;
+    }
+    .features-inner { max-width: 1100px; margin: 0 auto; }
+    .features-intro { max-width: 520px; margin-bottom: 56px; }
+    .section-eyebrow {
+      font-size: 12px; font-weight: 500; color: var(--gray-light);
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+    }
+    .features-intro h2 {
+      font-family: var(--font-read); font-size: clamp(28px, 3.5vw, 38px); font-weight: 300;
+      color: var(--black); line-height: 1.2; letter-spacing: -0.3px;
+    }
+    .features-intro h2 em { font-style: italic; color: var(--gray-mid); }
+
+    .feature-list {
+      display: flex; flex-direction: column;
+      border: 1px solid var(--gray-line); border-radius: 8px; overflow: hidden; background: var(--white);
+    }
+    .feature-row {
+      display: grid; grid-template-columns: 48px 1fr 200px;
+      align-items: center; padding: 20px 24px;
+      border-bottom: 1px solid var(--gray-line); gap: 20px; transition: background 0.1s;
+    }
+    .feature-row:last-child { border-bottom: none; }
+    .feature-row:hover { background: var(--gray-bg); }
+    .feature-num { font-family: var(--font-read); font-size: 22px; font-weight: 300; color: var(--gray-line); user-select: none; }
+    .feature-body h4 { font-size: 15px; font-weight: 500; color: var(--black); margin-bottom: 4px; }
+    .feature-body p { font-size: 13px; color: var(--gray-mid); line-height: 1.55; }
+    .feature-meta { display: flex; justify-content: flex-end; }
+    .feature-chip { font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 4px; background: var(--blue-light); color: var(--blue); }
+    .feature-chip.chip-green { background: var(--green-bg); color: var(--green); }
+    .feature-chip.chip-amber { background: var(--amber-bg); color: var(--amber); }
+
+    /* ── HOW ─────────────────────────────────────── */
+    .how { max-width: 1100px; margin: 0 auto; padding: 80px 24px; }
+    .how-header { max-width: 480px; margin-bottom: 56px; }
+    .how-header h2 {
+      font-family: var(--font-read); font-size: clamp(28px, 3.5vw, 38px); font-weight: 300;
+      color: var(--black); line-height: 1.2; letter-spacing: -0.3px;
+    }
+    .how-header h2 em { font-style: italic; color: var(--gray-mid); }
+    .how-steps {
+      display: flex; flex-direction: column;
+      border: 1px solid var(--gray-line); border-radius: 8px; overflow: hidden;
+    }
+    .how-step {
+      display: grid; grid-template-columns: 52px 1fr;
+      border-bottom: 1px solid var(--gray-line);
+    }
+    .how-step:last-child { border-bottom: none; }
+    .how-step-n {
+      display: flex; align-items: flex-start; justify-content: center; padding-top: 22px;
+      font-family: var(--font-read); font-size: 13px; color: var(--gray-light); font-weight: 300;
+      border-right: 1px solid var(--gray-line);
+    }
+    .how-step-body { padding: 18px 24px; transition: background 0.1s; }
+    .how-step:hover .how-step-body { background: var(--gray-bg); }
+    .how-step-body h4 { font-size: 15px; font-weight: 500; color: var(--black); margin-bottom: 5px; }
+    .how-step-body p { font-size: 13px; color: var(--gray-mid); line-height: 1.6; }
+    .step-note { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 12px; color: var(--water-mid); font-weight: 500; }
+
+    /* ── PRICING ─────────────────────────────────── */
+    .pricing {
+      background: var(--gray-bg);
+      border-top: 1px solid var(--gray-line); padding: 80px 24px;
+    }
+    .pricing-inner {
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 420px; gap: 64px; align-items: start;
+    }
+    .pricing-left h2 {
+      font-family: var(--font-read); font-size: clamp(30px, 4vw, 44px); font-weight: 300;
+      color: var(--black); line-height: 1.15; letter-spacing: -0.3px; margin-bottom: 16px;
+    }
+    .pricing-left h2 em { font-style: italic; color: var(--gray-mid); }
+    .pricing-left > p {
+      font-size: 15px; line-height: 1.7; color: var(--gray-mid); margin-bottom: 32px; font-weight: 300;
+    }
+
+    .spots-block {
+      background: var(--white); border: 1px solid var(--gray-line);
+      border-radius: 6px; padding: 16px 18px; margin-bottom: 24px;
+    }
+    .spots-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+    .spots-title { font-size: 13px; font-weight: 500; color: var(--black); }
+    .spots-count { font-size: 13px; color: var(--gray-mid); }
+    .spots-count strong { color: var(--red); font-weight: 600; }
+    .spots-track { height: 6px; background: var(--gray-line); border-radius: 100px; overflow: hidden; }
+    .spots-fill { height: 100%; background: var(--water-mid); border-radius: 100px; transition: width 1.2s cubic-bezier(0.16,1,0.3,1); }
+
+    .includes-list { list-style: none; display: flex; flex-direction: column; gap: 0; }
+    .includes-list li {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--gray-bg);
+      font-size: 14px; color: var(--gray-dark);
+    }
+    .includes-list li:last-child { border-bottom: none; }
+    .includes-list li::before {
+      content: '✓'; width: 18px; height: 18px; border-radius: 50%;
+      background: var(--green-bg); color: var(--green);
+      font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    .price-card {
+      background: var(--white); border: 1px solid var(--gray-line); border-radius: 8px; overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06); position: sticky; top: 68px;
+    }
+    .price-card-top { padding: 24px; border-bottom: 1px solid var(--gray-line); }
+    .price-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+    .price-currency { font-size: 18px; font-weight: 300; color: var(--gray-mid); }
+    .price-amount { font-family: var(--font-read); font-size: 56px; font-weight: 300; color: var(--black); line-height: 1; letter-spacing: -1px; }
+    .price-note { font-size: 12px; color: var(--gray-light); margin-top: 2px; }
+    .price-card-body { padding: 20px 24px; }
+
+    .btn-buy {
+      width: 100%; font-size: 15px; font-weight: 500; color: var(--white); background: var(--black);
+      border: none; padding: 13px; border-radius: 4px; margin-bottom: 12px;
+      transition: background 0.12s, transform 0.12s; position: relative; overflow: hidden;
+    }
+    .btn-buy:hover { background: var(--near-black); transform: translateY(-1px); }
+    .btn-buy:disabled { opacity: 0.45; transform: none; cursor: not-allowed; }
+    .ripple-el {
+      position: absolute; border-radius: 50%; background: rgba(255,255,255,0.25);
+      animation: ripple 0.5s linear forwards; pointer-events: none;
+    }
+    .price-secure { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: var(--gray-light); }
+
+    #test-banner {
+      display: none; margin-top: 14px; background: #FFFBEB;
+      border: 1px solid #FDE68A; border-radius: 4px; padding: 10px 12px;
+      font-size: 12px; color: #92400E; line-height: 1.5;
+    }
+    #test-banner strong { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+    #stripe-container { display: none; margin-top: 16px; border-top: 1px solid var(--gray-line); padding-top: 16px; }
+
+    .dot-loader { display: inline-flex; gap: 3px; align-items: center; }
+    .dot-loader span { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: pulseDot 1s ease-in-out infinite; }
+    .dot-loader span:nth-child(2) { animation-delay: 0.15s; }
+    .dot-loader span:nth-child(3) { animation-delay: 0.3s; }
+
+    /* ── FAQ ─────────────────────────────────────── */
+    .faq { max-width: 680px; margin: 0 auto; padding: 80px 24px; }
+    .faq h2 { font-family: var(--font-read); font-size: 32px; font-weight: 300; color: var(--black); margin-bottom: 40px; letter-spacing: -0.3px; }
+    .faq-item { border-bottom: 1px solid var(--gray-line); }
+    .faq-q {
+      width: 100%; background: none; border: none; padding: 18px 0; text-align: left;
+      font-size: 15px; font-weight: 400; color: var(--black);
+      display: flex; justify-content: space-between; align-items: center; gap: 16px; cursor: pointer; transition: color 0.1s;
+    }
+    .faq-q:hover { color: var(--gray-mid); }
+    .faq-toggle { font-size: 18px; color: var(--gray-light); transition: transform 0.2s ease; flex-shrink: 0; line-height: 1; }
+    .faq-item.open .faq-toggle { transform: rotate(45deg); color: var(--black); }
+    .faq-a { font-size: 14px; line-height: 1.7; color: var(--gray-mid); max-height: 0; overflow: hidden; transition: max-height 0.25s ease, padding 0.25s ease; }
+    .faq-item.open .faq-a { max-height: 200px; padding-bottom: 18px; }
+
+    /* ── FOOTER ──────────────────────────────────── */
+    footer { border-top: 1px solid var(--gray-line); padding: 32px 24px; }
+    .footer-inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+    .footer-logo { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--black); }
+    .footer-logo .logo-mark { width: 22px; height: 22px; border-radius: 4px; }
+    .footer-logo .logo-mark svg { width: 13px; height: 13px; }
+    .footer-copy { font-size: 13px; color: var(--gray-light); }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { font-size: 13px; color: var(--gray-light); transition: color 0.1s; }
+    .footer-links a:hover { color: var(--black); }
+
+    /* ── SUCCESS ─────────────────────────────────── */
+    #success-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; align-items: center; justify-content: center; }
+    #success-overlay.show { display: flex; }
+    .success-modal {
+      background: var(--white); border-radius: 8px; padding: 48px 40px;
+      max-width: 420px; width: 90%; text-align: center;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.2); animation: fadeUp 0.3s ease both;
+    }
+    .success-icon { width: 56px; height: 56px; background: var(--green-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 20px; }
+    .success-modal h2 { font-family: var(--font-read); font-size: 26px; font-weight: 400; color: var(--black); margin-bottom: 10px; }
+    .success-modal p { font-size: 14px; color: var(--gray-mid); line-height: 1.6; margin-bottom: 28px; }
+    .btn-launch { display: inline-block; font-size: 14px; font-weight: 500; color: var(--white); background: var(--black); border: none; padding: 11px 24px; border-radius: 4px; cursor: pointer; transition: background 0.12s; font-family: var(--font-ui); }
+    .btn-launch:hover { background: var(--near-black); }
+
+    /* ── REVEAL ──────────────────────────────────── */
+    .reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.55s ease, transform 0.55s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+    .reveal-d1 { transition-delay: 0.08s; }
+    .reveal-d2 { transition-delay: 0.16s; }
+    .reveal-d3 { transition-delay: 0.24s; }
+
+    /* ── RESPONSIVE ──────────────────────────────── */
+    @media (max-width: 860px) {
+      .preview-content { grid-template-columns: 1fr; }
+      .app-sidebar { display: none; }
+      .problem { grid-template-columns: 1fr; gap: 40px; padding: 60px 24px; }
+      .pricing-inner { grid-template-columns: 1fr; }
+      .price-card { position: static; }
+      .feature-row { grid-template-columns: 40px 1fr; }
+      .feature-meta { display: none; }
+    }
+    @media (max-width: 600px) {
+      .hero { padding: 96px 20px 56px; }
+      .nav-link { display: none; }
+      .score-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div class="nav-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 16 16" fill="none">
+          <path d="M8 1.5C8 1.5 3.5 7 3.5 10.5C3.5 13 5.5 14.5 8 14.5C10.5 14.5 12.5 13 12.5 10.5C12.5 7 8 1.5 8 1.5Z" fill="white" opacity="0.9"/>
+          <circle cx="8" cy="10.5" r="2" fill="white" opacity="0.4"/>
+        </svg>
+      </div>
+      Your Pool Mate
+    </div>
+    <div class="nav-right">
+      <button class="nav-link" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Pricing</button>
+      <button class="nav-link" onclick="document.getElementById('faq').scrollIntoView({behavior:'smooth'})">FAQ</button>
+      <button class="nav-btn" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Get access →</button>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-chip">
+    <span class="chip-dot"></span>
+    Founding member access · 200 spots only
+  </div>
+  <h1>Your pool, <em>finally</em><br />under control.</h1>
+  <p class="hero-sub">A live Health Score for your water. Exact chemical doses in grams. A complete history of every test. Built for Australian pool owners.</p>
+  <div class="hero-actions">
+    <button class="btn-cta" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Get founding access — $79</button>
+    <button class="btn-ghost" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">See what's included</button>
+  </div>
+</section>
+
+<!-- APP PREVIEW -->
+<div class="preview-wrap">
+  <div class="preview-inner">
+    <div class="preview-chrome">
+      <div class="chrome-dots">
+        <div class="chrome-dot"></div><div class="chrome-dot"></div><div class="chrome-dot"></div>
+      </div>
+      <div class="chrome-bar">app.yourpoolmate.com.au</div>
+    </div>
+    <div class="preview-content">
+      <div class="app-sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-label">My Pool</div>
+          <div class="sidebar-item active"><span class="sidebar-icon">🏊</span> Health Score</div>
+          <div class="sidebar-item"><span class="sidebar-icon">🧪</span> Water Tests <span class="sidebar-badge">1 action</span></div>
+          <div class="sidebar-item"><span class="sidebar-icon">📸</span> Scan Results</div>
+          <div class="sidebar-item"><span class="sidebar-icon">📈</span> History</div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-label">Manage</div>
+          <div class="sidebar-item"><span class="sidebar-icon">⚙️</span> Equipment</div>
+          <div class="sidebar-item"><span class="sidebar-icon">💊</span> Chemical Log</div>
+          <div class="sidebar-item"><span class="sidebar-icon">📋</span> Seasonal Tasks</div>
+        </div>
+      </div>
+      <div class="app-main">
+        <div class="app-page-title">🏊 Health Score</div>
+        <div class="app-page-sub">Last tested 2 days ago · Backyard pool, 50,000L</div>
+        <div class="score-row">
+          <div class="score-ring-wrap">
+            <svg width="88" height="88" viewBox="0 0 88 88">
+              <circle class="score-ring-track" cx="44" cy="44" r="35"/>
+              <circle class="score-ring-fill" cx="44" cy="44" r="35"/>
+            </svg>
+            <div class="score-label">
+              <span class="score-num">87</span>
+              <span class="score-of">/ 100</span>
+            </div>
+          </div>
+          <div class="score-detail">
+            <h4>Good condition</h4>
+            <p>One parameter needs attention. No urgent action required, but address alkalinity before the weekend.</p>
+            <div class="score-tags">
+              <span class="tag tag-good">✓ Chlorine</span>
+              <span class="tag tag-good">✓ pH</span>
+              <span class="tag tag-warn">↑ Alkalinity low</span>
+              <span class="tag tag-good">✓ Stabiliser</span>
+            </div>
+          </div>
+        </div>
+        <div class="callout">
+          <span class="callout-icon">💡</span>
+          <p><strong>Add 450g of sodium bicarbonate</strong> to raise total alkalinity from 68 to target range (80–120 ppm). Broadcast evenly across the surface with pump running.</p>
+        </div>
+        <table class="readings-table">
+          <thead>
+            <tr><th>Parameter</th><th>Reading</th><th>Target</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Free Chlorine</td><td>2.1 ppm</td><td>1.0–3.0</td><td><span class="r-status tag tag-good">✓ Good</span></td></tr>
+            <tr><td>pH</td><td>7.4</td><td>7.2–7.6</td><td><span class="r-status tag tag-good">✓ Good</span></td></tr>
+            <tr><td>Total Alkalinity</td><td>68 ppm</td><td>80–120</td><td><span class="r-status tag tag-warn">↑ Low</span></td></tr>
+            <tr><td>Stabiliser (CYA)</td><td>42 ppm</td><td>30–50</td><td><span class="r-status tag tag-good">✓ Good</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- PROBLEM -->
+<div class="problem">
+  <div class="problem-left reveal">
+    <h2>Pool ownership costs more than it <em>should.</em></h2>
+    <p>One prevented algae bloom pays for this app five times over. The average Australian pool owner spends $800–$1,200 a year on chemicals. Most of that is corrective — fixing problems that a bit of visibility would have prevented.</p>
+    <div class="problem-stat">
+      <div class="stat-num">$400+</div>
+      <div class="stat-desc">Average cost per algae event — fully preventable with consistent monitoring</div>
+    </div>
+  </div>
+  <div class="problem-page reveal reveal-d1">
+    <div class="page-header">
+      <div class="page-emoji">😤</div>
+      <div class="page-title">The old way</div>
+    </div>
+    <div class="page-body">
+      <div class="page-block page-block-pain">
+        <div class="block-label">Sunday afternoon</div>
+        Water's looking cloudy. Drive to the pool shop. Wait 20 minutes. Leave with $90 of chemicals you're not sure you need.
+      </div>
+      <div class="page-block page-block-pain">
+        <div class="block-label">The advice problem</div>
+        Ask three people how to fix it. Get three different answers. Google for an hour. Still not sure.
+      </div>
+      <div class="page-block page-block-pain">
+        <div class="block-label">No memory</div>
+        No record of what you added, when, or whether it worked. Next time, start from zero.
+      </div>
+      <div class="page-block page-block-neutral">
+        <div class="block-label">The result</div>
+        $1,000/year. Green water twice a summer. A pool you're not fully enjoying.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="features-inner">
+    <div class="features-intro reveal">
+      <div class="section-eyebrow">What you get</div>
+      <h2>Everything you need to<br /><em>actually understand</em> your pool.</h2>
+    </div>
+    <div class="feature-list reveal reveal-d1">
+      <div class="feature-row">
+        <div class="feature-num">01</div>
+        <div class="feature-body"><h4>Live Health Score</h4><p>A single number from 0–100 tells you exactly where your pool stands. Green means swim. Yellow means watch. Red means act. No chemistry degree required.</p></div>
+        <div class="feature-meta"><span class="feature-chip chip-green">Real-time</span></div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-num">02</div>
+        <div class="feature-body"><h4>Scan your test results</h4><p>Photograph your pool shop printout or test strip. Our AI reads the numbers for you — no manual entry, no typos. Readings populate automatically in seconds.</p></div>
+        <div class="feature-meta"><span class="feature-chip">AI-powered</span></div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-num">03</div>
+        <div class="feature-body"><h4>Exact chemical doses</h4><p>Not "add some chlorine." Exactly how many grams of which product, calculated for your pool volume, your current readings, and your target levels.</p></div>
+        <div class="feature-meta"><span class="feature-chip chip-amber">Personalised</span></div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-num">04</div>
+        <div class="feature-body"><h4>Full test history and trends</h4><p>Every reading logged. See how your pool behaves across seasons, after rain, after a party. Spot patterns that let you stop problems before they start.</p></div>
+        <div class="feature-meta"><span class="feature-chip">Historical</span></div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-num">05</div>
+        <div class="feature-body"><h4>Australian climate intelligence</h4><p>Algorithms tuned to Australian UV levels, heat, and rainfall. What works in Melbourne is different from what works in Brisbane. We know the difference.</p></div>
+        <div class="feature-meta"><span class="feature-chip chip-green">Local</span></div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-num">06</div>
+        <div class="feature-body"><h4>No app store. Works on everything.</h4><p>A Progressive Web App — open in any browser, add to your home screen in one tap. iPhone, Android, desktop. Always the latest version, no updates to manage.</p></div>
+        <div class="feature-meta"><span class="feature-chip">PWA</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- HOW IT WORKS -->
+<section class="how">
+  <div class="how-header reveal">
+    <div class="section-eyebrow">Getting started</div>
+    <h2>Up and running in<br /><em>under five minutes.</em></h2>
+  </div>
+  <div class="how-steps reveal reveal-d1">
+    <div class="how-step">
+      <div class="how-step-n">01</div>
+      <div class="how-step-body"><h4>Set up your pool</h4><p>Enter your pool volume, sanitisation type (chlorine, salt, mineral) and any equipment. Two minutes, done once.</p></div>
+    </div>
+    <div class="how-step">
+      <div class="how-step-n">02</div>
+      <div class="how-step-body">
+        <h4>Log your first water test</h4>
+        <p>Type in your readings, or photograph your test strip or pool shop printout. Our OCR fills everything in automatically.</p>
+        <span class="step-note">📸 Photo scanning saves ~3 minutes per test</span>
+      </div>
+    </div>
+    <div class="how-step">
+      <div class="how-step-n">03</div>
+      <div class="how-step-body"><h4>Get your Health Score and action plan</h4><p>Instant analysis. If anything needs attention, you'll see exactly what to add, how much, and why — in plain English.</p></div>
+    </div>
+    <div class="how-step">
+      <div class="how-step-n">04</div>
+      <div class="how-step-body"><h4>Follow the plan. Swim confidently.</h4><p>Log what you added, tick it off, and let Your Pool Mate track whether it worked. Over time, your pool becomes predictable.</p></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PRICING -->
+<section class="pricing" id="checkout">
+  <div class="pricing-inner">
+    <div class="pricing-left reveal">
+      <div class="section-eyebrow">Founding member access</div>
+      <h2>One price.<br />Paid once.<br /><em>Yours forever.</em></h2>
+      <p>We're opening access to 200 founding members only. After that, pricing moves to a $39/year subscription — permanently. Founding members keep lifetime access at no ongoing cost, and get every future feature included.</p>
+      <div class="spots-block">
+        <div class="spots-header">
+          <span class="spots-title">Founding spots remaining</span>
+          <span class="spots-count"><strong id="spots-num">…</strong> of 200</span>
+        </div>
+        <div class="spots-track">
+          <div class="spots-fill" id="spots-fill" style="width:0%"></div>
+        </div>
+      </div>
+      <ul class="includes-list">
+        <li>Full lifetime access to Your Pool Mate</li>
+        <li>All future features, included at no extra cost</li>
+        <li>AI-powered photo scanning for test results</li>
+        <li>Unlimited pool profiles and test history</li>
+        <li>Direct access to the founder — shape the roadmap</li>
+        <li>Price locked before subscription model begins</li>
+      </ul>
+    </div>
+    <div>
+      <div class="price-card reveal reveal-d2">
+        <div class="price-card-top">
+          <div class="price-row">
+            <span class="price-currency">AUD</span>
+            <span class="price-amount" id="price-display">$79</span>
+          </div>
+          <div class="price-note" id="price-note">One-time payment · No subscription · No renewal</div>
+        </div>
+        <div class="price-card-body">
+          <button class="btn-buy" id="btn-buy" onclick="handleBuy(event)">Claim founding access</button>
+          <div class="price-secure">🔒 &nbsp;Secured by Stripe</div>
+          <div id="test-banner"></div>
+          <div id="stripe-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <h2>Questions</h2>
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">What does lifetime access mean exactly?<span class="faq-toggle">+</span></button>
+    <div class="faq-a">Pay $79 once, use Your Pool Mate forever. No annual renewals, no creeping subscription. As the product grows — new features, better AI, deeper analytics — you get all of it. Your $79 is your total cost.</div>
+  </div>
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">Why only 200 founding members?<span class="faq-toggle">+</span></button>
+    <div class="faq-a">We want a tight first cohort we can actually talk to. Founding members get direct access to the founder, influence the product roadmap, and help us build something that genuinely works. After 200, pricing moves to $39/year subscription only — permanently.</div>
+  </div>
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">Do I need to install anything?<span class="faq-toggle">+</span></button>
+    <div class="faq-a">No app store required. Your Pool Mate is a Progressive Web App. Open it in your browser, add it to your home screen in one tap. Works on iPhone, Android and desktop. Updates automatically — always the latest version.</div>
+  </div>
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">What pool types does it support?<span class="faq-toggle">+</span></button>
+    <div class="faq-a">Chlorine, saltwater/chlorinator, mineral and freshwater pools. All common sanitisation systems. If you have an unusual setup, reach out — we'll work through it.</div>
+  </div>
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">Is there a refund policy?<span class="faq-toggle">+</span></button>
+    <div class="faq-a">30-day no-questions-asked refund. If Your Pool Mate isn't delivering value in your first month, email the founder directly and we'll process a full refund the same day.</div>
+  </div>
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">When does the price go up to $99?<span class="faq-toggle">+</span></button>
+    <div class="faq-a">When 175 spots are taken (25 remaining), the founding price increases to $99. After all 200 are filled, access moves to $39/year subscription only. The counter above is live.</div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 16 16" fill="none">
+          <path d="M8 1.5C8 1.5 3.5 7 3.5 10.5C3.5 13 5.5 14.5 8 14.5C10.5 14.5 12.5 13 12.5 10.5C12.5 7 8 1.5 8 1.5Z" fill="white" opacity="0.9"/>
+          <circle cx="8" cy="10.5" r="2" fill="white" opacity="0.4"/>
+        </svg>
+      </div>
+      Your Pool Mate
+    </div>
+    <span class="footer-copy">© 2025 Your Pool Mate. Australian owned.</span>
+    <div class="footer-links">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="mailto:hello@yourpoolmate.com.au">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<!-- SUCCESS -->
+<div id="success-overlay">
+  <div class="success-modal">
+    <div class="success-icon">✓</div>
+    <h2>You're in.</h2>
+    <p>Welcome to Your Pool Mate. Your founding member access is confirmed. Let's get your pool balanced.</p>
+    <button class="btn-launch" onclick="window.location.href = CONFIG.APP_URL">Open Your Pool Mate →</button>
+  </div>
+</div>
+
+<script>
+// Scroll reveal
+const ro = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); ro.unobserve(e.target); } });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
+
+// FAQ
+function toggleFaq(btn) {
+  const item = btn.closest('.faq-item');
+  const open = item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+  if (!open) item.classList.add('open');
+}
+
+// Spots
+async function loadSpots() {
+  if (CONFIG.TEST_MODE) { renderSpots(188, 200); return; }
+  try {
+    const r = await fetch(CONFIG.EDGE_FUNCTION_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get_spots' })
+    });
+    const d = await r.json();
+    renderSpots(d.spots_remaining, d.spots_total);
+    if (d.spots_remaining <= (CONFIG.SPOTS_TOTAL - CONFIG.SPOTS_FOMO_THRESHOLD)) {
+      document.getElementById('price-display').textContent = '$99';
+      document.getElementById('price-note').textContent = 'One-time payment · Final price before close';
+    }
+  } catch { renderSpots(CONFIG.SPOTS_TOTAL, CONFIG.SPOTS_TOTAL); }
+}
+function renderSpots(remaining, total) {
+  document.getElementById('spots-num').textContent = remaining;
+  document.getElementById('spots-fill').style.width = (((total - remaining) / total) * 100) + '%';
+  if (remaining < 30) document.querySelector('#spots-num').style.color = 'var(--red)';
+}
+loadSpots();
+
+// Stripe
+let stripeInstance = null, checkout = null;
+async function handleBuy(e) {
+  const btn = document.getElementById('btn-buy');
+  const r = document.createElement('span'); r.className = 'ripple-el';
+  const rect = btn.getBoundingClientRect();
+  const sz = Math.max(rect.width, rect.height);
+  r.style.cssText = `width:${sz}px;height:${sz}px;left:${e.clientX-rect.left-sz/2}px;top:${e.clientY-rect.top-sz/2}px;`;
+  btn.appendChild(r); setTimeout(() => r.remove(), 600);
+
+  if (CONFIG.TEST_MODE) {
+    const b = document.getElementById('test-banner');
+    b.style.display = 'block';
+    b.innerHTML = `<strong>🧪 Test mode active</strong>Use card: <code>${CONFIG.TEST_CARD}</code>`;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="dot-loader"><span></span><span></span><span></span></span>';
+
+  try {
+    if (!stripeInstance) stripeInstance = Stripe(CONFIG.STRIPE_PUBLISHABLE_KEY);
+    const res = await fetch(CONFIG.EDGE_FUNCTION_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create_session', successUrl: window.location.href, cancelUrl: window.location.href })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Session error');
+    const container = document.getElementById('stripe-container');
+    container.style.display = 'block';
+    if (checkout) checkout.destroy();
+    checkout = await stripeInstance.initEmbeddedCheckout({ clientSecret: data.clientSecret, onComplete: showSuccess });
+    checkout.mount('#stripe-container');
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    btn.disabled = false;
+    btn.innerHTML = '↑ Complete payment above';
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = 'Claim founding access';
+    alert('Could not start checkout. Please try again or email hello@yourpoolmate.com.au');
+  }
+}
+
+function showSuccess() { document.getElementById('success-overlay').classList.add('show'); }
+
+(function() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('session_id')) { showSuccess(); window.history.replaceState({}, '', window.location.pathname); }
+})();
+
+if (CONFIG.TEST_MODE) {
+  document.addEventListener('keydown', e => { if (e.ctrlKey && e.shiftKey && e.key === 'T') showSuccess(); });
+  console.log('%c[Your Pool Mate · Test Mode]\nCtrl+Shift+T → simulate success\nTest card: ' + CONFIG.TEST_CARD, 'color:#1565A0;font-weight:600');
+}
+</script>
+</body>
 </html>
