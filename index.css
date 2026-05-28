@@ -1021,3 +1021,315 @@ img, svg { display: block; max-width: 100%; }
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
 }
+
+
+/* ════════════════════════════════════════════════════════════════
+   FEEDBACK OVERLAY
+   Floating panel for beta feedback rounds.
+   Notes accumulate across pages (localStorage) until submitted.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── FAB (floating action button) ── */
+.feedback-fab {
+  position: fixed;
+  bottom: calc(var(--mobile-nav-h) + 14px);
+  right: 16px;
+  z-index: 310;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-full);
+  background: var(--water-deep);
+  color: var(--white);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-float);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.feedback-fab:hover {
+  background: var(--water-mid);
+  transform: scale(1.06);
+}
+
+.feedback-fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: var(--r-full);
+  background: var(--amber);
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid var(--white);
+  line-height: 1;
+}
+
+/* ── Backdrop (closes panel on click) ── */
+.feedback-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 308;
+}
+
+/* ── Panel ── */
+.feedback-panel {
+  position: fixed;
+  bottom: calc(var(--mobile-nav-h) + 68px);
+  right: 16px;
+  z-index: 309;
+  width: 320px;
+  max-height: calc(100vh - var(--topnav-h) - var(--mobile-nav-h) - 88px);
+  background: var(--white);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-modal);
+  border: var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: feedbackPanelIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes feedbackPanelIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+/* Full-width on narrow screens */
+@media (max-width: 500px) {
+  .feedback-panel {
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+}
+
+/* On desktop (no mobile nav), drop the FAB and panel lower */
+@media (min-width: 768px) {
+  .feedback-fab {
+    bottom: 24px;
+    right: 24px;
+  }
+  .feedback-panel {
+    bottom: 80px;
+    right: 24px;
+    max-height: calc(100vh - var(--topnav-h) - 100px);
+  }
+}
+
+/* ── Panel header ── */
+.feedback-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: var(--border);
+  flex-shrink: 0;
+}
+
+.feedback-panel-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--black);
+  flex: 1;
+}
+
+.feedback-round-count {
+  font-size: 11px;
+  background: var(--amber-bg);
+  color: var(--amber);
+  border-radius: var(--r-full);
+  padding: 2px 8px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+
+.feedback-panel-close {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--gray-mid);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-xs);
+  padding: 0;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.feedback-panel-close:hover {
+  background: var(--gray-bg);
+  color: var(--black);
+}
+
+/* ── Panel body (scrollable) ── */
+.feedback-panel-body {
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ── Add note section ── */
+.feedback-add-section {
+  padding: 14px;
+  border-bottom: var(--border);
+}
+
+.feedback-page-label {
+  font-size: 11px;
+  color: var(--gray-mid);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-eyebrow);
+  margin-bottom: 8px;
+}
+
+.feedback-page-label strong {
+  color: var(--water-mid);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.feedback-textarea {
+  width: 100%;
+  border: var(--border);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--black);
+  background: var(--white);
+  resize: none;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.feedback-textarea:focus {
+  border-color: var(--water-mid);
+}
+
+.feedback-textarea::placeholder {
+  color: var(--gray-light);
+}
+
+/* ── Accumulated notes section ── */
+.feedback-notes-section {
+  padding: 14px;
+}
+
+.feedback-notes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.feedback-notes-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-eyebrow);
+  color: var(--gray-mid);
+}
+
+.feedback-clear-link {
+  font-size: 11px;
+  color: var(--gray-light);
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  transition: color var(--transition-fast);
+}
+
+.feedback-clear-link:hover { color: var(--red); }
+
+/* ── Page group within notes list ── */
+.feedback-page-group {
+  margin-bottom: 10px;
+}
+
+.feedback-page-group-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--water-mid);
+  background: var(--water-pale);
+  border-radius: var(--r-xs);
+  padding: 2px 7px;
+  display: inline-block;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.feedback-note-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--gray-bg);
+}
+
+.feedback-note-row:last-child { border-bottom: none; }
+
+.feedback-note-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--gray-dark);
+  line-height: 1.5;
+}
+
+.feedback-note-remove {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--gray-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-xs);
+  padding: 0;
+  margin-top: 1px;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.feedback-note-remove:hover {
+  color: var(--red);
+  background: var(--red-bg);
+}
+
+/* ── Submit section ── */
+.feedback-submit-section {
+  padding-top: 12px;
+  border-top: var(--border);
+  margin-top: 4px;
+}
+
+/* ── Success state ── */
+.feedback-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 24px;
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 500;
+}
