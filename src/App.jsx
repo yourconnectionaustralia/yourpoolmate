@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import FeedbackOverlay from './FeedbackOverlay.jsx';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM ICONS — inline SVG only, no library dependency
@@ -73,6 +74,11 @@ const Icon = {
   logoBig: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3c-3 4-6 7-6 11a6 6 0 0 0 12 0c0-4-3-7-6-11z"/>
+    </svg>
+  ),
+  menu: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
     </svg>
   ),
 };
@@ -269,6 +275,94 @@ function Sidebar({ activeView, onNav, pendingActions }) {
         </div>
       </div>
     </aside>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// MOBILE BOTTOM NAV
+// ─────────────────────────────────────────────────────────────────
+function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
+  const SECONDARY = ['setup', 'equipment', 'schedule', 'profile'];
+  const moreActive = SECONDARY.includes(activeView);
+
+  return (
+    <nav className="mobile-nav">
+      {/* Health */}
+      <button
+        className={`mobile-nav-item ${activeView === 'health' ? 'active' : ''}`}
+        onClick={() => onNav('health')}
+      >
+        <span className="mobile-nav-icon">{Icon.waves}</span>
+        <span className="mobile-nav-label">Health</span>
+      </button>
+
+      {/* Tests */}
+      <button
+        className={`mobile-nav-item ${activeView === 'tests' ? 'active' : ''}`}
+        onClick={() => onNav('tests')}
+      >
+        <span className="mobile-nav-icon">{Icon.flask}</span>
+        <span className="mobile-nav-label">Tests</span>
+        {pendingActions > 0 && (
+          <span className="mobile-nav-badge">{pendingActions}</span>
+        )}
+      </button>
+
+      {/* Centre CTA — Log test */}
+      <button className="mobile-nav-item mobile-nav-cta" onClick={onLogTest}>
+        <span className="mobile-nav-cta-icon">+</span>
+        <span className="mobile-nav-label">Log</span>
+      </button>
+
+      {/* History */}
+      <button
+        className={`mobile-nav-item ${activeView === 'history' ? 'active' : ''}`}
+        onClick={() => onNav('history')}
+      >
+        <span className="mobile-nav-icon">{Icon.droplet}</span>
+        <span className="mobile-nav-label">History</span>
+      </button>
+
+      {/* More */}
+      <button
+        className={`mobile-nav-item ${moreActive ? 'active' : ''}`}
+        onClick={onMore}
+      >
+        <span className="mobile-nav-icon">{Icon.menu}</span>
+        <span className="mobile-nav-label">More</span>
+      </button>
+    </nav>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// MOBILE MORE DRAWER (slide-up sheet)
+// ─────────────────────────────────────────────────────────────────
+function MobileMoreDrawer({ activeView, onNav, onClose }) {
+  const items = [
+    { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
+    { view: 'equipment', icon: Icon.equipment,  label: 'Equipment' },
+    { view: 'schedule',  icon: Icon.calendar,   label: SEASONAL_TIPS_LABEL },
+    { view: 'profile',   icon: Icon.user,        label: 'Profile' },
+  ];
+
+  return (
+    <>
+      <div className="mobile-drawer-backdrop" onClick={onClose} />
+      <div className="mobile-drawer">
+        <div className="mobile-drawer-handle" />
+        {items.map(item => (
+          <button
+            key={item.view}
+            className={`mobile-drawer-item ${activeView === item.view ? 'active' : ''}`}
+            onClick={() => { onNav(item.view); onClose(); }}
+          >
+            <span className="mobile-drawer-icon">{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -1206,6 +1300,7 @@ export default function App() {
   const [showScan, setShowScan] = useState(false);
   const [trialDaysLeft, setTrialDaysLeft] = useState(7);
   const [equipment, setEquipment] = useState([]);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Count parameters out of range as pending actions
   const pendingActions = testData
@@ -1323,6 +1418,27 @@ export default function App() {
           onComplete={handleScanComplete}
         />
       )}
+
+      {/* Mobile bottom nav */}
+      <MobileNav
+        activeView={activeView}
+        onNav={(view) => { setActiveView(view); setMobileDrawerOpen(false); }}
+        pendingActions={pendingActions}
+        onMore={() => setMobileDrawerOpen(v => !v)}
+        onLogTest={() => setActiveView('tests')}
+      />
+
+      {/* Mobile More drawer */}
+      {mobileDrawerOpen && (
+        <MobileMoreDrawer
+          activeView={activeView}
+          onNav={setActiveView}
+          onClose={() => setMobileDrawerOpen(false)}
+        />
+      )}
+
+      {/* Feedback overlay — accumulate notes per page, submit as a round */}
+      <FeedbackOverlay activeView={activeView} />
     </div>
   );
 }
