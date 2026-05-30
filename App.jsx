@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from './supabase.js';
+import FeedbackOverlay from './FeedbackOverlay.jsx';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM ICONS — inline SVG only, no library dependency
@@ -133,7 +133,8 @@ function getAUSeason() {
   if (m >= 9 && m <= 11) return 'Spring';
   return 'Summer';
 }
-const SEASONAL_TIPS_LABEL = `${getAUSeason()} Tips`;
+// Menu label is generic; the page itself shows the current season's tips.
+const SEASONAL_TIPS_LABEL = 'Seasonal Tips';
 
 // ─────────────────────────────────────────────────────────────────
 // EQUIPMENT CONSTANTS
@@ -142,6 +143,33 @@ const EQUIPMENT_TYPES = [
   'Pump', 'Filter', 'Heater / Heat Pump', 'Robotic Cleaner',
   'Suction Cleaner', 'Salt Chlorinator', 'Lighting', 'Other',
 ];
+
+// ─────────────────────────────────────────────────────────────────
+// POOL SETUP OPTIONS
+// ─────────────────────────────────────────────────────────────────
+const POOL_TYPES = [
+  'In-ground', 'Above-ground', 'Plunge pool', 'Container pool',
+  'Lap pool', 'Indoor pool', 'Spa / spool', 'Swim spa',
+];
+const POOL_SHAPES = [
+  'Rectangular', 'Oval', 'Kidney / freeform', 'Round',
+  'L-shaped', 'Square', 'Figure-8', 'Other',
+];
+const POOL_SURFACES = [
+  'Pebble / pebblecrete', 'Concrete / rendered', 'Fibreglass',
+  'Vinyl liner', 'Fully tiled', 'Painted concrete', 'Other',
+];
+const SANITISER_TYPES = [
+  'Chlorine (granular/liquid)', 'Saltwater chlorinator', 'Mineral / magnesium',
+  'Ozone', 'Freshwater system', 'UV', 'Bromine', 'Other',
+];
+const FILTER_TYPES = [
+  'Sand', 'Glass media', 'Cartridge', 'Diatomaceous earth (DE)',
+  'Zeolite', 'Other',
+];
+
+// Current year, for the "Year built" dropdown
+const CURRENT_YEAR = new Date().getFullYear();
 
 function equipmentEmoji(type) {
   if (!type) return '⚙️';
@@ -372,7 +400,9 @@ function MobileMoreDrawer({ activeView, onNav, onClose }) {
 function HealthScorePage({ testData, poolProfile }) {
   const score = testData ? calculateScore(testData) : null;
   const lastTest = testData?.createdAt;
-  const poolLabel = poolProfile ? `${poolProfile.name} · ${poolProfile.volumeKl} kL` : null;
+  const poolLabel = poolProfile
+    ? `${poolProfile.name} · ${(poolProfile.volumeL ?? (poolProfile.volumeKl || 0) * 1000).toLocaleString('en-AU')} L`
+    : null;
 
   if (!testData) {
     return (
@@ -674,12 +704,31 @@ function ChemistryLogPage({ history }) {
 // SETUP PAGE
 // ─────────────────────────────────────────────────────────────────
 function SetupPage({ poolProfile, onSave }) {
-  const [form, setForm] = useState(poolProfile || {
+  const [form, setForm] = useState(() => ({
     name: 'Backyard pool',
-    shape: 'rectangular',
-    volumeKl: 30,
-    sanitiser: 'chlorine',
-  });
+    type: 'In-ground',
+    shape: 'Rectangular',
+    surface: 'Pebble / pebblecrete',
+    volumeL: 32000,
+    sanitiser: 'Chlorine (granular/liquid)',
+    filter: 'Sand',
+    yearBuilt: '',
+    yearBuiltApprox: false,
+    hasCover: false,
+    ...poolProfile,
+  }));
+  const [saved, setSaved] = useState(false);
+
+  const set = (key, value) => { setForm(v => ({ ...v, [key]: value })); setSaved(false); };
+
+  const handleSave = () => {
+    onSave(form);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2200);
+  };
+
+  const yearOptions = [];
+  for (let y = CURRENT_YEAR; y >= 1960; y--) yearOptions.push(y);
 
   return (
     <div>
@@ -689,44 +738,136 @@ function SetupPage({ poolProfile, onSave }) {
       <div className="card-section">
         <div className="eyebrow" style={{ marginBottom: 16 }}>Pool details</div>
 
+        {/* Pool name */}
         <div className="input-group">
           <label className="input-label">Pool name</label>
           <input
             className="input"
             placeholder="e.g. Backyard pool"
             value={form.name}
-            onChange={e => setForm(v => ({ ...v, name: e.target.value }))}
+            onChange={e => set('name', e.target.value)}
           />
         </div>
 
+        {/* Volume — primary input, full width */}
+        <div className="input-group">
+          <label className="input-label">Volume (litres)</label>
+          <input
+            className="input"
+            type="number"
+            inputMode="numeric"
+            placeholder="e.g. 32000"
+            value={form.volumeL}
+            onChange={e => set('volumeL', parseFloat(e.target.value) || 0)}
+          />
+          <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 4 }}>
+            {form.volumeL > 0
+              ? `≈ ${(form.volumeL / 1000).toLocaleString('en-AU', { maximumFractionDigits: 1 })} kL`
+              : 'Length × width × average depth (m) × 1,000 = litres'}
+          </div>
+        </div>
+
+        {/* Type + Shape */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div className="input-group">
-            <label className="input-label">Volume (kL)</label>
-            <input
-              className="input"
-              type="number"
-              placeholder="e.g. 32"
-              value={form.volumeKl}
-              onChange={e => setForm(v => ({ ...v, volumeKl: parseFloat(e.target.value) || 0 }))}
-            />
+            <label className="input-label">Type</label>
+            <select className="input" value={form.type} onChange={e => set('type', e.target.value)}>
+              {POOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
-
           <div className="input-group">
-            <label className="input-label">Sanitiser type</label>
-            <select
-              className="input"
-              value={form.sanitiser}
-              onChange={e => setForm(v => ({ ...v, sanitiser: e.target.value }))}
-            >
-              <option value="chlorine">Chlorine (granular/liquid)</option>
-              <option value="saltwater">Saltwater chlorinator</option>
-              <option value="mineral">Mineral system</option>
+            <label className="input-label">Shape</label>
+            <select className="input" value={form.shape} onChange={e => set('shape', e.target.value)}>
+              {POOL_SHAPES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-          <button className="btn btn-primary btn-sm" onClick={() => onSave(form)}>
+        {/* Surface + Sanitiser */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="input-group">
+            <label className="input-label">Pool surface</label>
+            <select className="input" value={form.surface} onChange={e => set('surface', e.target.value)}>
+              {POOL_SURFACES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="input-group">
+            <label className="input-label">Sanitiser type</label>
+            <select className="input" value={form.sanitiser} onChange={e => set('sanitiser', e.target.value)}>
+              {SANITISER_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Filter + Year built */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="input-group">
+            <label className="input-label">Filter type</label>
+            <select className="input" value={form.filter} onChange={e => set('filter', e.target.value)}>
+              {FILTER_TYPES.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+          <div className="input-group">
+            <label className="input-label">Year built (if known)</label>
+            <select className="input" value={form.yearBuilt} onChange={e => set('yearBuilt', e.target.value)}>
+              <option value="">Not sure</option>
+              {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Year-built approximate note (only when a year is chosen) */}
+        {form.yearBuilt && (
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            fontSize: 13, color: 'var(--gray-mid)', cursor: 'pointer', marginTop: -4, marginBottom: 16,
+          }}>
+            <input
+              type="checkbox"
+              checked={form.yearBuiltApprox}
+              onChange={e => set('yearBuiltApprox', e.target.checked)}
+              style={{ width: 18, height: 18, accentColor: 'var(--water-deep)', cursor: 'pointer' }}
+            />
+            This is an approximate year / best guess
+          </label>
+        )}
+
+        {/* Pool cover Y/N */}
+        <div className="input-group">
+          <label className="input-label">Pool cover</label>
+          <div style={{ display: 'flex', gap: 8 }} role="group" aria-label="Pool cover">
+            {[{ v: true, l: 'Yes' }, { v: false, l: 'No' }].map(opt => {
+              const active = form.hasCover === opt.v;
+              return (
+                <button
+                  key={opt.l}
+                  type="button"
+                  onClick={() => set('hasCover', opt.v)}
+                  aria-pressed={active}
+                  style={{
+                    flex: 1, minHeight: 44,
+                    borderRadius: 'var(--r-sm)',
+                    border: active ? '1px solid var(--water-deep)' : 'var(--border)',
+                    background: active ? 'var(--water-pale)' : 'var(--white)',
+                    color: active ? 'var(--water-deep)' : 'var(--gray-mid)',
+                    fontSize: 14, fontWeight: active ? 600 : 400,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {opt.l}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
+          {saved && (
+            <span style={{ fontSize: 13, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {Icon.check} Saved
+            </span>
+          )}
+          <button className="btn btn-primary btn-sm" onClick={handleSave}>
             Save setup
           </button>
         </div>
@@ -737,8 +878,8 @@ function SetupPage({ poolProfile, onSave }) {
           {Icon.info}
         </span>
         <div className="callout-body">
-          Accurate pool volume is the most important setup detail. It determines every dose recommendation.
-          If unsure, use the volume calculator: <strong>length × width × average depth × 1,000</strong> = litres.
+          Accurate pool volume is the most important setup detail — it determines every dose recommendation.
+          If unsure, use the calculator: <strong>length × width × average depth (m) × 1,000</strong> = litres.
         </div>
       </div>
     </div>
@@ -1231,10 +1372,18 @@ function scoreHeadline(score, params) {
   return 'Chemistry needs urgent correction — hold off swimming for now.';
 }
 
+// Resolve pool volume in kilolitres (kL) for dosing maths.
+// Volume is now captured in litres; older profiles may still carry volumeKl.
+function poolKl(pool) {
+  if (pool?.volumeL) return pool.volumeL / 1000;
+  if (pool?.volumeKl) return pool.volumeKl;
+  return 30;
+}
+
 function getPrimaryAction(params, pool) {
   const alk = params.find(p => p.key === 'alkalinity');
   if (alk?.tagClass === 'tag-warn') {
-    const vol = pool?.volumeKl || 30;
+    const vol = poolKl(pool);
     const dose = Math.round(vol * 15);
     return {
       dose: `Add ${dose}g of sodium bicarbonate`,
@@ -1243,7 +1392,7 @@ function getPrimaryAction(params, pool) {
   }
   const fc = params.find(p => p.key === 'freeChlor');
   if (fc?.status === '↑ Low') {
-    const vol = pool?.volumeKl || 30;
+    const vol = poolKl(pool);
     const dose = Math.round(vol * 7);
     return {
       dose: `Add ${dose}g of granular chlorine`,
@@ -1290,247 +1439,24 @@ function formatDate(iso) {
 
 
 // ─────────────────────────────────────────────────────────────────
-// FEEDBACK OVERLAY
-// Beta rounds-based feedback collection.
-// Notes accumulate across page navigation (persisted in localStorage)
-// until the user submits a full "round" to the feedback_rounds table.
-// ─────────────────────────────────────────────────────────────────
-const FEEDBACK_PAGE_LABELS = {
-  health:    'Health Score',
-  tests:     'Water Tests',
-  history:   'Chemistry Log',
-  setup:     'Pool Setup',
-  equipment: 'Equipment',
-  schedule:  SEASONAL_TIPS_LABEL,
-  profile:   'Profile',
-};
-const FEEDBACK_STORAGE_KEY = 'ypm_feedback_round';
-
-function FeedbackOverlay({ activeView }) {
-  const [open, setOpen]               = useState(false);
-  const [notes, setNotes]             = useState(() => {
-    try { return JSON.parse(localStorage.getItem(FEEDBACK_STORAGE_KEY)) || []; }
-    catch { return []; }
-  });
-  const [currentNote, setCurrentNote] = useState('');
-  const [roundLabel, setRoundLabel]   = useState('');
-  const [submitting, setSubmitting]   = useState(false);
-  const [submitted, setSubmitted]     = useState(false);
-  const textareaRef                   = useRef(null);
-
-  // Keep localStorage in sync
-  useEffect(() => {
-    localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(notes));
-  }, [notes]);
-
-  // Auto-focus textarea when panel opens
-  useEffect(() => {
-    if (open && textareaRef.current) {
-      const t = setTimeout(() => textareaRef.current?.focus(), 80);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-
-  const addNote = () => {
-    const text = currentNote.trim();
-    if (!text) return;
-    setNotes(prev => [
-      ...prev,
-      {
-        page:       activeView,
-        page_label: FEEDBACK_PAGE_LABELS[activeView] || activeView,
-        note:       text,
-        added_at:   new Date().toISOString(),
-      },
-    ]);
-    setCurrentNote('');
-    textareaRef.current?.focus();
-  };
-
-  const removeNote = (index) => setNotes(prev => prev.filter((_, i) => i !== index));
-
-  const clearRound = () => {
-    if (!window.confirm('Clear all notes in this round?')) return;
-    setNotes([]);
-    localStorage.removeItem(FEEDBACK_STORAGE_KEY);
-  };
-
-  const submitRound = async () => {
-    if (notes.length === 0) return;
-    setSubmitting(true);
-    try {
-      const { error } = await supabase.from('feedback_rounds').insert({
-        round_label: roundLabel.trim() || `Round – ${new Date().toLocaleDateString('en-AU')}`,
-        notes,
-        device_info: navigator.userAgent,
-      });
-      if (error) throw error;
-      setNotes([]);
-      setRoundLabel('');
-      localStorage.removeItem(FEEDBACK_STORAGE_KEY);
-      setSubmitted(true);
-      setTimeout(() => { setSubmitted(false); setOpen(false); }, 2400);
-    } catch {
-      alert('Could not submit — check your connection and try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Group notes by page_label for display
-  const grouped = notes.reduce((acc, n, i) => {
-    if (!acc[n.page_label]) acc[n.page_label] = [];
-    acc[n.page_label].push({ ...n, _idx: i });
-    return acc;
-  }, {});
-
-  return (
-    <>
-      {/* Floating action button */}
-      <button
-        className="feedback-fab"
-        onClick={() => setOpen(v => !v)}
-        aria-label="Open feedback panel"
-        title="Feedback"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-        {notes.length > 0 && (
-          <span className="feedback-fab-badge">{notes.length}</span>
-        )}
-      </button>
-
-      {/* Backdrop + panel */}
-      {open && (
-        <>
-          <div className="feedback-backdrop" onClick={() => setOpen(false)} />
-          <div className="feedback-panel">
-
-            {/* Header */}
-            <div className="feedback-panel-header">
-              <span className="feedback-panel-title">Feedback round</span>
-              {notes.length > 0 && (
-                <span className="feedback-round-count">
-                  {notes.length} note{notes.length !== 1 ? 's' : ''}
-                </span>
-              )}
-              <button className="feedback-panel-close" onClick={() => setOpen(false)} aria-label="Close">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </div>
-
-            {submitted ? (
-              <div className="feedback-success">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="4 12 10 18 20 6"/>
-                </svg>
-                <span>Round submitted — thank you!</span>
-              </div>
-            ) : (
-              <div className="feedback-panel-body">
-
-                {/* Add a note for the current page */}
-                <div className="feedback-add-section">
-                  <div className="feedback-page-label">
-                    Page: <strong>{FEEDBACK_PAGE_LABELS[activeView] || activeView}</strong>
-                  </div>
-                  <textarea
-                    ref={textareaRef}
-                    className="feedback-textarea"
-                    placeholder="What needs changing on this page?"
-                    value={currentNote}
-                    onChange={e => setCurrentNote(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addNote(); }}
-                    rows={3}
-                  />
-                  <div style={{ fontSize: 11, color: 'var(--gray-light)', marginTop: 4 }}>
-                    ⌘↵ to add
-                  </div>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    style={{ width: '100%', marginTop: 8 }}
-                    onClick={addNote}
-                    disabled={!currentNote.trim()}
-                  >
-                    Add to round
-                  </button>
-                </div>
-
-                {/* Notes accumulated so far */}
-                {notes.length > 0 && (
-                  <div className="feedback-notes-section">
-                    <div className="feedback-notes-header">
-                      <span className="feedback-notes-label">This round</span>
-                      <button className="feedback-clear-link" onClick={clearRound}>
-                        Clear all
-                      </button>
-                    </div>
-
-                    {Object.entries(grouped).map(([pageLabel, pageNotes]) => (
-                      <div key={pageLabel} className="feedback-page-group">
-                        <div className="feedback-page-group-name">{pageLabel}</div>
-                        {pageNotes.map(n => (
-                          <div key={n._idx} className="feedback-note-row">
-                            <span className="feedback-note-text">{n.note}</span>
-                            <button
-                              className="feedback-note-remove"
-                              onClick={() => removeNote(n._idx)}
-                              aria-label="Remove note"
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                              </svg>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-
-                    {/* Round label + submit */}
-                    <div className="feedback-submit-section">
-                      <input
-                        className="input"
-                        style={{ fontSize: 13, marginBottom: 8 }}
-                        placeholder="Round name (optional) — e.g. Beta round 1"
-                        value={roundLabel}
-                        onChange={e => setRoundLabel(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') submitRound(); }}
-                      />
-                      <button
-                        className="btn btn-primary btn-sm"
-                        style={{ width: '100%' }}
-                        onClick={submitRound}
-                        disabled={submitting}
-                      >
-                        {submitting ? (
-                          <span className="dot-loader"><span/><span/><span/></span>
-                        ) : (
-                          `Submit round · ${notes.length} note${notes.length !== 1 ? 's' : ''}`
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </>
-      )}
-    </>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────
 // APP ROOT
 // ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [activeView, setActiveView] = useState('health');
   const [testData, setTestData] = useState(null);       // latest test
   const [testHistory, setTestHistory] = useState([]);   // all tests
-  const [poolProfile, setPoolProfile] = useState({ name: 'Backyard pool', volumeKl: 32, sanitiser: 'chlorine' });
+  const [poolProfile, setPoolProfile] = useState({
+    name: 'Backyard pool',
+    type: 'In-ground',
+    shape: 'Rectangular',
+    surface: 'Pebble / pebblecrete',
+    volumeL: 32000,
+    sanitiser: 'Chlorine (granular/liquid)',
+    filter: 'Sand',
+    yearBuilt: '',
+    yearBuiltApprox: false,
+    hasCover: false,
+  });
   const [showScan, setShowScan] = useState(false);
   const [trialDaysLeft, setTrialDaysLeft] = useState(7);
   const [equipment, setEquipment] = useState([]);
@@ -1570,8 +1496,10 @@ export default function App() {
     <div className="app-shell">
       {/* Top nav */}
       <nav className="topnav">
-        <LogoMark />
-        <span className="topnav-wordmark">Your Pool Mate</span>
+        <button className="topnav-home" onClick={() => setActiveView('health')}>
+          <LogoMark />
+          <span className="topnav-wordmark">Your Pool Mate</span>
+        </button>
         <div className="topnav-spacer" />
         <div className="topnav-actions">
           {trialDaysLeft <= 7 && (
