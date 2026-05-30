@@ -133,7 +133,8 @@ function getAUSeason() {
   if (m >= 9 && m <= 11) return 'Spring';
   return 'Summer';
 }
-const SEASONAL_TIPS_LABEL = `${getAUSeason()} Tips`;
+// Menu label is generic; the page itself shows the current season's tips.
+const SEASONAL_TIPS_LABEL = 'Seasonal Tips';
 
 // ─────────────────────────────────────────────────────────────────
 // EQUIPMENT CONSTANTS
@@ -142,6 +143,33 @@ const EQUIPMENT_TYPES = [
   'Pump', 'Filter', 'Heater / Heat Pump', 'Robotic Cleaner',
   'Suction Cleaner', 'Salt Chlorinator', 'Lighting', 'Other',
 ];
+
+// ─────────────────────────────────────────────────────────────────
+// POOL SETUP OPTIONS
+// ─────────────────────────────────────────────────────────────────
+const POOL_TYPES = [
+  'In-ground', 'Above-ground', 'Plunge pool', 'Container pool',
+  'Lap pool', 'Indoor pool', 'Spa / spool', 'Swim spa',
+];
+const POOL_SHAPES = [
+  'Rectangular', 'Oval', 'Kidney / freeform', 'Round',
+  'L-shaped', 'Square', 'Figure-8', 'Other',
+];
+const POOL_SURFACES = [
+  'Pebble / pebblecrete', 'Concrete / rendered', 'Fibreglass',
+  'Vinyl liner', 'Fully tiled', 'Painted concrete', 'Other',
+];
+const SANITISER_TYPES = [
+  'Chlorine (granular/liquid)', 'Saltwater chlorinator', 'Mineral / magnesium',
+  'Ozone', 'Freshwater system', 'UV', 'Bromine', 'Other',
+];
+const FILTER_TYPES = [
+  'Sand', 'Glass media', 'Cartridge', 'Diatomaceous earth (DE)',
+  'Zeolite', 'Other',
+];
+
+// Current year, for the "Year built" dropdown
+const CURRENT_YEAR = new Date().getFullYear();
 
 function equipmentEmoji(type) {
   if (!type) return '⚙️';
@@ -372,7 +400,9 @@ function MobileMoreDrawer({ activeView, onNav, onClose }) {
 function HealthScorePage({ testData, poolProfile }) {
   const score = testData ? calculateScore(testData) : null;
   const lastTest = testData?.createdAt;
-  const poolLabel = poolProfile ? `${poolProfile.name} · ${poolProfile.volumeKl} kL` : null;
+  const poolLabel = poolProfile
+    ? `${poolProfile.name} · ${(poolProfile.volumeL ?? (poolProfile.volumeKl || 0) * 1000).toLocaleString('en-AU')} L`
+    : null;
 
   if (!testData) {
     return (
@@ -674,12 +704,31 @@ function ChemistryLogPage({ history }) {
 // SETUP PAGE
 // ─────────────────────────────────────────────────────────────────
 function SetupPage({ poolProfile, onSave }) {
-  const [form, setForm] = useState(poolProfile || {
+  const [form, setForm] = useState(() => ({
     name: 'Backyard pool',
-    shape: 'rectangular',
-    volumeKl: 30,
-    sanitiser: 'chlorine',
-  });
+    type: 'In-ground',
+    shape: 'Rectangular',
+    surface: 'Pebble / pebblecrete',
+    volumeL: 32000,
+    sanitiser: 'Chlorine (granular/liquid)',
+    filter: 'Sand',
+    yearBuilt: '',
+    yearBuiltApprox: false,
+    hasCover: false,
+    ...poolProfile,
+  }));
+  const [saved, setSaved] = useState(false);
+
+  const set = (key, value) => { setForm(v => ({ ...v, [key]: value })); setSaved(false); };
+
+  const handleSave = () => {
+    onSave(form);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2200);
+  };
+
+  const yearOptions = [];
+  for (let y = CURRENT_YEAR; y >= 1960; y--) yearOptions.push(y);
 
   return (
     <div>
@@ -689,44 +738,136 @@ function SetupPage({ poolProfile, onSave }) {
       <div className="card-section">
         <div className="eyebrow" style={{ marginBottom: 16 }}>Pool details</div>
 
+        {/* Pool name */}
         <div className="input-group">
           <label className="input-label">Pool name</label>
           <input
             className="input"
             placeholder="e.g. Backyard pool"
             value={form.name}
-            onChange={e => setForm(v => ({ ...v, name: e.target.value }))}
+            onChange={e => set('name', e.target.value)}
           />
         </div>
 
+        {/* Volume — primary input, full width */}
+        <div className="input-group">
+          <label className="input-label">Volume (litres)</label>
+          <input
+            className="input"
+            type="number"
+            inputMode="numeric"
+            placeholder="e.g. 32000"
+            value={form.volumeL}
+            onChange={e => set('volumeL', parseFloat(e.target.value) || 0)}
+          />
+          <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 4 }}>
+            {form.volumeL > 0
+              ? `≈ ${(form.volumeL / 1000).toLocaleString('en-AU', { maximumFractionDigits: 1 })} kL`
+              : 'Length × width × average depth (m) × 1,000 = litres'}
+          </div>
+        </div>
+
+        {/* Type + Shape */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div className="input-group">
-            <label className="input-label">Volume (kL)</label>
-            <input
-              className="input"
-              type="number"
-              placeholder="e.g. 32"
-              value={form.volumeKl}
-              onChange={e => setForm(v => ({ ...v, volumeKl: parseFloat(e.target.value) || 0 }))}
-            />
+            <label className="input-label">Type</label>
+            <select className="input" value={form.type} onChange={e => set('type', e.target.value)}>
+              {POOL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
-
           <div className="input-group">
-            <label className="input-label">Sanitiser type</label>
-            <select
-              className="input"
-              value={form.sanitiser}
-              onChange={e => setForm(v => ({ ...v, sanitiser: e.target.value }))}
-            >
-              <option value="chlorine">Chlorine (granular/liquid)</option>
-              <option value="saltwater">Saltwater chlorinator</option>
-              <option value="mineral">Mineral system</option>
+            <label className="input-label">Shape</label>
+            <select className="input" value={form.shape} onChange={e => set('shape', e.target.value)}>
+              {POOL_SHAPES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-          <button className="btn btn-primary btn-sm" onClick={() => onSave(form)}>
+        {/* Surface + Sanitiser */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="input-group">
+            <label className="input-label">Pool surface</label>
+            <select className="input" value={form.surface} onChange={e => set('surface', e.target.value)}>
+              {POOL_SURFACES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="input-group">
+            <label className="input-label">Sanitiser type</label>
+            <select className="input" value={form.sanitiser} onChange={e => set('sanitiser', e.target.value)}>
+              {SANITISER_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Filter + Year built */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="input-group">
+            <label className="input-label">Filter type</label>
+            <select className="input" value={form.filter} onChange={e => set('filter', e.target.value)}>
+              {FILTER_TYPES.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+          <div className="input-group">
+            <label className="input-label">Year built (if known)</label>
+            <select className="input" value={form.yearBuilt} onChange={e => set('yearBuilt', e.target.value)}>
+              <option value="">Not sure</option>
+              {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Year-built approximate note (only when a year is chosen) */}
+        {form.yearBuilt && (
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            fontSize: 13, color: 'var(--gray-mid)', cursor: 'pointer', marginTop: -4, marginBottom: 16,
+          }}>
+            <input
+              type="checkbox"
+              checked={form.yearBuiltApprox}
+              onChange={e => set('yearBuiltApprox', e.target.checked)}
+              style={{ width: 18, height: 18, accentColor: 'var(--water-deep)', cursor: 'pointer' }}
+            />
+            This is an approximate year / best guess
+          </label>
+        )}
+
+        {/* Pool cover Y/N */}
+        <div className="input-group">
+          <label className="input-label">Pool cover</label>
+          <div style={{ display: 'flex', gap: 8 }} role="group" aria-label="Pool cover">
+            {[{ v: true, l: 'Yes' }, { v: false, l: 'No' }].map(opt => {
+              const active = form.hasCover === opt.v;
+              return (
+                <button
+                  key={opt.l}
+                  type="button"
+                  onClick={() => set('hasCover', opt.v)}
+                  aria-pressed={active}
+                  style={{
+                    flex: 1, minHeight: 44,
+                    borderRadius: 'var(--r-sm)',
+                    border: active ? '1px solid var(--water-deep)' : 'var(--border)',
+                    background: active ? 'var(--water-pale)' : 'var(--white)',
+                    color: active ? 'var(--water-deep)' : 'var(--gray-mid)',
+                    fontSize: 14, fontWeight: active ? 600 : 400,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {opt.l}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
+          {saved && (
+            <span style={{ fontSize: 13, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {Icon.check} Saved
+            </span>
+          )}
+          <button className="btn btn-primary btn-sm" onClick={handleSave}>
             Save setup
           </button>
         </div>
@@ -737,8 +878,8 @@ function SetupPage({ poolProfile, onSave }) {
           {Icon.info}
         </span>
         <div className="callout-body">
-          Accurate pool volume is the most important setup detail. It determines every dose recommendation.
-          If unsure, use the volume calculator: <strong>length × width × average depth × 1,000</strong> = litres.
+          Accurate pool volume is the most important setup detail — it determines every dose recommendation.
+          If unsure, use the calculator: <strong>length × width × average depth (m) × 1,000</strong> = litres.
         </div>
       </div>
     </div>
@@ -1231,10 +1372,18 @@ function scoreHeadline(score, params) {
   return 'Chemistry needs urgent correction — hold off swimming for now.';
 }
 
+// Resolve pool volume in kilolitres (kL) for dosing maths.
+// Volume is now captured in litres; older profiles may still carry volumeKl.
+function poolKl(pool) {
+  if (pool?.volumeL) return pool.volumeL / 1000;
+  if (pool?.volumeKl) return pool.volumeKl;
+  return 30;
+}
+
 function getPrimaryAction(params, pool) {
   const alk = params.find(p => p.key === 'alkalinity');
   if (alk?.tagClass === 'tag-warn') {
-    const vol = pool?.volumeKl || 30;
+    const vol = poolKl(pool);
     const dose = Math.round(vol * 15);
     return {
       dose: `Add ${dose}g of sodium bicarbonate`,
@@ -1243,7 +1392,7 @@ function getPrimaryAction(params, pool) {
   }
   const fc = params.find(p => p.key === 'freeChlor');
   if (fc?.status === '↑ Low') {
-    const vol = pool?.volumeKl || 30;
+    const vol = poolKl(pool);
     const dose = Math.round(vol * 7);
     return {
       dose: `Add ${dose}g of granular chlorine`,
@@ -1296,7 +1445,18 @@ export default function App() {
   const [activeView, setActiveView] = useState('health');
   const [testData, setTestData] = useState(null);       // latest test
   const [testHistory, setTestHistory] = useState([]);   // all tests
-  const [poolProfile, setPoolProfile] = useState({ name: 'Backyard pool', volumeKl: 32, sanitiser: 'chlorine' });
+  const [poolProfile, setPoolProfile] = useState({
+    name: 'Backyard pool',
+    type: 'In-ground',
+    shape: 'Rectangular',
+    surface: 'Pebble / pebblecrete',
+    volumeL: 32000,
+    sanitiser: 'Chlorine (granular/liquid)',
+    filter: 'Sand',
+    yearBuilt: '',
+    yearBuiltApprox: false,
+    hasCover: false,
+  });
   const [showScan, setShowScan] = useState(false);
   const [trialDaysLeft, setTrialDaysLeft] = useState(7);
   const [equipment, setEquipment] = useState([]);
