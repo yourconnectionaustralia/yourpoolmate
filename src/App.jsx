@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import FeedbackOverlay from './FeedbackOverlay.jsx';
 import WaterTestScanner from './components/WaterTestScanner.jsx';
+import AuthScreen from './components/AuthScreen.jsx';
+import GuestOnboarding from './components/GuestOnboarding.jsx';
+import LoadingScreen from './components/LoadingScreen.jsx';
+import { useAuth } from './context/AuthContext.jsx';
+import * as db from './lib/db.js';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM ICONS — inline SVG only, no library dependency
@@ -1157,11 +1162,15 @@ function TrialExpiredScreen() {
           <div style={{ fontFamily: 'var(--font-read)', fontSize: 36, fontWeight: 400, color: 'var(--black)' }}>$79</div>
           <div style={{ fontSize: 13, color: 'var(--gray-mid)' }}>AUD · one-time · yours forever</div>
         </div>
-        <button className="btn btn-primary" style={{ width: '100%', marginBottom: 10 }}>
+        <button
+          className="btn btn-primary"
+          style={{ width: '100%', marginBottom: 10 }}
+          onClick={() => { window.location.href = 'https://yourpoolmate.com.au/#checkout'; }}
+        >
           Claim founding access
         </button>
         <div style={{ fontSize: 12, color: 'var(--gray-light)' }}>
-          197 of 200 founding spots remaining
+          Limited to 200 founding members
         </div>
       </div>
     </div>
@@ -1352,56 +1361,116 @@ function formatDate(iso) {
 // ─────────────────────────────────────────────────────────────────
 // APP ROOT
 // ─────────────────────────────────────────────────────────────────
+const DEFAULT_POOL = {
+  id: null,
+  name: 'My pool',
+  type: 'In-ground',
+  shape: 'Rectangular',
+  surface: 'Pebble / pebblecrete',
+  volumeL: 0,
+  sanitiser: 'Chlorine (granular/liquid)',
+  filter: 'Sand',
+  yearBuilt: '',
+  yearBuiltApprox: false,
+  hasCover: false,
+};
+
 export default function App() {
+  const { user, session, loading, trialExpired, hasPoolProfile, signOut } = useAuth();
+
   const [activeView, setActiveView] = useState('health');
   const [testData, setTestData] = useState(null);       // latest test
   const [testHistory, setTestHistory] = useState([]);   // all tests
-  const [poolProfile, setPoolProfile] = useState({
-    name: 'Backyard pool',
-    type: 'In-ground',
-    shape: 'Rectangular',
-    surface: 'Pebble / pebblecrete',
-    volumeL: 32000,
-    sanitiser: 'Chlorine (granular/liquid)',
-    filter: 'Sand',
-    yearBuilt: '',
-    yearBuiltApprox: false,
-    hasCover: false,
-  });
+  const [poolProfile, setPoolProfile] = useState(DEFAULT_POOL);
   const [showScan, setShowScan] = useState(false);
-  const [trialDaysLeft, setTrialDaysLeft] = useState(7);
+  const [trialDaysLeft, setTrialDaysLeft] = useState(null);
+  const [isPremium, setIsPremium] = useState(false);
   const [equipment, setEquipment] = useState([]);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [dataReady, setDataReady] = useState(false);
+
+  // Load everything from Supabase once signed in (and again after onboarding)
+  const loadAll = async (uid) => {
+    try {
+      const [profile, pool, tests, equip] = await Promise.all([
+        db.loadUserProfile(uid),
+        db.loadPoolProfile(uid),
+        db.loadTests(uid),
+        db.loadEquipment(uid),
+      ]);
+      if (profile) {
+        setIsPremium(!!profile.is_premium);
+        if (profile.trial_ends_at) {
+          const days = Math.ceil((new Date(profile.trial_ends_at) - Date.now()) / 86400000);
+          setTrialDaysLeft(Math.max(0, days));
+        }
+      }
+      if (pool) setPoolProfile(pool);
+      setTestHistory(tests);
+      setTestData(tests.length ? tests[tests.length - 1] : null);
+      setEquipment(equip);
+    } catch (err) {
+      console.error('Failed to load data:', err);
+    } finally {
+      setDataReady(true);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.id) loadAll(user.id);
+    else setDataReady(false);
+  }, [user?.id]);
 
   // Count parameters out of range as pending actions
   const pendingActions = testData
     ? buildParams(testData).filter(p => p.tagClass !== 'tag-good').length
     : 0;
 
+  const persistTest = (data) => {
+    db.saveTest(user.id, poolProfile.id, data, calculateScore(data))
+      .catch(err => console.error('Failed to save test:', err));
+  };
+
   const handleLogTest = (data) => {
     setTestData(data);
     setTestHistory(h => [...h, data]);
+    persistTest(data);
     setActiveView('health');
   };
 
   const handleScanComplete = (data) => {
     setTestData(data);
     setTestHistory(h => [...h, data]);
+    persistTest({ ...data, source: 'ocr' });
     setActiveView('health');
   };
 
   const handleSavePool = (profile) => {
-    setPoolProfile(profile);
+    setPoolProfile(p => ({ ...p, ...profile }));
+    db.savePoolProfile(user.id, profile)
+      .then(id => setPoolProfile(p => ({ ...p, id })))
+      .catch(err => console.error('Failed to save pool:', err));
   };
 
-  const handleAddEquipment    = (item) => setEquipment(e => [...e, item]);
-  const handleUpdateEquipment = (item) => setEquipment(e => e.map(x => x.id === item.id ? item : x));
-  const handleDeleteEquipment = (id)   => setEquipment(e => e.filter(x => x.id !== id));
+  const handleAddEquipment = (item) => {
+    db.addEquipment(user.id, item)
+      .then(saved => setEquipment(e => [...e, saved]))
+      .catch(err => console.error('Failed to add equipment:', err));
+  };
+  const handleUpdateEquipment = (item) => {
+    setEquipment(e => e.map(x => x.id === item.id ? item : x));
+    db.updateEquipment(item).catch(err => console.error('Failed to update equipment:', err));
+  };
+  const handleDeleteEquipment = (id) => {
+    setEquipment(e => e.filter(x => x.id !== id));
+    db.deleteEquipment(id).catch(err => console.error('Failed to delete equipment:', err));
+  };
 
-  // Show trial expiry screen if trial ended
-  if (trialDaysLeft <= 0) {
-    return <TrialExpiredScreen />;
-  }
+  // ── Auth / trial gates ──────────────────────────────────────
+  if (loading) return <LoadingScreen />;
+  if (!session) return <AuthScreen />;
+  if (trialExpired && !isPremium) return <TrialExpiredScreen />;
+  if (!dataReady) return <LoadingScreen />;
 
   return (
     <div className="app-shell">
@@ -1413,8 +1482,8 @@ export default function App() {
         </button>
         <div className="topnav-spacer" />
         <div className="topnav-actions">
-          {trialDaysLeft <= 7 && (
-            <span className="topnav-trial-badge">{trialDaysLeft} days left</span>
+          {!isPremium && trialDaysLeft !== null && (
+            <span className="topnav-trial-badge">{trialDaysLeft} {trialDaysLeft === 1 ? 'day' : 'days'} left</span>
           )}
           <button className="btn btn-ghost btn-sm">Help</button>
           <button className="btn btn-nav" onClick={() => setActiveView('tests')}>
@@ -1465,18 +1534,40 @@ export default function App() {
               <h1 className="page-title">Profile</h1>
               <p className="page-subtitle">Account settings and preferences</p>
               <div className="card-section">
-                <div className="eyebrow" style={{ marginBottom: 12 }}>Membership</div>
-                <div className="callout callout-info">
-                  <span className="callout-icon" style={{ color: 'var(--blue)', display: 'inline-flex' }}>
-                    {Icon.info}
-                  </span>
-                  <div className="callout-body">
-                    You're on a <strong>30-day free trial</strong> with {trialDaysLeft} days remaining. Become a founding member to keep full access permanently.
-                  </div>
+                <div className="eyebrow" style={{ marginBottom: 12 }}>Account</div>
+                <div style={{ fontSize: 14, color: 'var(--gray-dark)', marginBottom: 16 }}>
+                  Signed in as <strong>{user?.email || 'guest'}</strong>
                 </div>
+                <div className="eyebrow" style={{ marginBottom: 12 }}>Membership</div>
+                {isPremium ? (
+                  <div className="callout callout-info">
+                    <span className="callout-icon" style={{ color: 'var(--green)', display: 'inline-flex' }}>
+                      {Icon.check}
+                    </span>
+                    <div className="callout-body">
+                      You're a <strong>founding member</strong> — lifetime access, all future features included.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="callout callout-info">
+                    <span className="callout-icon" style={{ color: 'var(--blue)', display: 'inline-flex' }}>
+                      {Icon.info}
+                    </span>
+                    <div className="callout-body">
+                      You're on a <strong>30-day free trial</strong> with {trialDaysLeft ?? '—'} days remaining. Become a founding member to keep full access permanently.
+                    </div>
+                  </div>
+                )}
                 <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-                  <button className="btn btn-primary btn-sm">Claim founding access — $79</button>
-                  <button className="btn btn-ghost btn-sm">Sign out</button>
+                  {!isPremium && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => { window.location.href = 'https://yourpoolmate.com.au/#checkout'; }}
+                    >
+                      Claim founding access — $79
+                    </button>
+                  )}
+                  <button className="btn btn-ghost btn-sm" onClick={signOut}>Sign out</button>
                 </div>
               </div>
             </div>
@@ -1508,6 +1599,11 @@ export default function App() {
           onNav={setActiveView}
           onClose={() => setMobileDrawerOpen(false)}
         />
+      )}
+
+      {/* Guest onboarding — auto-shows for signed-in users with no pool profile */}
+      {hasPoolProfile === false && (
+        <GuestOnboarding onComplete={() => loadAll(user.id)} />
       )}
 
       {/* Feedback overlay — accumulate notes per page, submit as a round */}

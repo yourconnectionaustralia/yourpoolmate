@@ -108,10 +108,10 @@ B2B pitch threshold: **≥ 50 active users in the shop's postcode cluster.** Do 
 - `poolconnection-app.pages.dev` — the PWA app
 - `poolconnection.pages.dev` — the marketing/checkout site
 
-**Domain targets (pending registration):**
-- `yourpoolmate.com.au` — marketing site (root domain, for SEO authority)
-- `app.yourpoolmate.com.au` — the PWA app (subdomain)
-- Also register: `yourpoolmate.app` and `yourpoolmate.com`
+**Domains:**
+- `yourpoolmate.com.au` — ✅ REGISTERED (June 2026) — marketing site (root domain, for SEO authority)
+- `app.yourpoolmate.com.au` — the PWA app (subdomain of the registered domain)
+- Still to register: `yourpoolmate.app` and `yourpoolmate.com`
 
 ---
 
