@@ -6,3 +6,6 @@ marketing-dist/
 !.env.example
 .DS_Store
 __pycache__/
+
+# Never commit credentials
+*[Tt]oken*.txt
