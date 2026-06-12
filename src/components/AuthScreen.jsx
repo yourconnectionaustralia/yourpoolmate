@@ -88,7 +88,7 @@ export default function AuthScreen() {
         </div>
 
         <div className={styles.trialBadge}>
-          <span className={styles.trialDays}>7 days free</span>
+          <span className={styles.trialDays}>30 days free</span>
           <span className={styles.trialNote}>No credit card required</span>
         </div>
 
@@ -138,7 +138,7 @@ export default function AuthScreen() {
             ← Back
           </button>
           <h2 className={styles.formHeading}>Start your free trial</h2>
-          <p className={styles.formSubtext}>7 days free. No credit card.</p>
+          <p className={styles.formSubtext}>30 days free. No credit card.</p>
 
           <form onSubmit={handleSignUp} className={styles.form} noValidate>
             <label className={styles.label} htmlFor="signup-email">Email address</label>

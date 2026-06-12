@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Your Pool Mate</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Newsreader:opsz,wght@6..72,300;6..72,400&display=swap" rel="stylesheet" />
+  <style>
+    :root { --black:#191919; --gray-dark:#37352F; --gray-mid:#565656; --gray-line:#E9E9E7; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, sans-serif; color: var(--gray-dark); line-height: 1.7; }
+    main { max-width: 680px; margin: 0 auto; padding: 64px 24px 96px; }
+    h1 { font-family: 'Newsreader', Georgia, serif; font-weight: 300; font-size: 36px; color: var(--black); margin-bottom: 8px; }
+    .updated { font-size: 13px; color: var(--gray-mid); margin-bottom: 40px; }
+    h2 { font-size: 17px; font-weight: 600; color: var(--black); margin: 36px 0 10px; }
+    p, li { font-size: 15px; color: var(--gray-dark); margin-bottom: 12px; }
+    ul { padding-left: 22px; margin-bottom: 12px; }
+    a { color: #1565A0; }
+    .back { display: inline-block; font-size: 14px; margin-bottom: 32px; text-decoration: none; }
+  </style>
+</head>
+<body>
+<main>
+  <a class="back" href="/">← Your Pool Mate</a>
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: June 2026</p>
+
+  <p>Your Pool Mate ("we", "us") is an Australian-operated service. This policy explains what personal information we collect, why, and how we handle it, consistent with the Privacy Act 1988 (Cth) and the Australian Privacy Principles.</p>
+
+  <h2>What we collect</h2>
+  <ul>
+    <li><strong>Account details</strong> — your email address and authentication credentials, managed by our authentication provider (Supabase).</li>
+    <li><strong>Pool and water data</strong> — pool characteristics you enter (volume, equipment, sanitiser type), water test readings you log or scan, and photos of water test results you choose to upload.</li>
+    <li><strong>Payment information</strong> — payments are processed by Stripe. We never see or store your card number; we store only a payment reference and your purchase status.</li>
+    <li><strong>Feedback</strong> — anything you submit through the in-app feedback widget.</li>
+  </ul>
+
+  <h2>How we use it</h2>
+  <ul>
+    <li>To provide the service: calculating your Pool Health Score, dosing guidance, and keeping your water test history.</li>
+    <li>To read water test photos you submit: images are sent to an AI vision service (Anthropic Claude) solely to extract the readings, then the readings are stored against your account.</li>
+    <li>To operate your account, trial, and purchases.</li>
+    <li>To improve the product, using aggregated and de-identified data only.</li>
+  </ul>
+
+  <h2>What we don't do</h2>
+  <ul>
+    <li>We don't sell your personal information.</li>
+    <li>We don't share your individual data with pool shops or any third party for marketing. Any future shop-facing insights are aggregated and anonymised — never identifiable.</li>
+    <li>We don't show third-party advertising in the app.</li>
+  </ul>
+
+  <h2>Where your data lives</h2>
+  <p>Your data is stored with Supabase (database and file storage) and protected by row-level security — your records are accessible only to your authenticated account. Some service providers (Supabase, Stripe, Anthropic) may process data outside Australia; we choose providers with strong security and privacy practices.</p>
+
+  <h2>Access, correction and deletion</h2>
+  <p>You can view and edit your data in the app at any time. To export your full water test history, or to delete your account and all associated data, email <a href="mailto:hello@yourpoolmate.com.au">hello@yourpoolmate.com.au</a> — we action deletion requests within 30 days.</p>
+
+  <h2>Cookies and analytics</h2>
+  <p>The app uses only the cookies/local storage required to keep you signed in. We don't run third-party advertising trackers.</p>
+
+  <h2>Contact and complaints</h2>
+  <p>Questions or concerns: <a href="mailto:hello@yourpoolmate.com.au">hello@yourpoolmate.com.au</a>. If you're not satisfied with our response, you can contact the Office of the Australian Information Commissioner (oaic.gov.au).</p>
+
+  <p style="margin-top:40px; font-size:13px; color:var(--gray-mid);">We'll update this policy as the product evolves and will note the date of the latest change above.</p>
+</main>
+</body>
+</html>

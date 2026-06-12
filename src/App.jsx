@@ -1240,7 +1240,7 @@ function TrialExpiredScreen() {
           Your free trial has ended
         </h2>
         <p style={{ fontSize: 14, color: 'var(--gray-mid)', lineHeight: 'var(--lh-body)', marginBottom: 28 }}>
-          You've had 7 days to see what Your Pool Mate can do. Keep going — become a founding member at the lowest price we'll ever offer.
+          You've had 30 days to see what Your Pool Mate can do. Keep going — become a founding member at the lowest price we'll ever offer.
         </p>
         <div style={{ background: 'var(--water-pale)', borderRadius: 'var(--r-sm)', padding: '16px 20px', marginBottom: 24 }}>
           <div style={{ fontFamily: 'var(--font-read)', fontSize: 36, fontWeight: 400, color: 'var(--black)' }}>$79</div>
@@ -1560,7 +1560,7 @@ export default function App() {
                     {Icon.info}
                   </span>
                   <div className="callout-body">
-                    You're on a <strong>7-day free trial</strong> with {trialDaysLeft} days remaining. Become a founding member to keep full access permanently.
+                    You're on a <strong>30-day free trial</strong> with {trialDaysLeft} days remaining. Become a founding member to keep full access permanently.
                   </div>
                 </div>
                 <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>

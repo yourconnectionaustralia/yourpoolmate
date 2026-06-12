@@ -7,7 +7,7 @@
     "dev": "vite",
     "dev:marketing": "vite serve marketing --port 5174",
     "build": "vite build",
-    "build:marketing": "rm -rf marketing-dist && mkdir -p marketing-dist && cp marketing/index.html marketing-dist/index.html",
+    "build:marketing": "rm -rf marketing-dist && mkdir -p marketing-dist && cp marketing/*.html marketing-dist/",
     "preview": "vite preview"
   },
   "dependencies": {

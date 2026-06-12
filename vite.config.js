@@ -1,7 +1,8 @@
 // File: vite.config.js
 // Your Pool Mate — Vite config
-// Minimal config matching the original PoolConnection setup.
-// PWA features are handled via meta tags in index.html, not vite-plugin-pwa.
+// PWA support: public/manifest.webmanifest + public/sw.js (registered in
+// src/main.jsx, production builds only). No vite-plugin-pwa — the manifest
+// and service worker are plain static files copied from /public.
 
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'

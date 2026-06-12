@@ -1,6 +1,6 @@
 # Your Pool Mate — Project Context
 **For Claude · Loaded at the start of every session**
-**Last updated: May 2026**
+**Last updated: June 2026 (post cross-domain review)**
 
 ---
 
@@ -74,7 +74,7 @@ Phase 4: Closed-loop marketplace (in-app bookings / purchases)
 ### B2C Pricing
 | Phase | Offer | Price | Trigger |
 |-------|-------|-------|---------|
-| Now | 7-day hard-countdown free trial | Free | App download / signup |
+| Now | 30-day hard-countdown free trial | Free | App download / signup |
 | Launch | Founding Member LTD | $79 AUD | Facebook Groups, 200 spots max |
 | FOMO close | Price bump | $99 AUD | ~175 spots sold |
 | Post-LTD | Annual subscription | $39 AUD/year | Permanent price |
@@ -101,7 +101,7 @@ B2B pitch threshold: **≥ 50 active users in the shop's postcode cluster.** Do 
 | OCR | Claude Vision API via Edge Function | rate-limited, auth-required |
 | Payments | Stripe Checkout (embedded) via Edge Function | Currently test mode |
 | Deployment | Cloudflare Pages | Auto-deploy on push to main branch |
-| Version control | GitHub web UI only | Never CLI as primary method |
+| Version control | Git push via Claude (Cowork sessions) | GitHub web UI as fallback only — folder is a real clone |
 | Storage | Supabase Storage | For test strip images |
 
 **Two separate Cloudflare Pages projects:**
@@ -136,18 +136,45 @@ B2B pitch threshold: **≥ 50 active users in the shop's postcode cluster.** Do 
 | Feature | Status |
 |---------|--------|
 | Six-step guest onboarding modal | ✅ Built |
-| OCR water test scanner (Claude Vision via Edge Function) | ✅ Built |
+| OCR water test scanner — edge function (`ocr-water-test`) | ✅ Built (June 2026) — scanner UI in app NOT yet built |
 | Pool Health Score ring gauge | ✅ Built |
 | Smart insight cards | ✅ Built |
 | Seasonal task checklist | ✅ Built |
 | Chemical addition log | ✅ Built |
 | Premium tier gating | ✅ Built |
 | Floating feedback widget | ✅ Built |
-| 7-day hard-countdown free trial logic | ✅ Built |
+| 30-day hard-countdown free trial logic | ✅ Built (migration 004) |
 | Marketing/checkout page (HTML, Stripe integration) | ✅ Built |
 
 **Highest-priority unwired item:**
 The guest onboarding trigger exists but is **not wired into the app flow**. New guests with no pool profile should automatically see the onboarding modal. This is the single highest-conversion-impact fix before launch.
+
+---
+
+## JUNE 2026 REVIEW — FIXES SHIPPED IN THIS FOLDER
+
+| Fix | File | Action needed to go live |
+|-----|------|--------------------------|
+| **CRITICAL: premium escalation closed** — users could set `is_premium = true` / extend their own trial via the API | `supabase/migrations/004_security_fixes.sql` | Auto-applied by GitHub Action |
+| Trial 7 → 30 days (DB + all in-app copy) | same migration + `src/App.jsx`, `src/components/AuthScreen.jsx` | Auto-applied |
+| Feedback hardening (auth required, length caps, 10/hour throttle; feedback_rounds size caps) | same migration | Auto-applied |
+| **OCR edge function built** — Claude Vision, auth, 10 scans/user/hour (`ocr_calls`, migration 005) | `supabase/functions/ocr-water-test/index.ts` | Auto-deployed by GitHub Action; needs `ANTHROPIC_API_KEY` secret. Scanner UI in the app is NOT yet built — next app task |
+| Real PWA: manifest + service worker + PNG icons (app was NOT installable on Android before) | `public/manifest.webmanifest`, `public/sw.js`, `public/icon-*.png`, `index.html`, `src/main.jsx` | Commit to GitHub repo |
+| Health Score now scores salt for saltwater/mineral pools | `supabase/functions/calculate-health-score/index.ts` | Redeploy edge function; app should pass `sanitiser_type` in the request |
+| Landing page: false claims removed (climate intelligence → warranty records; "unlimited pools" → "complete history"), unsourced $ stats removed, 4.5:1 contrast fix, visible test-mode ribbon, 30-day-trial FAQ | `marketing/index.html` | Commit to marketing repo |
+| Privacy + Terms pages (drafts — get them reviewed before launch; Claude is not a lawyer) | `marketing/privacy.html`, `marketing/terms.html` | Commit to marketing repo |
+
+**Deployment model (June 2026 — replaces GitHub web-UI pasting):**
+- This folder is a git clone of `github.com/yourconnectionaustralia/yourpoolmate`. Claude commits and pushes directly from Cowork sessions (James provides a GitHub fine-grained token per session — never stored).
+- Cloudflare Pages auto-deploys the frontend on push, as before.
+- `.github/workflows/supabase-deploy.yml` auto-applies new `supabase/migrations/*.sql` and deploys edge functions on every push that touches `supabase/**`. Migrations 001–003 are baselined (they were applied manually pre-CI).
+- Repo migrations 002/003 (feedback_rounds, pool_setup_fields) already existed — the review fixes are migrations **004** and **005**.
+
+**Open actions only James can do:**
+1. **Add repo secrets** (GitHub → repo → Settings → Secrets and variables → Actions): `SUPABASE_ACCESS_TOKEN` and `ANTHROPIC_API_KEY`. Then re-run the failed "Deploy Supabase" action.
+2. Install the updated skills — click "Save skill" on the five `.skill` files Claude provides (no pasting).
+3. Set `CONFIG.TEST_MODE = false` + real Stripe keys before launch (the page shows a warning ribbon until then).
+4. **Launch timing decision:** recommendation is warm-up + fixes over winter, founding launch Sep–Oct pre-season, geo-concentrated (Melbourne metro first) so postcode clusters can reach the ≥50-user B2B threshold. A national winter launch fills no clusters and undermines real scarcity.
 
 ---
 
@@ -169,7 +196,7 @@ The guest onboarding trigger exists but is **not wired into the app flow**. New 
 ## KNOWN RESOLVED BUGS (do not re-introduce)
 
 - **Supabase auth redirect bug:** was pointing to marketing domain. Fix = `redirectTo: window.location.origin` in `signInWithOAuth` + correct Site URL in Supabase dashboard + explicit `SIGNED_IN` handler in `onAuthStateChange`
-- **Indefinite guest mode:** removed. 7-day hard-countdown trial replaces it. Never re-introduce indefinite guest access.
+- **Indefinite guest mode:** removed. Hard-countdown trial replaces it (now 30 days, June 2026). Never re-introduce indefinite guest access.
 - **AppSumo as a channel:** explicitly rejected — wrong audience for a vertical consumer app
 
 ---
@@ -188,7 +215,7 @@ The guest onboarding trigger exists but is **not wired into the app flow**. New 
 These are never up for debate within a session:
 
 1. **B2B never before B2C traction** — don't build B2B features until local consumer density exists
-2. **Guest trial is 7-day hard countdown** — no indefinite free access, no soft gates
+2. **Guest trial is 30-day hard countdown** — no indefinite free access, no soft gates (changed from 7 days, June 2026: weekly testing cadence meant a 7-day trial showed users one test and zero trend value)
 3. **Light mode is the consumer default** — outdoor Australian usability
 4. **RLS on every Supabase table** — no exceptions
 5. **Deno, not Node** — all Edge Functions use Deno runtime

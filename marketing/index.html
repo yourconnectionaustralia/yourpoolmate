@@ -32,7 +32,7 @@
       --near-black: #252525;
       --gray-dark:  #37352F;
       --gray-mid:   #6B6B6B;
-      --gray-light: #9B9A97;
+      --gray-light: #767571; /* ≥4.5:1 on white — accessibility non-negotiable */
       --gray-line:  #E9E9E7;
       --gray-bg:    #F7F7F5;
       --white:      #FFFFFF;
@@ -616,10 +616,10 @@
 <div class="problem">
   <div class="problem-left reveal">
     <h2>Pool ownership costs more than it <em>should.</em></h2>
-    <p>One prevented algae bloom pays for this app five times over. The average Australian pool owner spends $800–$1,200 a year on chemicals. Most of that is corrective — fixing problems that a bit of visibility would have prevented.</p>
+    <p>Chemicals, test kits, corrective fixes — the spend adds up fast, and much of it is corrective: fixing problems that a bit of visibility would have prevented. One prevented algae bloom can pay for this app several times over.</p>
     <div class="problem-stat">
-      <div class="stat-num">$400+</div>
-      <div class="stat-desc">Average cost per algae event — fully preventable with consistent monitoring</div>
+      <div class="stat-num">$79</div>
+      <div class="stat-desc">Your total lifetime cost — less than many single trips to the pool shop</div>
     </div>
   </div>
   <div class="problem-page reveal reveal-d1">
@@ -642,7 +642,7 @@
       </div>
       <div class="page-block page-block-neutral">
         <div class="block-label">The result</div>
-        $1,000/year. Green water twice a summer. A pool you're not fully enjoying.
+        Hundreds of dollars a year in guesswork. Green water you saw coming too late. A pool you're not fully enjoying.
       </div>
     </div>
   </div>
@@ -680,8 +680,8 @@
       </div>
       <div class="feature-row">
         <div class="feature-num">05</div>
-        <div class="feature-body"><h4>Australian climate intelligence</h4><p>Algorithms tuned to Australian UV levels, heat, and rainfall. What works in Melbourne is different from what works in Brisbane. We know the difference.</p></div>
-        <div class="feature-meta"><span class="feature-chip chip-green">Local</span></div>
+        <div class="feature-body"><h4>Warranty-ready water records</h4><p>Australian pool and equipment warranties expect documented water chemistry. Every test you log is timestamped and exportable — the paper trail builds itself, automatically.</p></div>
+        <div class="feature-meta"><span class="feature-chip chip-green">Always on</span></div>
       </div>
       <div class="feature-row">
         <div class="feature-num">06</div>
@@ -746,7 +746,7 @@
         <li>Full lifetime access to Your Pool Mate</li>
         <li>All future features, included at no extra cost</li>
         <li>AI-powered photo scanning for test results</li>
-        <li>Unlimited pool profiles and test history</li>
+        <li>Complete water test history — timestamped and exportable</li>
         <li>Direct access to the founder — shape the roadmap</li>
         <li>Price locked before subscription model begins</li>
       </ul>
@@ -791,6 +791,10 @@
     <div class="faq-a">Chlorine, saltwater/chlorinator, mineral and freshwater pools. All common sanitisation systems. If you have an unusual setup, reach out — we'll work through it.</div>
   </div>
   <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">Can I try it before paying?<span class="faq-toggle">+</span></button>
+    <div class="faq-a">Yes. The app comes with a 30-day free trial — a full month of tests, Health Scores and history before you decide. No card required to start.</div>
+  </div>
+  <div class="faq-item">
     <button class="faq-q" onclick="toggleFaq(this)">Is there a refund policy?<span class="faq-toggle">+</span></button>
     <div class="faq-a">30-day no-questions-asked refund. If Your Pool Mate isn't delivering value in your first month, email the founder directly and we'll process a full refund the same day.</div>
   </div>
@@ -812,10 +816,10 @@
       </div>
       Your Pool Mate
     </div>
-    <span class="footer-copy">© 2025 Your Pool Mate. Australian owned.</span>
+    <span class="footer-copy">© 2026 Your Pool Mate. Australian owned.</span>
     <div class="footer-links">
-      <a href="#">Privacy</a>
-      <a href="#">Terms</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/terms.html">Terms</a>
       <a href="mailto:hello@yourpoolmate.com.au">Contact</a>
     </div>
   </div>
@@ -919,6 +923,11 @@ function showSuccess() { document.getElementById('success-overlay').classList.ad
 })();
 
 if (CONFIG.TEST_MODE) {
+  // Visible ribbon so test mode can never silently ship to production.
+  const ribbon = document.createElement('div');
+  ribbon.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:998;background:#92400E;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:6px 12px;letter-spacing:0.5px;';
+  ribbon.textContent = '🧪 TEST MODE — payments are not live and the spots counter is simulated. Set CONFIG.TEST_MODE = false before launch.';
+  document.body.appendChild(ribbon);
   document.addEventListener('keydown', e => { if (e.ctrlKey && e.shiftKey && e.key === 'T') showSuccess(); });
   console.log('%c[Your Pool Mate · Test Mode]\nCtrl+Shift+T → simulate success\nTest card: ' + CONFIG.TEST_CARD, 'color:#1565A0;font-weight:600');
 }

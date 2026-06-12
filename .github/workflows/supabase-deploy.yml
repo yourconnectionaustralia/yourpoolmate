@@ -1,0 +1,42 @@
+# Deploys Supabase migrations + edge functions automatically on push.
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_ACCESS_TOKEN — personal access token (supabase.com/dashboard/account/tokens)
+#   ANTHROPIC_API_KEY     — for the ocr-water-test function (set as a Supabase secret)
+name: Deploy Supabase
+
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/**', 'scripts/apply_migrations.py', '.github/workflows/supabase-deploy.yml']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: chmjvbuesynicrmtkrqp
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply new migrations
+        run: python3 scripts/apply_migrations.py
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy edge functions
+        run: |
+          supabase functions deploy calculate-health-score --project-ref "$PROJECT_REF" --use-api
+          supabase functions deploy ocr-water-test --project-ref "$PROJECT_REF" --use-api
+
+      - name: Set OCR secret (skipped if not configured)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            supabase secrets set ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" --project-ref "$PROJECT_REF"
+          else
+            echo "::warning::ANTHROPIC_API_KEY repo secret not set — OCR function will return NOT_CONFIGURED"
+          fi
