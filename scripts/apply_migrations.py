@@ -10,7 +10,7 @@ Env: SUPABASE_ACCESS_TOKEN, PROJECT_REF
 import json, os, sys, urllib.request, pathlib
 
 REF = os.environ["PROJECT_REF"]
-TOKEN = os.environ["SUPABASE_ACCESS_TOKEN"]
+TOKEN = os.environ["SUPABASE_ACCESS_TOKEN"].strip()
 API = f"https://api.supabase.com/v1/projects/{REF}/database/query"
 
 # Applied by hand in the SQL editor before this pipeline existed:
@@ -21,14 +21,27 @@ BASELINE = {
 }
 
 def run_sql(sql: str):
+    """POST one SQL batch; on HTTP error, print the response body before raising."""
     req = urllib.request.Request(
         API,
         data=json.dumps({"query": sql}).encode(),
-        headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {TOKEN}",
+            "Content-Type": "application/json",
+            # api.supabase.com sits behind Cloudflare, which 403s the default
+            # "Python-urllib" user agent. Identify as a real client.
+            "User-Agent": "yourpoolmate-ci/1.0 (+github-actions)",
+            "Accept": "application/json",
+        },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return json.loads(r.read().decode() or "null")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return json.loads(r.read().decode() or "null")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")[:1000]
+        print(f"::error::Supabase API {e.code} on {API}\n{body}")
+        raise
 
 def main():
     run_sql("""create table if not exists public._applied_migrations (
