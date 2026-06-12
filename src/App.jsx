@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import FeedbackOverlay from './FeedbackOverlay.jsx';
+import WaterTestScanner from './components/WaterTestScanner.jsx';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM ICONS — inline SVG only, no library dependency
@@ -1132,96 +1133,6 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// OCR SCAN MODAL
-// ─────────────────────────────────────────────────────────────────
-function ScanModal({ onClose, onComplete }) {
-  const [state, setState] = useState('idle'); // idle | scanning | done | error
-
-  const handleScan = async () => {
-    setState('scanning');
-    await new Promise(r => setTimeout(r, 2000));
-    // Simulate OCR result
-    setState('done');
-    setTimeout(() => {
-      onComplete({
-        freeChlor: 2.1,
-        pH: 7.4,
-        alkalinity: 68,
-        cyanuricAcid: 42,
-        calciumHardness: 280,
-        createdAt: new Date().toISOString(),
-      });
-      onClose();
-    }, 800);
-  };
-
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-panel" onClick={e => e.stopPropagation()}>
-        <div className="modal-title">Scan test results</div>
-        <div className="modal-body">
-          Take a photo of your pool shop's printed water test. Your Pool Mate reads the values automatically.
-        </div>
-
-        {state === 'idle' && (
-          <div style={{
-            border: 'var(--border)',
-            borderRadius: 'var(--r-md)',
-            height: 160,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            marginBottom: 24,
-            background: 'var(--gray-bg)',
-            cursor: 'pointer',
-            color: 'var(--gray-mid)',
-          }} onClick={handleScan}>
-            <span style={{ fontSize: 32 }}>{Icon.camera}</span>
-            <span style={{ fontSize: 13 }}>Tap to take a photo</span>
-          </div>
-        )}
-
-        {state === 'scanning' && (
-          <div style={{
-            height: 160,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 12,
-            marginBottom: 24,
-          }}>
-            <div className="dot-loader"><span/><span/><span/></div>
-            <span style={{ fontSize: 13, color: 'var(--gray-mid)' }}>Reading your test results…</span>
-          </div>
-        )}
-
-        {state === 'done' && (
-          <div style={{
-            height: 160,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            marginBottom: 24,
-          }}>
-            <span style={{ color: 'var(--green)', display: 'flex' }}>{Icon.check}</span>
-            <span style={{ fontSize: 13, color: 'var(--gray-mid)' }}>Done — loading your results</span>
-          </div>
-        )}
-
-        <div className="modal-actions">
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────
 // TRIAL EXPIRED BLOCK SCREEN
 // ─────────────────────────────────────────────────────────────────
 function TrialExpiredScreen() {
@@ -1573,9 +1484,9 @@ export default function App() {
         </main>
       </div>
 
-      {/* Scan modal */}
+      {/* Scan modal — real OCR via the ocr-water-test Edge Function */}
       {showScan && (
-        <ScanModal
+        <WaterTestScanner
           onClose={() => setShowScan(false)}
           onComplete={handleScanComplete}
         />
