@@ -11,13 +11,22 @@ export default function AuthScreen() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState('')
   const [magicSent, setMagicSent] = useState(false)
+  const [confirmSent, setConfirmSent] = useState(false)
 
   async function handleSignUp(e) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await signUpWithEmail(email, password)
-    if (error) setError(error.message)
+    const { data, error } = await signUpWithEmail(email, password)
+    if (error) {
+      setError(error.message)
+    } else if (data?.user && !data?.session) {
+      // Supabase accepted the signup but email confirmation is required.
+      // Show a "check your email" screen so the user isn't left hanging.
+      setConfirmSent(true)
+    }
+    // If data.session exists, onAuthStateChange fires SIGNED_IN and the app
+    // automatically moves past AuthScreen — no action needed here.
     setLoading(false)
   }
 
@@ -104,6 +113,28 @@ export default function AuthScreen() {
             onClick={() => setMode('login')}
           >
             I already have an account
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Email confirmation required ────────────────────────────
+  if (confirmSent) {
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.formWrap}>
+          <div className={styles.successIcon} aria-hidden="true">✉️</div>
+          <h2 className={styles.formHeading}>Check your email</h2>
+          <p className={styles.formSubtext}>
+            We've sent a confirmation link to <strong>{email}</strong>.
+            Click it to activate your account and start your free trial.
+          </p>
+          <p className={styles.formSubtext} style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.5rem' }}>
+            Can't find it? Check your spam folder.
+          </p>
+          <button className={styles.btnSecondary} onClick={() => { setConfirmSent(false); setMode('start') }}>
+            Back to start
           </button>
         </div>
       </div>
