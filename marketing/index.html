@@ -23,7 +23,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet" />
   <script src="https://js.stripe.com/v3/"></script>
 
   <!-- Structured data: FAQPage (GEO answers + product FAQ) -->
@@ -134,27 +134,29 @@
 
   <style>
     :root {
-      --black:      #191919;
-      --near-black: #252525;
-      --gray-dark:  #37352F;
-      --gray-mid:   #6B6B6B;
-      --gray-light: #767571; /* ≥4.5:1 on white — accessibility non-negotiable */
-      --gray-line:  #E9E9E7;
-      --gray-bg:    #F7F7F5;
+      /* Crystal Clear (Concept 3) palette */
+      --black:      #063B4C; /* depth — headings/strong text */
+      --near-black: #085E78;
+      --gray-dark:  #13262E; /* body ink (15.6:1 on white) */
+      --gray-mid:   #4E6671;
+      --gray-light: #5A6B72; /* ≥4.5:1 on white — accessibility non-negotiable */
+      --gray-line:  #DCE9EE;
+      --gray-bg:    #F4F8FA;
       --white:      #FFFFFF;
-      --blue:       #2383E2;
-      --blue-light: #EBF3FD;
-      --water-deep: #0A3554;
-      --water-mid:  #1565A0;
-      --water-light:#4A90C4;
-      --water-pale: #E8F4FA;
-      --green:      #0F7B6C;
-      --green-bg:   #EDFAF7;
-      --amber:      #C17D39;
-      --amber-bg:   #FBF3E4;
-      --red:        #C73535;
-      --font-ui:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      --font-read:  'Newsreader', Georgia, serif;
+      --blue:       #0B7799;
+      --blue-light: #EAF6FA;
+      --water-deep: #063B4C;
+      --water-mid:  #0B7799;
+      --water-light:#3FA8E0;
+      --water-pale: #EAF6FA;
+      --grad-water: linear-gradient(135deg, #0B7799 0%, #085E78 100%);
+      --green:      #0E7D5B;
+      --green-bg:   #E8F6F0;
+      --amber:      #915908;
+      --amber-bg:   #FBF2DF;
+      --red:        #C0392B;
+      --font-ui:    'Albert Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-read:  'Albert Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -640,6 +642,23 @@
       .nav-link { display: none; }
       .score-row { grid-template-columns: 1fr; }
     }
+    /* ── Crystal Clear (Concept 3) overrides ─────── */
+    /* One font (Albert Sans) → headings need real weight, not Newsreader-light */
+    .hero h1, .problem-left h2, .features-intro h2, .how-header h2,
+    .pricing-left h2, .faq h2, .answers-header h2, .success-modal h2 {
+      font-weight: 800; letter-spacing: -1px;
+    }
+    .price-amount, .stat-num, .score-num { font-weight: 800; letter-spacing: -1px; }
+    /* Accent word: depth → ocean, no italic (Concept 3 has no serif/italic) */
+    .hero h1 em, .problem-left h2 em, .features-intro h2 em, .how-header h2 em,
+    .pricing-left h2 em, .answers-header h2 em {
+      font-style: normal; color: var(--water-mid);
+    }
+    /* Primary actions carry the water gradient */
+    .nav-btn, .btn-cta, .btn-buy, .btn-launch { background: var(--grad-water); }
+    .nav-btn:hover, .btn-cta:hover, .btn-buy:hover, .btn-launch:hover { background: #085E78; }
+    /* Logo tile uses the gradient */
+    .logo-mark { background: var(--grad-water); }
   </style>
 </head>
 <body>
@@ -650,8 +669,8 @@
     <div class="nav-logo">
       <div class="logo-mark">
         <svg viewBox="0 0 16 16" fill="none">
-          <path d="M8 1.5C8 1.5 3.5 7 3.5 10.5C3.5 13 5.5 14.5 8 14.5C10.5 14.5 12.5 13 12.5 10.5C12.5 7 8 1.5 8 1.5Z" fill="white" opacity="0.9"/>
-          <circle cx="8" cy="10.5" r="2" fill="white" opacity="0.4"/>
+          <circle cx="8" cy="8" r="5.6" fill="none" stroke="white" stroke-width="1.4"/>
+          <path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/>
         </svg>
       </div>
       Your Pool Mate
@@ -996,8 +1015,8 @@
     <div class="footer-logo">
       <div class="logo-mark">
         <svg viewBox="0 0 16 16" fill="none">
-          <path d="M8 1.5C8 1.5 3.5 7 3.5 10.5C3.5 13 5.5 14.5 8 14.5C10.5 14.5 12.5 13 12.5 10.5C12.5 7 8 1.5 8 1.5Z" fill="white" opacity="0.9"/>
-          <circle cx="8" cy="10.5" r="2" fill="white" opacity="0.4"/>
+          <circle cx="8" cy="8" r="5.6" fill="none" stroke="white" stroke-width="1.4"/>
+          <path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/>
         </svg>
       </div>
       Your Pool Mate

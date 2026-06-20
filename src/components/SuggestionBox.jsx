@@ -13,7 +13,7 @@
 //      Function which writes to Supabase and emails the admin.
 //
 // Brand:
-//   • Ocean #0077B6, Sky #00B4D8, Foam #90E0EF, white surfaces.
+//   • Ocean #0B7799, Sky #3FA8E0, Foam #9FD4E8, white surfaces.
 //   • Light mode, mobile-first (375px base), flat icons.
 //
 // Props:
@@ -33,9 +33,9 @@ const EDGE_FN_URL = `${SUPABASE_URL}/functions/v1/submit-suggestions`;
 
 // Brand tokens (kept inline so this widget is drop-in / no CSS file edits required)
 const C = {
-  ocean: '#0077B6',
-  sky: '#00B4D8',
-  foam: '#90E0EF',
+  ocean: '#0B7799',
+  sky: '#3FA8E0',
+  foam: '#9FD4E8',
   white: '#FFFFFF',
   ink: '#0F2A3B',
   mute: '#5B7280',
@@ -427,7 +427,7 @@ function PinMarker({ pin, isOpen, onOpen, onClose, onChange, onDelete }) {
           height: 28,
           borderRadius: '50% 50% 50% 0',
           transform: 'rotate(-45deg)',
-          background: pin.text ? '#0077B6' : '#00B4D8',
+          background: pin.text ? '#0B7799' : '#3FA8E0',
           border: '2px solid #FFFFFF',
           boxShadow: '0 4px 14px rgba(0,119,182,0.35)',
           color: '#FFFFFF',
@@ -498,7 +498,7 @@ function PinPopover({ x, y, value, onChange, onClose, onDelete }) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <strong style={{ font: '600 12px/1 "Space Grotesk", system-ui, sans-serif', letterSpacing: 0.4, textTransform: 'uppercase', color: '#5B7280' }}>
+        <strong style={{ font: '600 12px/1 "Albert Sans", system-ui, sans-serif', letterSpacing: 0.4, textTransform: 'uppercase', color: '#5B7280' }}>
           Your comment
         </strong>
         <button
@@ -527,7 +527,7 @@ function PinPopover({ x, y, value, onChange, onClose, onDelete }) {
           color: '#0F2A3B',
           outline: 'none',
         }}
-        onFocus={(e) => (e.currentTarget.style.borderColor = '#00B4D8')}
+        onFocus={(e) => (e.currentTarget.style.borderColor = '#3FA8E0')}
         onBlur={(e) => (e.currentTarget.style.borderColor = '#E5EEF3')}
       />
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8 }}>
@@ -574,7 +574,7 @@ function SuggestionsPanel({ pins, submitting, onClose, onJump, onDelete, onClear
       >
         <header style={{ padding: '14px 16px', borderBottom: '1px solid #E5EEF3', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ font: '600 16px/1.2 "Space Grotesk", system-ui, sans-serif' }}>Your suggestions</div>
+            <div style={{ font: '600 16px/1.2 "Albert Sans", system-ui, sans-serif' }}>Your suggestions</div>
             <div style={{ font: '400 12px/1.4 "DM Sans", system-ui, sans-serif', color: '#5B7280', marginTop: 2 }}>
               {pins.length} pin{pins.length === 1 ? '' : 's'} · {populated.length} with comment{populated.length === 1 ? '' : 's'}
             </div>
@@ -603,7 +603,7 @@ function SuggestionsPanel({ pins, submitting, onClose, onJump, onDelete, onClear
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <span style={{ font: '600 12px/1 "Space Grotesk", system-ui, sans-serif', color: '#0077B6', letterSpacing: 0.3, textTransform: 'uppercase' }}>
+                <span style={{ font: '600 12px/1 "Albert Sans", system-ui, sans-serif', color: '#0B7799', letterSpacing: 0.3, textTransform: 'uppercase' }}>
                   {p.view || 'unknown view'}
                 </span>
                 <button type="button" onClick={() => onDelete(p.id)} style={{ ...iconBtnStyle, color: '#B0263C' }} aria-label="Delete pin">
@@ -699,7 +699,7 @@ const iconBtnStyle = {
 };
 
 const btnPrimaryStyle = {
-  background: '#0077B6',
+  background: '#0B7799',
   color: '#FFFFFF',
   border: 'none',
   padding: '8px 14px',

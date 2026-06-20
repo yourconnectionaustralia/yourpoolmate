@@ -7,10 +7,10 @@ const RADIUS = (SIZE - STROKE) / 2
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
 function getStatus(score) {
-  if (score === null || score === undefined) return { label: '—', color: '#CED4DA', bg: '#F8F9FA' }
-  if (score >= 80) return { label: 'Great', color: '#2D9E6B', bg: '#EBFBEE' }
-  if (score >= 60) return { label: 'Needs attention', color: '#E67700', bg: '#FFF9DB' }
-  return { label: 'Act now', color: '#C92A2A', bg: '#FFF5F5' }
+  if (score === null || score === undefined) return { label: '—', color: '#9FB2BA', bg: '#F4F8FA' }
+  if (score >= 80) return { label: 'Great', color: '#0E7D5B', bg: '#E8F6F0' }
+  if (score >= 60) return { label: 'Needs attention', color: '#915908', bg: '#FBF2DF' }
+  return { label: 'Act now', color: '#C0392B', bg: '#FCEFEE' }
 }
 
 export default function HealthScoreRing({ score }) {
@@ -34,7 +34,7 @@ export default function HealthScoreRing({ score }) {
             cy={SIZE / 2}
             r={RADIUS}
             fill="none"
-            stroke="#E9ECEF"
+            stroke="#DCE9EE"
             strokeWidth={STROKE}
           />
           {/* Progress */}

@@ -1,40 +1,80 @@
 /* ════════════════════════════════════════════════════════════════
    Your Pool Mate — Global Styles
-   Tokens + Component System v1.0 · April 2026
+   Tokens + Component System v2.0 · "Crystal Clear" (Concept 3) · June 2026
+   One water gradient. White surfaces. One font (Albert Sans). Big numbers.
    Drop this file into src/index.css — replaces all existing styles.
    ════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap');
 
 /* ════════════════════════════════════════════════════════════════
    DESIGN TOKENS
    ════════════════════════════════════════════════════════════════ */
 :root {
-  /* Neutrals */
-  --black:        #191919;
-  --near-black:   #252525;
-  --gray-dark:    #37352F;
-  --gray-mid:     #6B6B6B;
-  --gray-light:   #9B9A97;
-  --gray-line:    #E9E9E7;
-  --gray-bg:      #F7F7F5;
+  /* ── Crystal Clear core palette ── */
+  --cc-ocean:      #0B7799;   /* brand / gradient start */
+  --cc-deep:       #085E78;   /* gradient end */
+  --cc-depth:      #063B4C;   /* headings, big numbers */
+  --cc-mist:       #EAF6FA;   /* tints, cards, subtle bg */
+  --cc-ink:        #13262E;   /* body text (15.6:1 on white) */
+  --cc-mid:        #4E6671;   /* secondary text (6.1:1 on white) */
+  --cc-muted:      #5A6B72;   /* muted text (≥4.8:1 on white) */
+  --grad-water:    linear-gradient(135deg, #0B7799 0%, #085E78 100%);
+
+  /* Neutrals (legacy vocabulary, remapped to Crystal Clear) */
+  --black:        #0B1E26;
+  --near-black:   #13262E;
+  --gray-dark:    #13262E;
+  --gray-mid:     #4E6671;
+  --gray-light:   #5A6B72;
+  --gray-line:    #DCE9EE;
+  --gray-bg:      #F4F8FA;
   --white:        #FFFFFF;
 
-  /* Brand — use sparingly */
-  --water-deep:   #0A3554;
-  --water-mid:    #1565A0;
-  --water-light:  #4A90C4;
-  --water-pale:   #E8F4FA;
+  /* Brand (legacy vocabulary, remapped) */
+  --water-deep:   #063B4C;
+  --water-mid:    #0B7799;
+  --water-light:  #3FA8E0;
+  --water-pale:   #EAF6FA;
 
-  /* Semantic status — always pair fg + bg */
-  --green:        #0F7B6C;  --green-bg:   #EDFAF7;
-  --amber:        #C17D39;  --amber-bg:   #FBF3E4;
-  --red:          #C73535;  --red-bg:     #FEF3F2;
-  --blue:         #2383E2;  --blue-light: #EBF3FD;
+  /* Semantic status — reserved for water readings only (Concept 3 rule) */
+  --green:        #0E7D5B;  --green-bg:   #E8F6F0;
+  --amber:        #915908;  --amber-bg:   #FBF2DF;
+  --red:          #C0392B;  --red-bg:     #FCEFEE;
+  --blue:         #0B7799;  --blue-light: #EAF6FA;
 
-  /* Typography */
-  --font-ui:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-read:  'Newsreader', Georgia, serif;
+  /* ── Component vocabulary used by *.module.css — now defined ── */
+  --color-ocean:          #0B7799;
+  --color-sky:            #3FA8E0;
+  --color-foam:           #9FD4E8;
+  --color-foam-light:     #EAF6FA;
+  --color-text-primary:   #13262E;
+  --color-text-secondary: #4E6671;
+  --color-text-muted:     #5A6B72;
+  --color-text-inverse:   #FFFFFF;
+  --color-bg:             #FFFFFF;
+  --color-bg-muted:       #F4F8FA;
+  --color-bg-subtle:      #EAF6FA;
+  --color-border:         #DCE9EE;
+  --color-border-strong:  #C2D6DE;
+  --color-danger:         #C0392B;
+  --color-danger-bg:      #FCEFEE;
+
+  --tap-target: 44px;
+
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 3px rgba(8,94,120,0.08);
+  --shadow-lg: 0 24px 60px rgba(8,94,120,0.18);
+
+  /* Typography — one family, Albert Sans (Concept 3) */
+  --font-ui:      'Albert Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Albert Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-read:    'Albert Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Type scale */
   --text-display: clamp(42px, 6.5vw, 72px);

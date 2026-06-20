@@ -48,16 +48,12 @@ export default function Dashboard() {
             <svg width="28" height="28" viewBox="0 0 48 48" fill="none" aria-hidden="true">
               <defs>
                 <linearGradient id="nav-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#00B4D8" />
-                  <stop offset="100%" stopColor="#0077B6" />
+                  <stop offset="0%" stopColor="#0B7799" />
+                  <stop offset="100%" stopColor="#085E78" />
                 </linearGradient>
               </defs>
-              <circle cx="24" cy="10" r="5" fill="url(#nav-grad)" opacity="0.9" />
-              <circle cx="38" cy="22" r="4" fill="url(#nav-grad)" opacity="0.75" />
-              <circle cx="32" cy="38" r="4" fill="url(#nav-grad)" opacity="0.75" />
-              <circle cx="16" cy="38" r="4" fill="url(#nav-grad)" opacity="0.75" />
-              <circle cx="10" cy="22" r="4" fill="url(#nav-grad)" opacity="0.75" />
-              <circle cx="24" cy="24" r="6" fill="url(#nav-grad)" />
+              <circle cx="24" cy="24" r="17" fill="none" stroke="url(#nav-grad)" strokeWidth="3.2" />
+              <path d="M7.3 27 Q 15.65 23 24 27 T 40.7 27 A 17 17 0 0 1 7.3 27 Z" fill="url(#nav-grad)" />
             </svg>
             <span className={styles.appName}>Your Pool Mate</span>
           </div>

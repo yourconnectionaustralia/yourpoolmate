@@ -9,7 +9,7 @@
 // Bump CACHE_VERSION on any release that changes cached assets — old caches
 // are deleted on activate.
 
-const CACHE_VERSION = 'ypm-v1';
+const CACHE_VERSION = 'ypm-v2-crystal-clear';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/logo.svg', '/icon-192.png'];
 
 self.addEventListener('install', (event) => {

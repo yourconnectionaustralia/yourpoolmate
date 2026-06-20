@@ -9,3 +9,6 @@ __pycache__/
 
 # Never commit credentials
 *[Tt]oken*.txt
+
+# Vite temp config artifacts
+vite.config.js.timestamp-*.mjs
