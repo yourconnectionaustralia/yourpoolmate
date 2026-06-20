@@ -339,6 +339,6 @@
   white-space: nowrap;
 }
 
-.nextBtn:hover { background: #005f8e; }
+.nextBtn:hover { background: #085E78; }
 .nextBtn:active { transform: scale(0.98); }
 .nextBtn:disabled { opacity: 0.6; cursor: not-allowed; }

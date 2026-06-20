@@ -97,7 +97,7 @@
   transition: background 0.15s;
 }
 
-.btnPrimary:hover { background: #005f8e; text-decoration: none; }
+.btnPrimary:hover { background: #085E78; text-decoration: none; }
 
 .btnGhost {
   display: flex;

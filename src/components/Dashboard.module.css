@@ -158,7 +158,7 @@
   transition: background 0.15s, transform 0.1s;
 }
 
-.fabBtn:hover { background: #005f8e; }
+.fabBtn:hover { background: #085E78; }
 .fabBtn:active { transform: scale(0.98); }
 
 /* ── Shimmer animation ───────────────────────────────────── */
