@@ -56,60 +56,62 @@ export default function AuthScreen() {
   if (mode === 'start') {
     return (
       <div className={styles.wrap}>
-        <div className={styles.hero}>
-          <div className={styles.logoMark} aria-hidden="true">
-            <svg width="56" height="56" viewBox="0 0 48 48" fill="none">
-              <defs>
-                <linearGradient id="auth-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#0B7799" />
-                  <stop offset="100%" stopColor="#085E78" />
-                </linearGradient>
-              </defs>
-              <circle cx="24" cy="24" r="17" fill="none" stroke="url(#auth-grad)" strokeWidth="3.2" />
-              <path d="M7.3 27 Q 15.65 23 24 27 T 40.7 27 A 17 17 0 0 1 7.3 27 Z" fill="url(#auth-grad)" />
-            </svg>
+        <div className={styles.card}>
+          <div className={styles.hero}>
+            <div className={styles.logoMark} aria-hidden="true">
+              <svg width="64" height="64" viewBox="0 0 48 48" fill="none">
+                <defs>
+                  <linearGradient id="auth-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#0B7799" />
+                    <stop offset="100%" stopColor="#085E78" />
+                  </linearGradient>
+                </defs>
+                <circle cx="24" cy="24" r="17" fill="none" stroke="url(#auth-grad)" strokeWidth="3.2" />
+                <path d="M7.3 27 Q 15.65 23 24 27 T 40.7 27 A 17 17 0 0 1 7.3 27 Z" fill="url(#auth-grad)" />
+              </svg>
+            </div>
+            <h1 className={styles.heading}>Your Pool Mate</h1>
+            <p className={styles.tagline}>Your pool. Your mate. Your water, sorted.</p>
           </div>
-          <h1 className={styles.heading}>Your Pool Mate</h1>
-          <p className={styles.tagline}>Your pool. Your mate. Your water, sorted.</p>
-        </div>
 
-        <div className={styles.valueProps}>
-          <div className={styles.prop}>
-            <span className={styles.propIcon}>💧</span>
-            <span>Know your pool's health at a glance</span>
+          <div className={styles.valueProps}>
+            <div className={styles.prop}>
+              <span className={styles.propIcon}>💧</span>
+              <span>Know your pool's health at a glance</span>
+            </div>
+            <div className={styles.prop}>
+              <span className={styles.propIcon}>🎯</span>
+              <span>Exactly what chemicals to add — no guessing</span>
+            </div>
+            <div className={styles.prop}>
+              <span className={styles.propIcon}>📋</span>
+              <span>Protect your pool warranty with timestamped records</span>
+            </div>
+            <div className={styles.prop}>
+              <span className={styles.propIcon}>📸</span>
+              <span>Scan your pool shop test — auto-fills in seconds</span>
+            </div>
           </div>
-          <div className={styles.prop}>
-            <span className={styles.propIcon}>🎯</span>
-            <span>Exactly what chemicals to add — no guessing</span>
-          </div>
-          <div className={styles.prop}>
-            <span className={styles.propIcon}>📋</span>
-            <span>Protect your pool warranty with timestamped records</span>
-          </div>
-          <div className={styles.prop}>
-            <span className={styles.propIcon}>📸</span>
-            <span>Scan your pool shop test — auto-fills in seconds</span>
-          </div>
-        </div>
 
-        <div className={styles.trialBadge}>
-          <span className={styles.trialDays}>30 days free</span>
-          <span className={styles.trialNote}>No credit card required</span>
-        </div>
+          <div className={styles.trialBadge}>
+            <span className={styles.trialDays}>30 days free</span>
+            <span className={styles.trialNote}>No credit card required</span>
+          </div>
 
-        <div className={styles.actions}>
-          <button
-            className={styles.btnPrimary}
-            onClick={() => setMode('signup')}
-          >
-            Start free trial
-          </button>
-          <button
-            className={styles.btnSecondary}
-            onClick={() => setMode('login')}
-          >
-            I already have an account
-          </button>
+          <div className={styles.actions}>
+            <button
+              className={styles.btnPrimary}
+              onClick={() => setMode('signup')}
+            >
+              Start free trial
+            </button>
+            <button
+              className={styles.btnSecondary}
+              onClick={() => setMode('login')}
+            >
+              I already have an account
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -162,7 +164,7 @@ export default function AuthScreen() {
       <div className={styles.wrap}>
         <div className={styles.formWrap}>
           <button className={styles.backBtn} onClick={() => setMode('start')} aria-label="Back">
-            ← Back
+            Back
           </button>
           <h2 className={styles.formHeading}>Start your free trial</h2>
           <p className={styles.formSubtext}>30 days free. No credit card.</p>
@@ -218,7 +220,7 @@ export default function AuthScreen() {
     <div className={styles.wrap}>
       <div className={styles.formWrap}>
         <button className={styles.backBtn} onClick={() => setMode('start')} aria-label="Back">
-          ← Back
+          Back
         </button>
         <h2 className={styles.formHeading}>Welcome back</h2>
 

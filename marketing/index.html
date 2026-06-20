@@ -659,6 +659,36 @@
     .nav-btn:hover, .btn-cta:hover, .btn-buy:hover, .btn-launch:hover { background: #085E78; }
     /* Logo tile uses the gradient */
     .logo-mark { background: var(--grad-water); }
+
+    /* ── Concept 3 Health Score mock (big number + gauge) ── */
+    .score-card-mk {
+      background: var(--water-pale);
+      border: 1px solid var(--gray-line);
+      border-radius: var(--r-lg);
+      padding: var(--space-6);
+      margin-bottom: var(--space-4);
+    }
+    .score-headline { display: flex; align-items: center; gap: 24px; }
+    .score-big-mk {
+      font-weight: 800; font-size: 64px; line-height: 0.95;
+      letter-spacing: -2px; color: var(--water-deep); flex-shrink: 0;
+    }
+    .score-of-mk { font-size: 18px; font-weight: 600; color: var(--gray-light); letter-spacing: 0; }
+    .score-card-mk .score-detail h4 { font-size: 16px; font-weight: 700; color: var(--black); margin-bottom: 4px; }
+    .score-card-mk .score-detail p { font-size: 13.5px; line-height: 1.5; color: var(--gray-mid); }
+    .score-gauge {
+      position: relative; height: 10px; border-radius: 999px; margin: 20px 0 16px;
+      background: linear-gradient(90deg, #C0392B 0%, #E0A93C 38%, #2EA56A 70%, #0E7D5B 100%);
+    }
+    .gauge-marker {
+      position: absolute; top: -5px; width: 20px; height: 20px; border-radius: 50%;
+      background: #fff; border: 4px solid var(--water-deep); transform: translateX(-50%);
+      box-shadow: 0 2px 6px rgba(8,94,120,.25);
+    }
+    @media (max-width: 600px) {
+      .score-headline { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .score-big-mk { font-size: 52px; }
+    }
   </style>
 </head>
 <body>
@@ -728,26 +758,20 @@
       <div class="app-main">
         <div class="app-page-title">🏊 Health Score</div>
         <div class="app-page-sub">Last tested 2 days ago · Backyard pool, 50,000L</div>
-        <div class="score-row">
-          <div class="score-ring-wrap">
-            <svg width="88" height="88" viewBox="0 0 88 88">
-              <circle class="score-ring-track" cx="44" cy="44" r="35"/>
-              <circle class="score-ring-fill" cx="44" cy="44" r="35"/>
-            </svg>
-            <div class="score-label">
-              <span class="score-num">87</span>
-              <span class="score-of">/ 100</span>
+        <div class="score-card-mk">
+          <div class="score-headline">
+            <div class="score-big-mk">87<span class="score-of-mk">/100</span></div>
+            <div class="score-detail">
+              <h4>Good condition</h4>
+              <p>One parameter needs attention. No urgent action required, but address alkalinity before the weekend.</p>
             </div>
           </div>
-          <div class="score-detail">
-            <h4>Good condition</h4>
-            <p>One parameter needs attention. No urgent action required, but address alkalinity before the weekend.</p>
-            <div class="score-tags">
-              <span class="tag tag-good">✓ Chlorine</span>
-              <span class="tag tag-good">✓ pH</span>
-              <span class="tag tag-warn">↑ Alkalinity low</span>
-              <span class="tag tag-good">✓ Stabiliser</span>
-            </div>
+          <div class="score-gauge" aria-hidden="true"><span class="gauge-marker" style="left:87%"></span></div>
+          <div class="score-tags">
+            <span class="tag tag-good">✓ Chlorine</span>
+            <span class="tag tag-good">✓ pH</span>
+            <span class="tag tag-warn">↑ Alkalinity low</span>
+            <span class="tag tag-good">✓ Stabiliser</span>
           </div>
         </div>
         <div class="callout">

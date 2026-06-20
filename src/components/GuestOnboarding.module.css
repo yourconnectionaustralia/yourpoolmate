@@ -342,3 +342,54 @@
 .nextBtn:hover { background: #085E78; }
 .nextBtn:active { transform: scale(0.98); }
 .nextBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Pool size calculation guide ─────────────────────────── */
+.calcGuide {
+  margin-top: var(--space-3);
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.calcSummary {
+  list-style: none;
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  min-height: var(--tap-target);
+  display: flex;
+  align-items: center;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-ocean);
+}
+
+.calcSummary::-webkit-details-marker { display: none; }
+.calcSummary::after { content: '+'; margin-left: auto; font-size: 1.25rem; font-weight: 400; line-height: 1; }
+.calcGuide[open] .calcSummary::after { content: '–'; }
+
+.calcBody {
+  padding: 0 var(--space-4) var(--space-4);
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+.calcList {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.calcList strong, .calcEg strong { color: var(--color-text-primary); }
+
+.calcHint { color: var(--color-text-muted); margin-top: var(--space-2); }
+
+.calcEg {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+}

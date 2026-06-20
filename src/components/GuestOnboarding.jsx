@@ -148,7 +148,7 @@ export default function GuestOnboarding({ onComplete }) {
         {/* Navigation */}
         <div className={styles.nav}>
           {step > 0 && step < STEPS.length - 1 && (
-            <button className={styles.backBtn} onClick={prevStep}>← Back</button>
+            <button className={styles.backBtn} onClick={prevStep}>Back</button>
           )}
 
           <div className={styles.navRight}>
@@ -246,16 +246,34 @@ function StepPoolBasics({ form, set }) {
 
       <div className={styles.fieldGroup}>
         <label className={styles.fieldLabel} htmlFor="volume">Pool volume (litres)</label>
-        <p className={styles.fieldHint}>Not sure? A 10m × 5m × 1.5m pool is about 75,000L</p>
+        <p className={styles.fieldHint}>A typical Australian backyard pool is 40,000–50,000L.</p>
         <input
           id="volume"
           className={styles.input}
           type="number"
           inputMode="numeric"
-          placeholder="e.g. 50000"
+          placeholder="e.g. 45000"
           value={form.volume_litres}
           onChange={e => set('volume_litres', e.target.value)}
+          onBlur={e => {
+            const n = parseFloat(e.target.value)
+            if (n > 0) set('volume_litres', String(Math.round(n / 2500) * 2500))
+          }}
         />
+
+        <details className={styles.calcGuide}>
+          <summary className={styles.calcSummary}>Not sure? Work it out in 10 seconds</summary>
+          <div className={styles.calcBody}>
+            <p>Measure your pool in metres, then multiply:</p>
+            <ul className={styles.calcList}>
+              <li><strong>Rectangular:</strong> length × width × average depth × 1,000</li>
+              <li><strong>Round / oval:</strong> diameter × diameter × average depth × 800</li>
+            </ul>
+            <p className={styles.calcHint}>Average depth = (shallow end + deep end) ÷ 2.</p>
+            <p className={styles.calcEg}>Example: 8m × 4m × 1.5m = 48 → about <strong>48,000L</strong>.</p>
+            <p className={styles.calcHint}>Round to the nearest 2,500L — exact precision isn't needed for accurate dosing.</p>
+          </div>
+        </details>
       </div>
     </div>
   )
