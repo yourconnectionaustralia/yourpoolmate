@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Your Pool Mate — Pool water management for Australian homeowners</title>
-  <meta name="description" content="Stop guessing. Stop wasting money on chemicals. Your Pool Mate gives you a live Health Score for your pool and tells you exactly what to do." />
+  <meta name="description" content="Your Pool Mate gives Australian pool owners a live Health Score, exact chemical doses, and a complete water test history — so you always know your pool is safe and balanced." />
 
   <script>
     const CONFIG = {
@@ -25,6 +25,112 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&display=swap" rel="stylesheet" />
   <script src="https://js.stripe.com/v3/"></script>
+
+  <!-- Structured data: FAQPage (GEO answers + product FAQ) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Why does my pool keep going green?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Green pool water is almost always caused by algae growth. Algae takes hold when free chlorine drops below 1.0 ppm — the point at which it can no longer keep the water sanitised. This typically happens when chlorine depletes faster than expected due to high UV exposure, heavy pool use, warm water temperatures, or low stabiliser (cyanuric acid) levels that let chlorine break down rapidly in sunlight. The fix involves shocking the pool with a high dose of chlorine, brushing the walls and floor to dislodge algae, and running the filter continuously until the water clears. A green pool event typically costs $300–$500 in chemicals and takes 5–7 days to fully clear." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is my pool safe for children and grandchildren to swim in?",
+        "acceptedAnswer": { "@type": "Answer", "text": "A pool is safe for children to swim in when free chlorine is between 1.0 and 3.0 ppm, pH is between 7.2 and 7.6, and the water is visually clear. Chlorine above 5.0 ppm can cause eye and skin irritation; below 1.0 ppm, the water isn't adequately sanitised. Clear-looking water can still have insufficient chlorine or an unbalanced pH — the only reliable way to know is to test it. Your Pool Mate's Health Score gives you a green, yellow, or red status before anyone gets in." }
+      },
+      {
+        "@type": "Question",
+        "name": "What should my pool's chlorine level be?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Free chlorine should sit between 1.0 and 3.0 ppm under normal conditions — toward the upper end during hot weather, heavy use, or after rain. Combined chlorine should stay below 0.2 ppm; above that, the pool needs shocking. Chlorine lasts longer in Australian sun when stabiliser (cyanuric acid) is kept between 30 and 50 ppm." }
+      },
+      {
+        "@type": "Question",
+        "name": "What does pool pH mean and why does it matter?",
+        "acceptedAnswer": { "@type": "Answer", "text": "pH measures how acidic or alkaline the water is, on a scale of 0–14. The correct range for a pool is 7.2–7.6. Low pH causes eye and skin irritation, corrodes equipment, and burns through chlorine fast. High pH makes chlorine far less effective even when it's reading correctly, and causes cloudiness and scale." }
+      },
+      {
+        "@type": "Question",
+        "name": "What is total alkalinity and why does it need to be correct?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Total alkalinity (correct range: 80–120 ppm) is the water's ability to resist pH swings. Too low, and pH becomes unstable — it'll swing with rain, chemicals, or heavy use. Too high, and pH becomes hard to lower, with cloudy water as a side effect. Adjust alkalinity first, then fine-tune pH." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why is my pool water cloudy even though I've added chlorine?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Usually one of three things: high pH reducing chlorine's effectiveness, insufficient filtration, or high combined chlorine (chloramines) signalling the pool needs shocking. Test every parameter, not just chlorine — adding more chlorine to water with a pH of 8.0 won't do much." }
+      },
+      {
+        "@type": "Question",
+        "name": "How often should I test my pool water?",
+        "acceptedAnswer": { "@type": "Answer", "text": "At least weekly in summer — twice a week during heavy use, very hot weather, or after rain. Fortnightly is usually enough in cooler months. Regular testing is the single most effective way to cut chemical costs and avoid problems before they start." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I use my pool the same day I add chemicals?",
+        "acceptedAnswer": { "@type": "Answer", "text": "After chlorine or pH adjusters, wait at least four hours with the pump running, then re-test. After shocking, wait until free chlorine drops below 5.0 ppm. Algaecide re-entry times vary by product — check the label, usually 15 minutes to 24 hours." }
+      },
+      {
+        "@type": "Question",
+        "name": "What does lifetime access mean exactly?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Pay $79 once, use Your Pool Mate forever. No annual renewals, no creeping subscription. As the product grows — new features, better AI, deeper analytics — you get all of it. Your $79 is your total cost." }
+      },
+      {
+        "@type": "Question",
+        "name": "Why only 200 founding members?",
+        "acceptedAnswer": { "@type": "Answer", "text": "We want a tight first cohort we can actually talk to. Founding members get direct access to the founder, influence the product roadmap, and help us build something that genuinely works. After 200, pricing moves to $39/year subscription only — permanently." }
+      },
+      {
+        "@type": "Question",
+        "name": "Do I need to install anything?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No app store required. Your Pool Mate is a Progressive Web App. Open it in your browser, add it to your home screen in one tap. Works on iPhone, Android and desktop. Updates automatically — always the latest version." }
+      },
+      {
+        "@type": "Question",
+        "name": "What pool types does it support?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Chlorine, saltwater/chlorinator, mineral and freshwater pools. All common sanitisation systems. If you have an unusual setup, reach out — we'll work through it." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I try it before paying?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. The app comes with a 30-day free trial — a full month of tests, Health Scores and history before you decide. No card required to start." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is there a refund policy?",
+        "acceptedAnswer": { "@type": "Answer", "text": "30-day no-questions-asked refund. If Your Pool Mate isn't delivering value in your first month, email the founder directly and we'll process a full refund the same day." }
+      },
+      {
+        "@type": "Question",
+        "name": "When does the price go up to $99?",
+        "acceptedAnswer": { "@type": "Answer", "text": "When 175 spots are taken (25 remaining), the founding price increases to $99. After all 200 are filled, access moves to $39/year subscription only. The counter is live." }
+      },
+      {
+        "@type": "Question",
+        "name": "Will it replace my pool shop?",
+        "acceptedAnswer": { "@type": "Answer", "text": "It complements your pool shop rather than replacing it. Many users still get their water tested there — particularly for a full analysis including calcium hardness and total dissolved solids. Your Pool Mate makes that test result instantly useful by calculating exactly what to add and how much. Several users have told us their pool shop visits have become shorter and more purposeful." }
+      }
+    ]
+  }
+  </script>
+
+  <!-- Structured data: HowTo (getting started) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "How to get started with Your Pool Mate",
+    "totalTime": "PT5M",
+    "step": [
+      { "@type": "HowToStep", "name": "Set up your pool", "text": "Enter your pool volume, sanitisation type (chlorine, salt, mineral) and any equipment. Two minutes, done once." },
+      { "@type": "HowToStep", "name": "Log your first water test", "text": "Type in your readings, or photograph your test strip or pool shop printout — our OCR fills everything in automatically. If you haven't had a test done recently, most local pool shops will test your water for free." },
+      { "@type": "HowToStep", "name": "Get your Health Score and action plan", "text": "Instant analysis. If anything needs attention, you'll see exactly what to add, how much, and why — in plain English." },
+      { "@type": "HowToStep", "name": "Follow the plan and swim confidently", "text": "Log what you added, tick it off, and let Your Pool Mate track whether it worked. Over time, your pool becomes predictable." }
+    ]
+  }
+  </script>
 
   <style>
     :root {
@@ -138,8 +244,13 @@
     .hero h1 em { font-style: italic; color: var(--gray-mid); }
     .hero-sub {
       font-size: 18px; font-weight: 300; line-height: 1.65; color: var(--gray-mid);
-      max-width: 520px; margin: 0 auto 36px;
+      max-width: 520px; margin: 0 auto 20px;
       animation: fadeUp 0.6s 0.2s ease both;
+    }
+    .hero-body {
+      font-size: 15px; font-weight: 300; line-height: 1.7; color: var(--gray-mid);
+      max-width: 540px; margin: 0 auto 36px;
+      animation: fadeUp 0.6s 0.25s ease both;
     }
     .hero-actions {
       display: flex; align-items: center; justify-content: center;
@@ -286,13 +397,15 @@
     .page-header { padding: 20px 24px 12px; border-bottom: 1px solid var(--gray-bg); }
     .page-emoji { font-size: 28px; margin-bottom: 8px; }
     .page-title { font-family: var(--font-read); font-size: 20px; font-weight: 400; color: var(--black); }
-    .page-body { padding: 16px 24px 20px; display: flex; flex-direction: column; gap: 10px; }
+    .page-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 10px; }
     .page-block {
       padding: 10px 12px; border-radius: 4px;
       font-size: 13px; line-height: 1.55; color: var(--gray-dark);
     }
     .page-block-pain { background: #FEF3F2; border-left: 3px solid #F4A89A; color: #7A2A22; }
     .page-block-neutral { background: var(--gray-bg); border-left: 3px solid var(--gray-line); }
+    .page-block-accent { background: var(--water-pale); border-left: 3px solid var(--water-mid); color: var(--water-deep); }
+    .page-block-accent .block-label { opacity: 0.75; }
     .block-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 3px; opacity: 0.6; }
 
     /* ── FEATURES ────────────────────────────────── */
@@ -359,6 +472,31 @@
     .how-step-body h4 { font-size: 15px; font-weight: 500; color: var(--black); margin-bottom: 5px; }
     .how-step-body p { font-size: 13px; color: var(--gray-mid); line-height: 1.6; }
     .step-note { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 12px; color: var(--water-mid); font-weight: 500; }
+
+    /* ── ANSWERS (GEO) ───────────────────────────── */
+    .answers {
+      background: var(--gray-bg);
+      border-top: 1px solid var(--gray-line);
+      padding: 80px 24px;
+    }
+    .answers-inner { max-width: 820px; margin: 0 auto; }
+    .answers-header { max-width: 560px; margin-bottom: 48px; }
+    .answers-header h2 {
+      font-family: var(--font-read); font-size: clamp(28px, 3.5vw, 38px); font-weight: 300;
+      color: var(--black); line-height: 1.2; letter-spacing: -0.3px;
+    }
+    .answers-header h2 em { font-style: italic; color: var(--gray-mid); }
+    .answers-grid { display: flex; flex-direction: column; gap: 14px; }
+    .answer-card {
+      background: var(--white); border: 1px solid var(--gray-line); border-radius: 8px;
+      padding: 22px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .answer-card h3 {
+      font-family: var(--font-read); font-size: 19px; font-weight: 400;
+      color: var(--black); line-height: 1.3; margin-bottom: 10px;
+    }
+    .answer-card p { font-size: 15px; line-height: 1.7; color: var(--gray-mid); }
+    .answer-card p + p { margin-top: 10px; }
 
     /* ── PRICING ─────────────────────────────────── */
     .pricing {
@@ -453,7 +591,7 @@
     .faq-toggle { font-size: 18px; color: var(--gray-light); transition: transform 0.2s ease; flex-shrink: 0; line-height: 1; }
     .faq-item.open .faq-toggle { transform: rotate(45deg); color: var(--black); }
     .faq-a { font-size: 14px; line-height: 1.7; color: var(--gray-mid); max-height: 0; overflow: hidden; transition: max-height 0.25s ease, padding 0.25s ease; }
-    .faq-item.open .faq-a { max-height: 200px; padding-bottom: 18px; }
+    .faq-item.open .faq-a { max-height: 400px; padding-bottom: 18px; }
 
     /* ── FOOTER ──────────────────────────────────── */
     footer { border-top: 1px solid var(--gray-line); padding: 32px 24px; }
@@ -519,9 +657,11 @@
       Your Pool Mate
     </div>
     <div class="nav-right">
+      <button class="nav-link" onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">How It Works</button>
+      <button class="nav-link" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">Why It Works</button>
       <button class="nav-link" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Pricing</button>
-      <button class="nav-link" onclick="document.getElementById('faq').scrollIntoView({behavior:'smooth'})">FAQ</button>
-      <button class="nav-btn" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Get access →</button>
+      <button class="nav-link" onclick="document.getElementById('answers').scrollIntoView({behavior:'smooth'})">Questions</button>
+      <button class="nav-btn" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Get founding access →</button>
     </div>
   </div>
 </nav>
@@ -532,11 +672,12 @@
     <span class="chip-dot"></span>
     Founding member access · 200 spots only
   </div>
-  <h1>Your pool, <em>finally</em><br />under control.</h1>
-  <p class="hero-sub">A live Health Score for your water. Exact chemical doses in grams. A complete history of every test. Built for Australian pool owners.</p>
+  <h1>Your pool,<br />looked after <em>properly.</em></h1>
+  <p class="hero-sub">A live Health Score for your water. Chemical doses calculated to the gram. A complete record of every test — so you always know what's going on and what to do next.</p>
+  <p class="hero-body">Most pool problems don't appear overnight. They build up slowly when small imbalances go unnoticed. Your Pool Mate gives you the same visibility a pool technician uses — presented simply, so you can act confidently without needing a chemistry background.</p>
   <div class="hero-actions">
-    <button class="btn-cta" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Get founding access — $79</button>
-    <button class="btn-ghost" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">See what's included</button>
+    <button class="btn-cta" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Get founding access — $79 AUD</button>
+    <button class="btn-ghost" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">See what's included ↓</button>
   </div>
 </section>
 
@@ -615,34 +756,31 @@
 <!-- PROBLEM -->
 <div class="problem">
   <div class="problem-left reveal">
-    <h2>Pool ownership costs more than it <em>should.</em></h2>
-    <p>Chemicals, test kits, corrective fixes — the spend adds up fast, and much of it is corrective: fixing problems that a bit of visibility would have prevented. One prevented algae bloom can pay for this app several times over.</p>
+    <h2>Pool ownership shouldn't be <em>this hard.</em></h2>
+    <p>The average Australian pool owner spends between $800 and $1,200 a year on pool chemicals. Most of that money goes on corrective treatments — fixing problems that could have been caught early with a bit of consistent monitoring.</p>
+    <p>It's not that pool chemistry is complicated. It's that most people have never been shown how to read the numbers properly, or what to do when they're out of range.</p>
     <div class="problem-stat">
       <div class="stat-num">$79</div>
       <div class="stat-desc">Your total lifetime cost — less than many single trips to the pool shop</div>
     </div>
   </div>
   <div class="problem-page reveal reveal-d1">
-    <div class="page-header">
-      <div class="page-emoji">😤</div>
-      <div class="page-title">The old way</div>
-    </div>
     <div class="page-body">
-      <div class="page-block page-block-pain">
-        <div class="block-label">Sunday afternoon</div>
-        Water's looking cloudy. Drive to the pool shop. Wait 20 minutes. Leave with $90 of chemicals you're not sure you need.
-      </div>
-      <div class="page-block page-block-pain">
-        <div class="block-label">The advice problem</div>
-        Ask three people how to fix it. Get three different answers. Google for an hour. Still not sure.
-      </div>
-      <div class="page-block page-block-pain">
-        <div class="block-label">No memory</div>
-        No record of what you added, when, or whether it worked. Next time, start from zero.
+      <div class="page-block page-block-neutral">
+        <div class="block-label">The pool shop visit</div>
+        You notice the water looks off. You drive in, wait for a test, and leave with $80 or $90 worth of products — and instructions that seem clear at the time, but feel less certain once you're standing beside the pool with a measuring cup.
       </div>
       <div class="page-block page-block-neutral">
-        <div class="block-label">The result</div>
-        Hundreds of dollars a year in guesswork. Green water you saw coming too late. A pool you're not fully enjoying.
+        <div class="block-label">The conflicting advice problem</div>
+        Ask three people how to fix cloudy water or a low chlorine reading and you'll get three different answers. Online forums add more opinions. Without knowing your specific pool volume, your current chemical levels, and your sanitisation type, generic advice can make things worse.
+      </div>
+      <div class="page-block page-block-neutral">
+        <div class="block-label">No record of what worked</div>
+        When something goes wrong — green water, cloudy water, skin irritation after a swim — there's no history to look back at. Most people start from scratch every time.
+      </div>
+      <div class="page-block page-block-accent">
+        <div class="block-label">One algae bloom changes the maths completely</div>
+        A full algae event costs $400 or more to treat correctly and takes a week to clear. That one incident costs more than five years of Your Pool Mate.
       </div>
     </div>
   </div>
@@ -660,22 +798,22 @@
     <div class="feature-list reveal reveal-d1">
       <div class="feature-row">
         <div class="feature-num">01</div>
-        <div class="feature-body"><h4>Live Health Score</h4><p>A single number from 0–100 tells you exactly where your pool stands. Green means swim. Yellow means watch. Red means act. No chemistry degree required.</p></div>
+        <div class="feature-body"><h4>Live Health Score</h4><p>Your pool's overall condition, expressed as a single number from 0 to 100. Green means everything is in order. Yellow means one or two things need attention soon. Red means act now. It takes into account your chlorine level, pH, total alkalinity, stabiliser, and other relevant parameters — so you can see at a glance whether your pool is safe to swim in, before the grandkids arrive or before a party.</p></div>
         <div class="feature-meta"><span class="feature-chip chip-green">Real-time</span></div>
       </div>
       <div class="feature-row">
         <div class="feature-num">02</div>
-        <div class="feature-body"><h4>Scan your test results</h4><p>Photograph your pool shop printout or test strip. Our AI reads the numbers for you — no manual entry, no typos. Readings populate automatically in seconds.</p></div>
+        <div class="feature-body"><h4>Scan your test results</h4><p>Photograph your pool shop printout or test strip and the numbers populate automatically — chlorine, pH, alkalinity, stabiliser, calcium hardness and more. No manual entry, no typos.</p></div>
         <div class="feature-meta"><span class="feature-chip">AI-powered</span></div>
       </div>
       <div class="feature-row">
         <div class="feature-num">03</div>
-        <div class="feature-body"><h4>Exact chemical doses</h4><p>Not "add some chlorine." Exactly how many grams of which product, calculated for your pool volume, your current readings, and your target levels.</p></div>
+        <div class="feature-body"><h4>Exact chemical doses</h4><p>Not "add some chlorine." Exactly how many grams of which product, calculated for your pool volume, your current readings, your sanitisation type, and your target levels — with a plain-English explanation of why.</p></div>
         <div class="feature-meta"><span class="feature-chip chip-amber">Personalised</span></div>
       </div>
       <div class="feature-row">
         <div class="feature-num">04</div>
-        <div class="feature-body"><h4>Full test history and trends</h4><p>Every reading logged. See how your pool behaves across seasons, after rain, after a party. Spot patterns that let you stop problems before they start.</p></div>
+        <div class="feature-body"><h4>Full test history and trends</h4><p>Every reading logged, every chemical addition recorded. Over time you'll start to recognise patterns — how your pool behaves after rain, after heavy use, across seasons — and catch problems before they're visible.</p></div>
         <div class="feature-meta"><span class="feature-chip">Historical</span></div>
       </div>
       <div class="feature-row">
@@ -695,7 +833,7 @@
 <div class="divider"></div>
 
 <!-- HOW IT WORKS -->
-<section class="how">
+<section class="how" id="how">
   <div class="how-header reveal">
     <div class="section-eyebrow">Getting started</div>
     <h2>Up and running in<br /><em>under five minutes.</em></h2>
@@ -709,7 +847,7 @@
       <div class="how-step-n">02</div>
       <div class="how-step-body">
         <h4>Log your first water test</h4>
-        <p>Type in your readings, or photograph your test strip or pool shop printout. Our OCR fills everything in automatically.</p>
+        <p>Type in your readings, or photograph your test strip or pool shop printout — our OCR fills everything in automatically. If you haven't had a test done recently, most local pool shops will test your water for free. Bring the printout back and scan it straight in.</p>
         <span class="step-note">📸 Photo scanning saves ~3 minutes per test</span>
       </div>
     </div>
@@ -724,7 +862,51 @@
   </div>
 </section>
 
-<div class="divider"></div>
+<!-- ANSWERS (GEO) -->
+<section class="answers" id="answers">
+  <div class="answers-inner">
+    <div class="answers-header reveal">
+      <div class="section-eyebrow">Pool water, explained</div>
+      <h2>Common pool water questions,<br /><em>answered clearly.</em></h2>
+    </div>
+    <div class="answers-grid reveal reveal-d1">
+      <div class="answer-card">
+        <h3>Why does my pool keep going green?</h3>
+        <p>Green pool water is almost always caused by algae growth. Algae takes hold when free chlorine drops below 1.0 ppm — the point at which it can no longer keep the water sanitised. This typically happens when chlorine depletes faster than expected due to high UV exposure, heavy pool use, warm water temperatures, or low stabiliser (cyanuric acid) levels that let chlorine break down rapidly in sunlight.</p>
+        <p>The fix involves shocking the pool with a high dose of chlorine, brushing the walls and floor to dislodge algae, and running the filter continuously until the water clears. A green pool event typically costs $300–$500 in chemicals and takes 5–7 days to fully clear.</p>
+      </div>
+      <div class="answer-card">
+        <h3>Is my pool safe for children and grandchildren to swim in?</h3>
+        <p>A pool is safe for children to swim in when free chlorine is between 1.0 and 3.0 ppm, pH is between 7.2 and 7.6, and the water is visually clear. Chlorine above 5.0 ppm can cause eye and skin irritation; below 1.0 ppm, the water isn't adequately sanitised.</p>
+        <p>Clear-looking water can still have insufficient chlorine or an unbalanced pH — the only reliable way to know is to test it. Your Pool Mate's Health Score gives you a green, yellow, or red status before anyone gets in.</p>
+      </div>
+      <div class="answer-card">
+        <h3>What should my pool's chlorine level be?</h3>
+        <p>Free chlorine should sit between 1.0 and 3.0 ppm under normal conditions — toward the upper end during hot weather, heavy use, or after rain. Combined chlorine should stay below 0.2 ppm; above that, the pool needs shocking. Chlorine lasts longer in Australian sun when stabiliser (cyanuric acid) is kept between 30 and 50 ppm.</p>
+      </div>
+      <div class="answer-card">
+        <h3>What does pool pH mean and why does it matter?</h3>
+        <p>pH measures how acidic or alkaline the water is, on a scale of 0–14. The correct range for a pool is 7.2–7.6. Low pH causes eye and skin irritation, corrodes equipment, and burns through chlorine fast. High pH makes chlorine far less effective even when it's reading correctly, and causes cloudiness and scale.</p>
+      </div>
+      <div class="answer-card">
+        <h3>What is total alkalinity and why does it need to be correct?</h3>
+        <p>Total alkalinity (correct range: 80–120 ppm) is the water's ability to resist pH swings. Too low, and pH becomes unstable — it'll swing with rain, chemicals, or heavy use. Too high, and pH becomes hard to lower, with cloudy water as a side effect. Adjust alkalinity first, then fine-tune pH.</p>
+      </div>
+      <div class="answer-card">
+        <h3>Why is my pool water cloudy even though I've added chlorine?</h3>
+        <p>Usually one of three things: high pH reducing chlorine's effectiveness, insufficient filtration, or high combined chlorine (chloramines) signalling the pool needs shocking. Test every parameter, not just chlorine — adding more chlorine to water with a pH of 8.0 won't do much.</p>
+      </div>
+      <div class="answer-card">
+        <h3>How often should I test my pool water?</h3>
+        <p>At least weekly in summer — twice a week during heavy use, very hot weather, or after rain. Fortnightly is usually enough in cooler months. Regular testing is the single most effective way to cut chemical costs and avoid problems before they start.</p>
+      </div>
+      <div class="answer-card">
+        <h3>Can I use my pool the same day I add chemicals?</h3>
+        <p>After chlorine or pH adjusters, wait at least four hours with the pump running, then re-test. After shocking, wait until free chlorine drops below 5.0 ppm. Algaecide re-entry times vary by product — check the label, usually 15 minutes to 24 hours.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- PRICING -->
 <section class="pricing" id="checkout">
@@ -801,6 +983,10 @@
   <div class="faq-item">
     <button class="faq-q" onclick="toggleFaq(this)">When does the price go up to $99?<span class="faq-toggle">+</span></button>
     <div class="faq-a">When 175 spots are taken (25 remaining), the founding price increases to $99. After all 200 are filled, access moves to $39/year subscription only. The counter above is live.</div>
+  </div>
+  <div class="faq-item">
+    <button class="faq-q" onclick="toggleFaq(this)">Will it replace my pool shop?<span class="faq-toggle">+</span></button>
+    <div class="faq-a">It complements your pool shop rather than replacing it. Many users still get their water tested there — particularly for a full analysis including calcium hardness and total dissolved solids. Your Pool Mate makes that test result instantly useful by calculating exactly what to add and how much. Several users have told us their pool shop visits have become shorter and more purposeful.</div>
   </div>
 </section>
 
