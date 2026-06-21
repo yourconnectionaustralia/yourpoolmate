@@ -24,7 +24,7 @@
 // ─────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../supabase';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 
 const STORAGE_KEY = 'poolconnection.suggestionPins.v1';
 
