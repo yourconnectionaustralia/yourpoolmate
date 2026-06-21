@@ -10,6 +10,10 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [trialExpired, setTrialExpired] = useState(false)
   const [hasPoolProfile, setHasPoolProfile] = useState(null) // null = unknown, true/false once checked
+  // True while the user is in the password-recovery flow (i.e. they
+  // landed here via a #access_token=...&type=recovery link). Drives
+  // AuthScreen's "set a new password" view.
+  const [recoveryMode, setRecoveryMode] = useState(false)
 
   useEffect(() => {
     // Get initial session
@@ -33,9 +37,20 @@ export function AuthProvider({ children }) {
           await checkUserStatus(session.user)
         }
 
+        if (event === 'PASSWORD_RECOVERY') {
+          // Supabase has parsed the #access_token=...&type=recovery hash
+          // into a real session — flip into recovery mode so AuthScreen
+          // shows the "set a new password" form instead of the normal
+          // signed-in app. Without this listener, that hash was being
+          // left for nothing to consume it into a UI state.
+          setRecoveryMode(true)
+          setLoading(false)
+        }
+
         if (event === 'SIGNED_OUT') {
           setTrialExpired(false)
           setHasPoolProfile(null)
+          setRecoveryMode(false)
           setLoading(false)
         }
       }
@@ -60,9 +75,12 @@ export function AuthProvider({ children }) {
         .single()
 
       const isPremium = profile?.is_premium ?? false
+      // 30-day free trial (matches migration 004 / current pricing).
+      // Only used as a fallback when trial_ends_at isn't set on the
+      // profile yet — the real source of truth is the DB column.
       const trialEndsAt = profile?.trial_ends_at
         ? new Date(profile.trial_ends_at)
-        : new Date(trialStart.getTime() + 7 * 24 * 60 * 60 * 1000)
+        : new Date(trialStart.getTime() + 30 * 24 * 60 * 60 * 1000)
 
       if (!isPremium && now > trialEndsAt) {
         setTrialExpired(true)
@@ -116,6 +134,28 @@ export function AuthProvider({ children }) {
     return { data, error }
   }
 
+  async function resetPassword(email) {
+    // Sends a recovery email. The link redirects back here with
+    // #access_token=...&type=recovery in the URL hash; the SDK
+    // (detectSessionInUrl: true) turns that into a real session and
+    // fires the PASSWORD_RECOVERY event handled above.
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    })
+    return { data, error }
+  }
+
+  async function updatePassword(newPassword) {
+    // Only valid while in recoveryMode, i.e. once PASSWORD_RECOVERY
+    // has given us a temporary authenticated session.
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword })
+    if (!error) {
+      // Recovery flow is complete — drop back into normal signed-in state.
+      setRecoveryMode(false)
+    }
+    return { data, error }
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
   }
@@ -127,9 +167,12 @@ export function AuthProvider({ children }) {
     trialExpired,
     hasPoolProfile,
     setHasPoolProfile,
+    recoveryMode,
     signInWithEmail,
     signUpWithEmail,
     signInWithMagicLink,
+    resetPassword,
+    updatePassword,
     signOut
   }
 
