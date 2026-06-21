@@ -3,15 +3,54 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import styles from './AuthScreen.module.css'
 
+// Password input with a built-in show/hide toggle.
+// Each field manages its own visibility so toggling one doesn't reveal another.
+function PasswordField({ id, label, value, onChange, placeholder, autoComplete, minLength, required }) {
+  const [show, setShow] = useState(false)
+  return (
+    <>
+      <label className={styles.label} htmlFor={id}>{label}</label>
+      <div className={styles.passwordWrap}>
+        <input
+          id={id}
+          className={styles.input}
+          style={{ paddingRight: '4rem' }}
+          type={show ? 'text' : 'password'}
+          autoComplete={autoComplete}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          minLength={minLength}
+          required={required}
+        />
+        <button
+          type="button"
+          className={styles.passwordToggle}
+          onClick={() => setShow(s => !s)}
+          aria-label={show ? 'Hide password' : 'Show password'}
+          aria-pressed={show}
+          tabIndex={-1}
+        >
+          {show ? 'Hide' : 'Show'}
+        </button>
+      </div>
+    </>
+  )
+}
+
 export default function AuthScreen() {
-  const { signInWithEmail, signUpWithEmail, signInWithMagicLink } = useAuth()
-  const [mode, setMode] = useState('start') // 'start' | 'signup' | 'login' | 'magic'
+  const { signInWithEmail, signUpWithEmail, signInWithMagicLink, resetPassword, updatePassword, recoveryMode } = useAuth()
+  const [mode, setMode] = useState('start') // 'start' | 'signup' | 'login' | 'magic' | 'reset'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState('')
   const [magicSent, setMagicSent] = useState(false)
   const [confirmSent, setConfirmSent] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [passwordUpdated, setPasswordUpdated] = useState(false)
 
   async function handleSignUp(e) {
     e.preventDefault()
@@ -50,6 +89,95 @@ export default function AuthScreen() {
       setMagicSent(true)
     }
     setLoading(false)
+  }
+
+  async function handleResetRequest(e) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    const { error } = await resetPassword(email)
+    if (error) {
+      setError('Something went wrong — try again in a moment.')
+    } else {
+      setResetSent(true)
+    }
+    setLoading(false)
+  }
+
+  async function handleUpdatePassword(e) {
+    e.preventDefault()
+    setError('')
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords don\'t match — please re-enter them.')
+      return
+    }
+    setLoading(true)
+    const { error } = await updatePassword(newPassword)
+    if (error) {
+      setError('Couldn\'t update your password — the reset link may have expired. Request a new one.')
+    } else {
+      setPasswordUpdated(true)
+    }
+    setLoading(false)
+  }
+
+  // ── Set a new password (after clicking the reset link) ─────
+  if (recoveryMode) {
+    if (passwordUpdated) {
+      return (
+        <div className={styles.wrap}>
+          <div className={styles.formWrap}>
+            <div className={styles.successIcon} aria-hidden="true">✅</div>
+            <h2 className={styles.formHeading}>Password updated</h2>
+            <p className={styles.formSubtext}>
+              Your password has been changed. You're all set — loading your pool mate…
+            </p>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.formWrap}>
+          <h2 className={styles.formHeading}>Set a new password</h2>
+          <p className={styles.formSubtext}>Choose a new password for your account.</p>
+
+          <form onSubmit={handleUpdatePassword} className={styles.form} noValidate>
+            <PasswordField
+              id="new-password"
+              label="New password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="At least 8 characters"
+              minLength={8}
+              required
+            />
+
+            <PasswordField
+              id="confirm-password"
+              label="Confirm new password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter your new password"
+              minLength={8}
+              required
+            />
+
+            {error && <p className={styles.error} role="alert">{error}</p>}
+
+            <button className={styles.btnPrimary} type="submit" disabled={!!loading}>
+              {loading ? 'Updating…' : 'Update password'}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
   }
 
   // ── Trial start screen ─────────────────────────────────────
@@ -158,6 +286,70 @@ export default function AuthScreen() {
     )
   }
 
+  // ── Reset link sent ────────────────────────────────────────
+  if (resetSent) {
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.formWrap}>
+          <div className={styles.successIcon} aria-hidden="true">✉️</div>
+          <h2 className={styles.formHeading}>Check your email</h2>
+          <p className={styles.formSubtext}>
+            If an account exists for <strong>{email}</strong>, we've sent a link to
+            reset your password. Tap it to choose a new one.
+          </p>
+          <p className={styles.formSubtext} style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.5rem' }}>
+            Can't find it? Check your spam folder.
+          </p>
+          <button className={styles.btnSecondary} onClick={() => { setResetSent(false); setMode('login') }}>
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Forgot password form ───────────────────────────────────
+  if (mode === 'reset') {
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.formWrap}>
+          <button className={styles.backBtn} onClick={() => { setError(''); setMode('login') }} aria-label="Back">
+            Back
+          </button>
+          <h2 className={styles.formHeading}>Reset your password</h2>
+          <p className={styles.formSubtext}>
+            Enter your email and we'll send you a link to set a new password.
+          </p>
+
+          <form onSubmit={handleResetRequest} className={styles.form} noValidate>
+            <label className={styles.label} htmlFor="reset-email">Email address</label>
+            <input
+              id="reset-email"
+              className={styles.input}
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="your@email.com.au"
+              required
+            />
+
+            {error && <p className={styles.error} role="alert">{error}</p>}
+
+            <button className={styles.btnPrimary} type="submit" disabled={!!loading}>
+              {loading ? 'Sending…' : 'Send reset link'}
+            </button>
+          </form>
+
+          <p className={styles.switchMode}>
+            Remembered it?{' '}
+            <button className={styles.linkBtn} onClick={() => { setError(''); setMode('login') }}>Sign in</button>
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   // ── Sign up form ───────────────────────────────────────────
   if (mode === 'signup') {
     return (
@@ -182,11 +374,9 @@ export default function AuthScreen() {
               required
             />
 
-            <label className={styles.label} htmlFor="signup-password">Password</label>
-            <input
+            <PasswordField
               id="signup-password"
-              className={styles.input}
-              type="password"
+              label="Password"
               autoComplete="new-password"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -237,17 +427,25 @@ export default function AuthScreen() {
             required
           />
 
-          <label className={styles.label} htmlFor="login-password">Password</label>
-          <input
+          <PasswordField
             id="login-password"
-            className={styles.input}
-            type="password"
+            label="Password"
             autoComplete="current-password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="Your password"
             required
           />
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'calc(var(--space-2) * -1)' }}>
+            <button
+              type="button"
+              className={styles.linkBtn}
+              onClick={() => { setError(''); setMode('reset') }}
+            >
+              Forgot password?
+            </button>
+          </div>
 
           {error && <p className={styles.error} role="alert">{error}</p>}
 

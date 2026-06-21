@@ -235,6 +235,38 @@
 .input:focus   { border-color: var(--water-mid); }
 .input::placeholder { color: var(--gray-light); }
 
+/* ── Password field with show/hide toggle ──────────────────── */
+.passwordWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 var(--space-2);
+  background: none;
+  border: none;
+  color: var(--water-mid);
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+}
+
+.passwordToggle:hover { color: var(--water-deep); }
+.passwordToggle:focus-visible { outline: 2px solid var(--water-mid); outline-offset: 2px; }
+
 .error {
   font-size: 0.875rem;
   color: var(--red);
