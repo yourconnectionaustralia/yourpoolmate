@@ -93,15 +93,28 @@ export default function AuthScreen() {
 
   async function handleResetRequest(e) {
     e.preventDefault()
+    if (!email.trim()) {
+      setError('Enter your email address first.')
+      return
+    }
     setLoading(true)
     setError('')
-    const { error } = await resetPassword(email)
-    if (error) {
-      setError('Something went wrong — try again in a moment.')
-    } else {
-      setResetSent(true)
+    try {
+      const { error } = await resetPassword(email.trim())
+      if (error) {
+        console.error('Password reset failed:', error)
+        setError(error.message || 'Something went wrong — try again in a moment.')
+      } else {
+        setResetSent(true)
+      }
+    } catch (err) {
+      // A thrown error here (network/CORS/redirect not allow-listed) was
+      // leaving the button stuck on "Sending…" — always surface and recover.
+      console.error('Password reset threw:', err)
+      setError('Couldn\'t reach the server — check your connection and try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function handleUpdatePassword(e) {
@@ -116,13 +129,20 @@ export default function AuthScreen() {
       return
     }
     setLoading(true)
-    const { error } = await updatePassword(newPassword)
-    if (error) {
-      setError('Couldn\'t update your password — the reset link may have expired. Request a new one.')
-    } else {
-      setPasswordUpdated(true)
+    try {
+      const { error } = await updatePassword(newPassword)
+      if (error) {
+        console.error('Password update failed:', error)
+        setError('Couldn\'t update your password — the reset link may have expired. Request a new one.')
+      } else {
+        setPasswordUpdated(true)
+      }
+    } catch (err) {
+      console.error('Password update threw:', err)
+      setError('Couldn\'t reach the server — check your connection and try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   // ── Set a new password (after clicking the reset link) ─────
