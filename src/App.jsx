@@ -432,8 +432,8 @@ function HealthScorePage({ testData, poolProfile }) {
   const params = buildParams(testData);
   const scoreClass = score >= 80 ? 'score-good' : score >= 50 ? 'score-warn' : 'score-critical';
   const headline = scoreHeadline(score, params);
-  const primaryAction = getPrimaryAction(params, poolProfile);
-  const recommendations = getRecommendations(params, poolProfile);
+  const primaryAction = getPrimaryAction(testData, poolProfile);
+  const recommendations = getRecommendations(testData, poolProfile);
 
   return (
     <div>
@@ -503,7 +503,7 @@ function HealthScorePage({ testData, poolProfile }) {
       {/* Secondary recommendations */}
       {recommendations.length > 0 && (
         <div className="card-section" style={{ marginTop: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 12 }}>Recommendations</div>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>What to do — in order</div>
           <div className="stack">
             {recommendations.map((r, i) => (
               <div key={i} className={`callout callout-${r.type}`}>
@@ -527,25 +527,45 @@ function HealthScorePage({ testData, poolProfile }) {
 // ─────────────────────────────────────────────────────────────────
 function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile }) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    freeChlor: '', pH: '', alkalinity: '', cyanuricAcid: '', calciumHardness: ''
-  });
+  const EMPTY_FORM = {
+    freeChlor: '', pH: '', alkalinity: '', cyanuricAcid: '', calciumHardness: '',
+    salt: '', phosphates: '', tds: '',
+  };
+  const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+
+  const saltPool = isSaltPool(poolProfile?.sanitiser);
+
+  // Core fields, plus salt for salt/mineral pools, plus optional advanced fields.
+  const formFields = [
+    { key: 'freeChlor',       label: 'Free chlorine',    unit: 'ppm', placeholder: '1.0–3.0' },
+    { key: 'pH',              label: 'pH',               unit: '',    placeholder: '7.2–7.6' },
+    { key: 'alkalinity',      label: 'Total alkalinity', unit: 'ppm', placeholder: '80–120' },
+    { key: 'cyanuricAcid',    label: 'Cyanuric acid',    unit: 'ppm', placeholder: '30–50' },
+    { key: 'calciumHardness', label: 'Calcium hardness', unit: 'ppm', placeholder: '200–400' },
+    ...(saltPool ? [{ key: 'salt', label: 'Salt', unit: 'ppm', placeholder: '3000–4500' }] : []),
+    { key: 'phosphates', label: 'Phosphates', unit: 'ppb', placeholder: 'optional' },
+    { key: 'tds',        label: 'Total dissolved solids', unit: 'ppm', placeholder: 'optional' },
+  ];
 
   const handleSubmit = async () => {
     setSubmitting(true);
     await new Promise(r => setTimeout(r, 800)); // simulate save
-    onLogTest({
+    const data = {
       freeChlor: parseFloat(form.freeChlor) || 0,
       pH: parseFloat(form.pH) || 0,
       alkalinity: parseFloat(form.alkalinity) || 0,
       cyanuricAcid: parseFloat(form.cyanuricAcid) || 0,
       calciumHardness: parseFloat(form.calciumHardness) || 0,
       createdAt: new Date().toISOString(),
-    });
+    };
+    if (form.salt !== '')       data.salt = parseFloat(form.salt) || 0;
+    if (form.phosphates !== '') data.phosphates = parseFloat(form.phosphates) || 0;
+    if (form.tds !== '')        data.tds = parseFloat(form.tds) || 0;
+    onLogTest(data);
     setSubmitting(false);
     setShowForm(false);
-    setForm({ freeChlor: '', pH: '', alkalinity: '', cyanuricAcid: '', calciumHardness: '' });
+    setForm(EMPTY_FORM);
   };
 
   return (
@@ -569,13 +589,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile }) {
         <div className="card-section" style={{ marginBottom: 16 }}>
           <div className="eyebrow" style={{ marginBottom: 16 }}>Enter readings</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {[
-              { key: 'freeChlor',       label: 'Free chlorine',   unit: 'ppm', placeholder: '1.0–3.0' },
-              { key: 'pH',              label: 'pH',              unit: '',    placeholder: '7.2–7.6' },
-              { key: 'alkalinity',      label: 'Total alkalinity', unit: 'ppm', placeholder: '80–120' },
-              { key: 'cyanuricAcid',    label: 'Cyanuric acid',   unit: 'ppm', placeholder: '30–50' },
-              { key: 'calciumHardness', label: 'Calcium hardness', unit: 'ppm', placeholder: '200–400' },
-            ].map(f => (
+            {formFields.map(f => (
               <div key={f.key} className="input-group">
                 <label className="input-label">{f.label}{f.unit ? ` (${f.unit})` : ''}</label>
                 <input
@@ -1222,63 +1236,52 @@ function calculateScore(test) {
   return Math.min(100, Math.round(score));
 }
 
+// Acceptable ranges (Australian residential pool standards).
+const PARAM_RANGES = {
+  freeChlor:       { lo: 1,    hi: 3 },
+  pH:              { lo: 7.2,  hi: 7.6 },
+  alkalinity:      { lo: 80,   hi: 120 },
+  cyanuricAcid:    { lo: 30,   hi: 50 },
+  calciumHardness: { lo: 200,  hi: 400 },
+  salt:            { lo: 3000, hi: 4500 },
+  phosphates:      { lo: 0,    hi: 200 },
+  tds:             { lo: 0,    hi: 2000 },
+};
+
 function buildParams(test) {
-  return [
-    {
-      key: 'freeChlor',
-      name: 'Free Chlorine',
-      reading: `${test.freeChlor} ppm`,
-      target: '1.0–3.0',
-      ...statusForParam('freeChlor', test.freeChlor),
-    },
-    {
-      key: 'pH',
-      name: 'pH',
-      reading: `${test.pH}`,
-      target: '7.2–7.6',
-      ...statusForParam('pH', test.pH),
-    },
-    {
-      key: 'alkalinity',
-      name: 'Total Alkalinity',
-      reading: `${test.alkalinity} ppm`,
-      target: '80–120',
-      ...statusForParam('alkalinity', test.alkalinity),
-    },
-    {
-      key: 'cyanuricAcid',
-      name: 'Cyanuric Acid',
-      reading: `${test.cyanuricAcid} ppm`,
-      target: '30–50',
-      ...statusForParam('cyanuricAcid', test.cyanuricAcid),
-    },
-    {
-      key: 'calciumHardness',
-      name: 'Calcium Hardness',
-      reading: `${test.calciumHardness} ppm`,
-      target: '200–400',
-      ...statusForParam('calciumHardness', test.calciumHardness),
-    },
+  const params = [
+    { key: 'freeChlor',       name: 'Free Chlorine',    reading: `${test.freeChlor} ppm`,    target: '1.0–3.0', ...statusForParam('freeChlor', test.freeChlor) },
+    { key: 'pH',              name: 'pH',               reading: `${test.pH}`,               target: '7.2–7.6', ...statusForParam('pH', test.pH) },
+    { key: 'alkalinity',      name: 'Total Alkalinity', reading: `${test.alkalinity} ppm`,   target: '80–120',  ...statusForParam('alkalinity', test.alkalinity) },
+    { key: 'cyanuricAcid',    name: 'Cyanuric Acid',    reading: `${test.cyanuricAcid} ppm`, target: '30–50',   ...statusForParam('cyanuricAcid', test.cyanuricAcid) },
+    { key: 'calciumHardness', name: 'Calcium Hardness', reading: `${test.calciumHardness} ppm`, target: '200–400', ...statusForParam('calciumHardness', test.calciumHardness) },
   ];
+  if (test.salt != null && test.salt !== '')
+    params.push({ key: 'salt', name: 'Salt', reading: `${test.salt} ppm`, target: '3000–4500', ...statusForParam('salt', test.salt) });
+  if (test.phosphates != null && test.phosphates !== '')
+    params.push({ key: 'phosphates', name: 'Phosphates', reading: `${test.phosphates} ppb`, target: '< 200', ...statusForParam('phosphates', test.phosphates) });
+  if (test.tds != null && test.tds !== '')
+    params.push({ key: 'tds', name: 'Total Dissolved Solids', reading: `${test.tds} ppm`, target: '< 2000', ...statusForParam('tds', test.tds) });
+  return params;
 }
 
 function statusForParam(key, val) {
-  const ranges = {
-    freeChlor:       { lo: 1, hi: 3 },
-    pH:              { lo: 7.2, hi: 7.6 },
-    alkalinity:      { lo: 80, hi: 120 },
-    cyanuricAcid:    { lo: 30, hi: 50 },
-    calciumHardness: { lo: 200, hi: 400 },
-  };
-  const r = ranges[key];
-  if (!val || !r) return { tagClass: 'tag-neutral', status: '— No data', label: `? ${key}` };
-  if (val >= r.lo && val <= r.hi) return { tagClass: 'tag-good', status: '✓ Good',       label: `✓ ${paramShort(key)}` };
-  if (val < r.lo)                  return { tagClass: 'tag-warn', status: '↑ Low',        label: `↑ ${paramShort(key)}` };
-  return                                  { tagClass: 'tag-warn', status: '↓ High',       label: `↓ ${paramShort(key)}` };
+  const r = PARAM_RANGES[key];
+  if (val === null || val === undefined || val === '' || !r) {
+    return { tagClass: 'tag-neutral', status: '— No data', label: `? ${key}`, state: 'none' };
+  }
+  const n = Number(val);
+  if (!Number.isFinite(n)) return { tagClass: 'tag-neutral', status: '— No data', label: `? ${key}`, state: 'none' };
+  if (n >= r.lo && n <= r.hi) return { tagClass: 'tag-good', status: '✓ Good', label: `✓ ${paramShort(key)}`, state: 'ok' };
+  if (n < r.lo)               return { tagClass: 'tag-warn', status: '↓ Low',  label: `↓ ${paramShort(key)}`, state: 'low' };
+  return                             { tagClass: 'tag-warn', status: '↑ High', label: `↑ ${paramShort(key)}`, state: 'high' };
 }
 
 function paramShort(key) {
-  return { freeChlor: 'Chlorine', pH: 'pH', alkalinity: 'Alkalinity', cyanuricAcid: 'Cyanuric', calciumHardness: 'Calcium' }[key] || key;
+  return {
+    freeChlor: 'Chlorine', pH: 'pH', alkalinity: 'Alkalinity', cyanuricAcid: 'Cyanuric',
+    calciumHardness: 'Calcium', salt: 'Salt', phosphates: 'Phosphate', tds: 'TDS',
+  }[key] || key;
 }
 
 function scoreHeadline(score, params) {
@@ -1300,47 +1303,201 @@ function poolKl(pool) {
   return 30;
 }
 
-function getPrimaryAction(params, pool) {
-  const alk = params.find(p => p.key === 'alkalinity');
-  if (alk?.tagClass === 'tag-warn') {
-    const vol = poolKl(pool);
-    const dose = Math.round(vol * 15);
-    return {
-      dose: `Add ${dose}g of sodium bicarbonate`,
-      reason: `to raise alkalinity from ${alk.reading.replace(' ppm', '')} to 80–120 ppm. Re-test in 24 hours after circulation.`,
-    };
+// ─────────────────────────────────────────────────────────────────
+// RECOMMENDATION ENGINE
+// Volume-scaled doses, "or" alternatives, correct balancing order,
+// and cross-parameter interaction notes.
+// ─────────────────────────────────────────────────────────────────
+
+function hasVolume(pool) {
+  return !!(pool && pool.volumeL && pool.volumeL > 0);
+}
+
+const isSaltPool = (s) => /salt|mineral/i.test(s || '');
+
+// Dose formatting
+const fmtMass = (g)  => (!g  || g  <= 0) ? null : (g  >= 1000 ? `${(g / 1000).toFixed(1)} kg` : `${Math.round(g / 5) * 5} g`);
+const fmtVol  = (ml) => (!ml || ml <= 0) ? null : (ml >= 1000 ? `${(ml / 1000).toFixed(1)} L`  : `${Math.round(ml / 10) * 10} mL`);
+
+// Midpoint each parameter is dosed toward
+const TARGET_MID = {
+  pH: 7.4, freeChlor: 2.0, alkalinity: 100, cyanuricAcid: 40,
+  calciumHardness: 300, salt: 3500, phosphates: 0, tds: 0,
+};
+
+// Correct order to balance a pool: alkalinity buffers pH (first),
+// salt must be present before the chlorinator works, chlorine goes in last.
+const BALANCE_ORDER = ['alkalinity', 'pH', 'calciumHardness', 'cyanuricAcid', 'salt', 'freeChlor', 'phosphates', 'tds'];
+
+const ACTION_LABEL = {
+  pH:              { low: 'Raise pH',                high: 'Lower pH' },
+  freeChlor:       { low: 'Raise chlorine',         high: 'Lower chlorine' },
+  alkalinity:      { low: 'Raise Total Alkalinity', high: 'Lower Total Alkalinity' },
+  cyanuricAcid:    { low: 'Raise stabiliser',       high: 'Lower stabiliser' },
+  calciumHardness: { low: 'Raise calcium hardness', high: 'Lower calcium hardness' },
+  salt:            { low: 'Raise salt',             high: 'Lower salt' },
+  phosphates:      { low: 'Remove phosphates',      high: 'Remove phosphates' },
+  tds:             { low: 'Reduce TDS',             high: 'Reduce TDS' },
+};
+
+// Dose options for one parameter. `kl` is pool volume in 1000-L units (0 = unknown).
+function doseOptions(key, state, val, kl, saltPool) {
+  const t = TARGET_MID[key];
+  const d = state === 'low' ? (t - val) : (val - t);
+  switch (key) {
+    case 'pH':
+      return state === 'low'
+        ? [{ name: 'soda ash (sodium carbonate)', amount: fmtMass(kl * 60 * d) }]
+        : [{ name: 'dry acid (sodium bisulphate)', amount: fmtMass(kl * 80 * d) },
+           { name: 'hydrochloric acid (liquid)',   amount: fmtVol(kl * 80 * d) }];
+    case 'freeChlor': {
+      if (state === 'low') {
+        const o = [
+          { name: 'liquid chlorine (sodium hypochlorite)',    amount: fmtVol(kl * 8 * d) },
+          { name: 'granular chlorine (calcium hypochlorite)', amount: fmtMass(kl * 1.4 * d) },
+        ];
+        if (saltPool) o.unshift({ name: 'increase chlorinator output or run time', amount: null });
+        return o;
+      }
+      return [
+        { name: 'let chlorine reduce naturally (sunlight)', amount: null },
+        { name: 'chlorine remover (sodium thiosulphate)',   amount: fmtMass(kl * 2.5 * d) },
+      ];
+    }
+    case 'alkalinity':
+      return state === 'low'
+        ? [{ name: 'buffer / bicarb soda (sodium bicarbonate)', amount: fmtMass(kl * 1.7 * d) }]
+        : [{ name: 'dry acid (sodium bisulphate)', amount: fmtMass(kl * 1.9 * d) },
+           { name: 'hydrochloric acid (liquid)',   amount: fmtVol(kl * 1.6 * d) }];
+    case 'cyanuricAcid':
+      return state === 'low'
+        ? [{ name: 'stabiliser / conditioner (cyanuric acid)', amount: fmtMass(kl * 1.0 * d) }]
+        : [{ name: 'partial drain & refill, or consult your pool professional', amount: null }];
+    case 'calciumHardness':
+      return state === 'low'
+        ? [{ name: 'calcium chloride (hardness increaser)', amount: fmtMass(kl * 1.5 * d) }]
+        : [{ name: 'partial drain & refill, or consult your pool professional', amount: null },
+           { name: 'scale inhibitor / sequestrant', amount: null }];
+    case 'salt':
+      return state === 'low'
+        ? [{ name: 'pool salt', amount: fmtMass(kl * 1.0 * d) }]
+        : [{ name: 'partial drain & refill, or consult your pool professional', amount: null }];
+    case 'phosphates':
+      return [{ name: 'phosphate remover (lanthanum-based) — dose per product label', amount: null }];
+    case 'tds':
+      return [{ name: 'partial drain & refill, or consult your pool professional', amount: null }];
+    default:
+      return [{ name: 'needs attention', amount: null }];
   }
-  const fc = params.find(p => p.key === 'freeChlor');
-  if (fc?.status === '↑ Low') {
-    const vol = poolKl(pool);
-    const dose = Math.round(vol * 7);
-    return {
-      dose: `Add ${dose}g of granular chlorine`,
-      reason: `to raise free chlorine from ${fc.reading.replace(' ppm', '')} to 1.0–3.0 ppm.`,
-    };
-  }
-  const pH = params.find(p => p.key === 'pH');
-  if (pH?.status === '↓ High') {
-    return {
-      dose: 'Add 200 mL of muriatic acid in stages',
-      reason: 'to lower pH to 7.2–7.6. Add with pump running and re-test in 4 hours.',
-    };
-  }
+}
+
+// One-line sequencing hint for the ordered plan.
+function planNote(key, state, statuses) {
+  const alkOff = statuses.alkalinity === 'low' || statuses.alkalinity === 'high';
+  if (key === 'alkalinity') return 'Start here — correct alkalinity first so pH holds steady.';
+  if (key === 'pH' && alkOff) return 'Do this after alkalinity, and re-test pH first — it often shifts once alkalinity is right.';
+  if (key === 'freeChlor' && state === 'low') return 'Add chlorine last — it can nudge pH up, so re-check pH afterwards.';
+  if (key === 'salt' && state === 'low') return 'Add salt before relying on the chlorinator.';
   return null;
 }
 
-function getRecommendations(params, pool) {
-  const recs = [];
-  const allGood = params.every(p => p.tagClass === 'tag-good');
-  if (allGood) {
-    recs.push({
-      type: 'success',
-      iconColor: 'var(--green)',
-      icon: Icon.check,
-      text: <><strong>All readings on target.</strong> No action needed — your next test is due in three days.</>,
-    });
+// Cross-parameter interaction notes.
+function interactionNotes(key, state, statuses) {
+  const out = [];
+  const alkOff = statuses.alkalinity === 'low' || statuses.alkalinity === 'high';
+  if (key === 'pH') {
+    if (state === 'low') {
+      if (alkOff) out.push('Balance Total Alkalinity first — unstable alkalinity makes pH swing. Re-test pH afterwards; it often corrects itself.');
+      out.push('Soda ash lifts alkalinity slightly as well.');
+    } else {
+      out.push(statuses.alkalinity === 'high'
+        ? 'Bonus: acid brings pH and alkalinity down together.'
+        : 'Acid lowers alkalinity too. If it drops low, aerate the water to lift pH back up without chemicals.');
+    }
+  } else if (key === 'alkalinity') {
+    if (state === 'low') out.push('Fix alkalinity before pH — it buffers pH swings. Bicarb nudges pH up a little.');
+    else out.push(statuses.pH === 'high'
+      ? 'Acid will bring pH down at the same time — adjust both and re-test.'
+      : 'Acid lowers pH as well; aerate afterwards to bring pH back up.');
+  } else if (key === 'freeChlor' && state === 'low') {
+    out.push('Add chlorine last. Liquid chlorine is alkaline and nudges pH up; cal hypo also raises pH and adds calcium. Re-check pH after dosing.');
+  } else if (key === 'cyanuricAcid' && state === 'low') {
+    out.push('Stabiliser is mildly acidic and can lower pH slightly as it dissolves.');
+  } else if (key === 'salt' && state === 'low') {
+    out.push('Salt must fully dissolve before the chlorinator can use it.');
   }
-  return recs;
+  return out;
+}
+
+// Ordered list of corrective steps for the current test.
+function buildSteps(test, pool) {
+  if (!test) return [];
+  const kl = hasVolume(pool) ? pool.volumeL / 1000 : 0;
+  const saltPool = isSaltPool(pool?.sanitiser);
+  const statuses = {};
+  BALANCE_ORDER.forEach(key => { statuses[key] = statusForParam(key, test[key]).state; });
+
+  return BALANCE_ORDER
+    .filter(key => statuses[key] === 'low' || statuses[key] === 'high')
+    .map(key => {
+      const state = statuses[key];
+      const note = planNote(key, state, statuses);
+      return {
+        key,
+        action: ACTION_LABEL[key]?.[state] || key,
+        options: doseOptions(key, state, Number(test[key]), kl, saltPool),
+        notes: [note, ...interactionNotes(key, state, statuses)].filter(Boolean),
+        volumeKnown: kl > 0,
+      };
+    });
+}
+
+const optionText = (opt) => (opt.amount ? `add about ${opt.amount} ${opt.name}` : opt.name);
+
+function getPrimaryAction(test, pool) {
+  const steps = buildSteps(test, pool);
+  if (!steps.length) return null;
+  const s = steps[0];
+  const primary = s.options[0];
+  return {
+    dose: s.action,
+    reason: <>— {optionText(primary)}{s.options[1] ? <>, or {optionText(s.options[1])}</> : null}. {s.notes[0] || 'Re-test before adding more.'}</>,
+  };
+}
+
+function getRecommendations(test, pool) {
+  const steps = buildSteps(test, pool);
+  if (!steps.length) {
+    return [{
+      type: 'success', iconColor: 'var(--green)', icon: Icon.check,
+      text: <><strong>All readings on target.</strong> No action needed — your next test is due in three days.</>,
+    }];
+  }
+  const multi = steps.length > 1;
+  return steps.map((s, i) => ({
+    type: 'action', iconColor: 'var(--amber)', icon: Icon.tip,
+    text: (
+      <>
+        <strong>{multi ? `${i + 1}. ` : ''}{s.action}</strong>
+        <div style={{ marginTop: 4 }}>
+          {s.options.map((opt, j) => (
+            <span key={j}>
+              {j > 0 ? <span style={{ color: 'var(--gray-light)' }}> — or — </span> : null}
+              {opt.amount ? <><strong>{opt.amount}</strong> {opt.name}</> : opt.name}
+            </span>
+          ))}
+        </div>
+        {!s.volumeKnown && (
+          <div style={{ marginTop: 4, fontSize: 13, color: 'var(--gray-light)' }}>
+            Set your pool volume in Setup to see exact quantities.
+          </div>
+        )}
+        {s.notes.map((n, k) => (
+          <div key={k} style={{ marginTop: 4, fontSize: 13, color: 'var(--gray-mid)' }}>{n}</div>
+        ))}
+      </>
+    ),
+  }));
 }
 
 function formatRelative(iso) {
@@ -1361,6 +1518,94 @@ function formatDate(iso) {
 // ─────────────────────────────────────────────────────────────────
 // APP ROOT
 // ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+// VOLUME GATE — blocks saving a test until a pool volume is known.
+// ─────────────────────────────────────────────────────────────────
+function VolumeGateModal({ onCancel, onConfirm }) {
+  const [litres, setLitres] = useState('');
+  const [dims, setDims] = useState({ length: '', width: '', depth: '' });
+
+  const estimate = (() => {
+    const l = parseFloat(dims.length), w = parseFloat(dims.width), d = parseFloat(dims.depth);
+    if (l > 0 && w > 0 && d > 0) return Math.round(l * w * d * 1000);
+    return null;
+  })();
+
+  const value = parseInt(litres, 10);
+  const valid = Number.isFinite(value) && value > 0;
+
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal-panel" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">One quick thing — your pool volume</div>
+        <div className="modal-body" style={{ marginBottom: 16 }}>
+          Your dose recommendations are calculated from your pool's volume. Enter it once
+          and we'll remember it for every future test.
+        </div>
+
+        <div className="input-group" style={{ marginBottom: 16 }}>
+          <label className="input-label" htmlFor="vg-litres">Pool volume (litres)</label>
+          <input
+            id="vg-litres"
+            className="input"
+            type="number"
+            inputMode="numeric"
+            placeholder="e.g. 50000"
+            value={litres}
+            onChange={e => setLitres(e.target.value)}
+          />
+        </div>
+
+        <div style={{ fontSize: 13, color: 'var(--gray-mid)', marginBottom: 8 }}>
+          Not sure? Estimate it from the pool's size (metres):
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+          {[
+            { key: 'length', label: 'Length' },
+            { key: 'width',  label: 'Width' },
+            { key: 'depth',  label: 'Avg depth' },
+          ].map(f => (
+            <div key={f.key} className="input-group">
+              <label className="input-label">{f.label}</label>
+              <input
+                className="input"
+                type="number"
+                inputMode="decimal"
+                placeholder="m"
+                value={dims[f.key]}
+                onChange={e => setDims(v => ({ ...v, [f.key]: e.target.value }))}
+              />
+            </div>
+          ))}
+        </div>
+        {estimate && (
+          <div style={{ fontSize: 13, marginBottom: 16 }}>
+            Estimated ≈ <strong>{estimate.toLocaleString()} L</strong>{' '}
+            <button
+              className="btn btn-ghost btn-sm"
+              type="button"
+              onClick={() => setLitres(String(estimate))}
+            >
+              Use this
+            </button>
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn btn-ghost btn-sm" onClick={onCancel}>Not now</button>
+          <button
+            className="btn btn-primary btn-sm"
+            disabled={!valid}
+            onClick={() => onConfirm(value)}
+          >
+            Save volume &amp; log test
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const DEFAULT_POOL = {
   id: null,
   name: 'My pool',
@@ -1383,6 +1628,7 @@ export default function App() {
   const [testHistory, setTestHistory] = useState([]);   // all tests
   const [poolProfile, setPoolProfile] = useState(DEFAULT_POOL);
   const [showScan, setShowScan] = useState(false);
+  const [pendingTest, setPendingTest] = useState(null); // test awaiting a pool volume
   const [trialDaysLeft, setTrialDaysLeft] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
   const [equipment, setEquipment] = useState([]);
@@ -1431,18 +1677,33 @@ export default function App() {
       .catch(err => console.error('Failed to save test:', err));
   };
 
-  const handleLogTest = (data) => {
+  // Commit a test once we're sure a pool volume exists.
+  const finalizeTest = (data) => {
     setTestData(data);
     setTestHistory(h => [...h, data]);
     persistTest(data);
     setActiveView('health');
   };
 
-  const handleScanComplete = (data) => {
-    setTestData(data);
-    setTestHistory(h => [...h, data]);
-    persistTest({ ...data, source: 'ocr' });
-    setActiveView('health');
+  // Doses are useless without a real pool volume, so a test cannot be saved
+  // until one is set. If it's missing, hold the test and open the volume gate.
+  const guardAndSave = (data) => {
+    if (hasVolume(poolProfile)) {
+      finalizeTest(data);
+    } else {
+      setPendingTest(data);
+    }
+  };
+
+  const handleLogTest = (data) => guardAndSave(data);
+  const handleScanComplete = (data) => guardAndSave({ ...data, source: 'ocr' });
+
+  // Volume captured in the gate → save to profile, then commit the held test.
+  const handleVolumeConfirmed = (volumeL) => {
+    handleSavePool({ volumeL });
+    const held = pendingTest;
+    setPendingTest(null);
+    if (held) finalizeTest(held);
   };
 
   const handleSavePool = (profile) => {
@@ -1580,6 +1841,14 @@ export default function App() {
         <WaterTestScanner
           onClose={() => setShowScan(false)}
           onComplete={handleScanComplete}
+        />
+      )}
+
+      {/* Volume gate — a test can't be saved without a pool volume (doses need it) */}
+      {pendingTest && (
+        <VolumeGateModal
+          onCancel={() => setPendingTest(null)}
+          onConfirm={handleVolumeConfirmed}
         />
       )}
 

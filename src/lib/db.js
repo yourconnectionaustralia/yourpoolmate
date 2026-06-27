@@ -15,6 +15,8 @@ export function rowToTest(r) {
     cyanuricAcid:    r.cyanuric_acid ?? 0,
     calciumHardness: r.calcium ?? 0,
     ...(r.salt != null ? { salt: r.salt } : {}),
+    ...(r.phosphates != null ? { phosphates: r.phosphates } : {}),
+    ...(r.tds != null ? { tds: r.tds } : {}),
     createdAt: r.tested_at,
     source: r.source || 'manual',
   };
@@ -40,6 +42,8 @@ export async function saveTest(userId, poolId, test, healthScore) {
     cyanuric_acid:  test.cyanuricAcid || null,
     calcium:        test.calciumHardness || null,
     salt:           test.salt ?? null,
+    phosphates:     test.phosphates ?? null,
+    tds:            test.tds ?? null,
     health_score:   Number.isFinite(healthScore) ? Math.round(healthScore) : null,
     source:         test.source || 'manual',
     tested_at:      test.createdAt || new Date().toISOString(),
