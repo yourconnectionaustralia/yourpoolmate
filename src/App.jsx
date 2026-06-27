@@ -1637,12 +1637,20 @@ export default function App() {
 
   // Load everything from Supabase once signed in (and again after onboarding)
   const loadAll = async (uid) => {
+    // Each load is independent and time-boxed, so one slow or failing table
+    // can never stall or blank the whole dashboard.
+    const withTimeout = (p, label, ms = 12000) =>
+      Promise.race([
+        Promise.resolve(p),
+        new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out`)), ms)),
+      ]).catch((err) => { console.error(`Failed to load ${label}:`, err); return null; });
+
     try {
       const [profile, pool, tests, equip] = await Promise.all([
-        db.loadUserProfile(uid),
-        db.loadPoolProfile(uid),
-        db.loadTests(uid),
-        db.loadEquipment(uid),
+        withTimeout(db.loadUserProfile(uid), 'profile'),
+        withTimeout(db.loadPoolProfile(uid), 'pool'),
+        withTimeout(db.loadTests(uid), 'tests'),
+        withTimeout(db.loadEquipment(uid), 'equipment'),
       ]);
       if (profile) {
         setIsPremium(!!profile.is_premium);
@@ -1652,11 +1660,13 @@ export default function App() {
         }
       }
       if (pool) setPoolProfile(pool);
-      setTestHistory(tests);
-      setTestData(tests.length ? tests[tests.length - 1] : null);
-      setEquipment(equip);
+      if (Array.isArray(tests)) {
+        setTestHistory(tests);
+        setTestData(tests.length ? tests[tests.length - 1] : null);
+      }
+      if (Array.isArray(equip)) setEquipment(equip);
     } catch (err) {
-      console.error('Failed to load data:', err);
+      console.error('Unexpected load error:', err);
     } finally {
       setDataReady(true);
     }
