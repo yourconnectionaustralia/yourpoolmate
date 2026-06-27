@@ -16,25 +16,36 @@ export function AuthProvider({ children }) {
   const [recoveryMode, setRecoveryMode] = useState(false)
 
   useEffect(() => {
+    // Safety net: never let the app hang on the spinner. If auth init stalls
+    // for any reason (network, SDK lock), fall through to the login screen.
+    const watchdog = setTimeout(() => setLoading(false), 8000)
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
-        checkUserStatus(session.user)
+        // Defer DB calls so they don't run while the SDK auth lock is held.
+        setTimeout(() => checkUserStatus(session.user), 0)
       } else {
         setLoading(false)
       }
+    }).catch((err) => {
+      console.error('getSession failed:', err)
+      setLoading(false)
     })
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
 
         if (event === 'SIGNED_IN' && session?.user) {
-          await checkUserStatus(session.user)
+          // Defer DB calls out of the auth callback — awaiting Supabase queries
+          // inside onAuthStateChange can deadlock the SDK lock and hang the app
+          // on the loading spinner.
+          setTimeout(() => checkUserStatus(session.user), 0)
         }
 
         if (event === 'PASSWORD_RECOVERY') {
@@ -56,7 +67,7 @@ export function AuthProvider({ children }) {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => { subscription.unsubscribe(); clearTimeout(watchdog) }
   }, [])
 
   async function checkUserStatus(user) {
