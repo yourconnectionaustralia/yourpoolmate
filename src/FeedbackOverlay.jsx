@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from './supabase.js';
+import { supabase } from './lib/supabase.js';
 
 // ─────────────────────────────────────────────────────────────────
 // Page label map — must match the activeView keys in App.jsx
