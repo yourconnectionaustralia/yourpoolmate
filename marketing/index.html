@@ -245,12 +245,12 @@
     }
     .hero h1 em { font-style: italic; color: var(--gray-mid); }
     .hero-sub {
-      font-size: 18px; font-weight: 300; line-height: 1.65; color: var(--gray-mid);
+      font-size: 18px; font-weight: 400; line-height: 1.65; color: var(--gray-mid);
       max-width: 520px; margin: 0 auto 20px;
       animation: fadeUp 0.6s 0.2s ease both;
     }
     .hero-body {
-      font-size: 15px; font-weight: 300; line-height: 1.7; color: var(--gray-mid);
+      font-size: 17px; font-weight: 400; line-height: 1.7; color: var(--gray-mid);
       max-width: 540px; margin: 0 auto 36px;
       animation: fadeUp 0.6s 0.25s ease both;
     }
@@ -383,7 +383,7 @@
     }
     .problem-left h2 em { font-style: italic; color: var(--gray-mid); }
     .problem-left p {
-      font-size: 16px; line-height: 1.7; color: var(--gray-mid); margin-bottom: 28px; font-weight: 300;
+      font-size: 16px; line-height: 1.7; color: var(--gray-mid); margin-bottom: 28px; font-weight: 400;
     }
     .problem-stat { padding: 20px 0; border-top: 1px solid var(--gray-line); }
     .stat-num {
@@ -688,6 +688,15 @@
     @media (max-width: 600px) {
       .score-headline { flex-direction: column; align-items: flex-start; gap: 8px; }
       .score-big-mk { font-size: 52px; }
+    }
+    /* Crystal Clear: motion respects reduced-motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
     }
   </style>
 </head>
