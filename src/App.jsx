@@ -4,6 +4,7 @@ import WaterTestScanner from './components/WaterTestScanner.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
 import GuestOnboarding from './components/GuestOnboarding.jsx';
 import LoadingScreen from './components/LoadingScreen.jsx';
+import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
 
@@ -403,7 +404,7 @@ function MobileMoreDrawer({ activeView, onNav, onClose }) {
 // ─────────────────────────────────────────────────────────────────
 // HEALTH SCORE PAGE
 // ─────────────────────────────────────────────────────────────────
-function HealthScorePage({ testData, poolProfile }) {
+function HealthScorePage({ testData, poolProfile, onLogFirst }) {
   const score = testData ? calculateScore(testData) : null;
   const lastTest = testData?.createdAt;
   const poolLabel = poolProfile
@@ -422,7 +423,7 @@ function HealthScorePage({ testData, poolProfile }) {
             <div className="empty-state-body">
               Add your first water test and your Health Score will appear here within seconds.
             </div>
-            <button className="btn btn-primary btn-sm">Log first water test</button>
+            <button className="btn btn-primary btn-sm" onClick={onLogFirst}>Log first water test</button>
           </div>
         </div>
       </div>
@@ -525,7 +526,7 @@ function HealthScorePage({ testData, poolProfile }) {
 // ─────────────────────────────────────────────────────────────────
 // WATER TESTS PAGE
 // ─────────────────────────────────────────────────────────────────
-function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile }) {
+function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, autoOpenForm, onAutoOpened }) {
   const [showForm, setShowForm] = useState(false);
   const EMPTY_FORM = {
     freeChlor: '', pH: '', alkalinity: '', cyanuricAcid: '', calciumHardness: '',
@@ -533,6 +534,14 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile }) {
   };
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+
+  // Open the entry form when a nav "Log test" action requests it, then clear the trigger.
+  useEffect(() => {
+    if (autoOpenForm) {
+      setShowForm(true);
+      onAutoOpened?.();
+    }
+  }, [autoOpenForm, onAutoOpened]);
 
   const saltPool = isSaltPool(poolProfile?.sanitiser);
 
@@ -665,7 +674,84 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile }) {
 // ─────────────────────────────────────────────────────────────────
 // CHEMISTRY LOG PAGE
 // ─────────────────────────────────────────────────────────────────
-function ChemistryLogPage({ history }) {
+// "Untested for more than 2 months" threshold.
+const GAP_DAYS = 60;
+
+// Manual event types offered in the "Add event" form.
+const EVENT_TYPE_OPTIONS = [
+  { value: 'green_treatment', label: 'Green-pool treatment' },
+  { value: 'shock',           label: 'Shock dose' },
+  { value: 'drain_refill',    label: 'Drain / refill' },
+  { value: 'new_equipment',   label: 'New equipment' },
+  { value: 'custom',          label: 'Other / custom' },
+];
+
+function eventMeta(type) {
+  return {
+    green_treatment: { color: 'var(--green)',     label: 'Green-pool treatment' },
+    shock:           { color: 'var(--blue)',      label: 'Shock dose' },
+    new_equipment:   { color: 'var(--color-sky)', label: 'New equipment' },
+    drain_refill:    { color: 'var(--blue)',      label: 'Drain / refill' },
+    treatment:       { color: 'var(--green)',     label: 'Treatment' },
+    custom:          { color: 'var(--gray-mid)',  label: 'Event' },
+  }[type] || { color: 'var(--gray-mid)', label: 'Event' };
+}
+
+// Auto-detect stretches with no test for > 2 months (incl. an ongoing gap to today).
+function deriveGaps(history) {
+  if (!history || history.length === 0) return [];
+  const sorted = history.slice().sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+  const gaps = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const a = +new Date(sorted[i - 1].createdAt);
+    const b = +new Date(sorted[i].createdAt);
+    const days = Math.round((b - a) / 86400000);
+    if (days > GAP_DAYS) gaps.push({ start: sorted[i - 1].createdAt, end: sorted[i].createdAt, days });
+  }
+  const last = +new Date(sorted[sorted.length - 1].createdAt);
+  const sinceDays = Math.round((Date.now() - last) / 86400000);
+  if (sinceDays > GAP_DAYS) {
+    gaps.push({ start: sorted[sorted.length - 1].createdAt, end: new Date().toISOString(), days: sinceDays, ongoing: true });
+  }
+  return gaps;
+}
+
+// Auto "new equipment" markers, pulled from the equipment register.
+function deriveEquipmentEvents(equipment) {
+  return (equipment || []).filter(e => e.created_at).map(e => {
+    const make = [e.brand, e.model].filter(Boolean).join(' ');
+    return {
+      id: `eq-${e.id}`,
+      type: 'new_equipment',
+      title: make ? `${e.type}: ${make}` : e.type,
+      date: e.created_at,
+      source: 'auto',
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CHEMISTRY LOG PAGE  (trend graph + events + history table)
+// ─────────────────────────────────────────────────────────────────
+function ChemistryLogPage({ history, events = [], equipment = [], onAddEvent, onDeleteEvent }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ type: 'green_treatment', title: '', date: today, notes: '' });
+
+  const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const submitEvent = () => {
+    if (!form.title.trim()) return;
+    onAddEvent?.({
+      type: form.type,
+      title: form.title.trim(),
+      date: new Date(`${form.date}T12:00:00`).toISOString(),
+      notes: form.notes.trim(),
+    });
+    setForm({ type: 'green_treatment', title: '', date: today, notes: '' });
+    setShowForm(false);
+  };
+
   if (!history || history.length === 0) {
     return (
       <div>
@@ -684,11 +770,121 @@ function ChemistryLogPage({ history }) {
     );
   }
 
+  const scored = history.map(t => ({ ...t, score: calculateScore(t) }));
+  const equipEvents = deriveEquipmentEvents(equipment);
+  const allEvents = [...events, ...equipEvents].sort((a, b) => +new Date(a.date) - +new Date(b.date));
+  const gaps = deriveGaps(history);
+
   return (
     <div>
       <h1 className="page-title">Chemistry log</h1>
       <p className="page-subtitle">{history.length} tests logged</p>
+
+      {/* Trend graph */}
       <div className="card-section">
+        <div className="eyebrow" style={{ marginBottom: 12 }}>Trends over time</div>
+        {history.length < 2 ? (
+          <p style={{ fontSize: 14, color: 'var(--gray-mid)', marginBottom: 12 }}>
+            One test logged. Log another and the line graph will chart your trend.
+          </p>
+        ) : null}
+        <WaterTrendChart history={scored} events={allEvents} gaps={gaps} />
+      </div>
+
+      {/* Events */}
+      <div className="card-section">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div className="eyebrow" style={{ margin: 0 }}>Pool events</div>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowForm(s => !s)}>
+            {showForm ? 'Cancel' : '+ Add event'}
+          </button>
+        </div>
+
+        {showForm && (
+          <div style={{ marginBottom: 16 }}>
+            <div className="input-group">
+              <label className="input-label">Event type</label>
+              <select className="input" value={form.type} onChange={e => setField('type', e.target.value)}>
+                {EVENT_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="input-group">
+              <label className="input-label">Description</label>
+              <input
+                className="input"
+                placeholder="e.g. Treated green pool — 2 L liquid chlorine + flocculant"
+                value={form.title}
+                onChange={e => setField('title', e.target.value)}
+              />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Date</label>
+              <input className="input" type="date" max={today} value={form.date} onChange={e => setField('date', e.target.value)} />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Notes (optional)</label>
+              <input className="input" value={form.notes} onChange={e => setField('notes', e.target.value)} />
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={submitEvent} disabled={!form.title.trim()}>
+              Save event
+            </button>
+          </div>
+        )}
+
+        {allEvents.length === 0 && gaps.length === 0 ? (
+          <p style={{ fontSize: 14, color: 'var(--gray-mid)' }}>
+            No events yet. Add green-pool treatments, shock doses or equipment changes to see them on your timeline.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {gaps.map((g, i) => (
+              <div key={`gap-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--gray-line)' }}>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--amber)', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-dark)' }}>
+                    Untested for {g.days} days{g.ongoing ? ' (ongoing)' : ''}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--gray-mid)' }}>
+                    {formatDate(g.start)} → {g.ongoing ? 'now' : formatDate(g.end)} · auto-detected
+                  </div>
+                </div>
+                <span className="tag tag-warn">Gap</span>
+              </div>
+            ))}
+            {allEvents.slice().reverse().map((e) => {
+              const m = eventMeta(e.type);
+              const isAuto = e.source === 'auto';
+              return (
+                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--gray-line)' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-dark)' }}>{e.title}</div>
+                    <div style={{ fontSize: 12, color: 'var(--gray-mid)' }}>
+                      {m.label} · {formatDate(e.date)}{e.notes ? ` · ${e.notes}` : ''}
+                    </div>
+                  </div>
+                  {isAuto ? (
+                    <span className="tag tag-neutral">auto</span>
+                  ) : (
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      aria-label="Delete event"
+                      onClick={() => onDeleteEvent?.(e.id)}
+                      style={{ minWidth: 44, minHeight: 44, padding: 0 }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* History table */}
+      <div className="card-section">
+        <div className="eyebrow" style={{ marginBottom: 12 }}>All tests</div>
         <table className="data-table">
           <thead>
             <tr>
@@ -1621,7 +1817,7 @@ const DEFAULT_POOL = {
 };
 
 export default function App() {
-  const { user, session, loading, trialExpired, hasPoolProfile, signOut } = useAuth();
+  const { user, session, loading, trialExpired, hasPoolProfile, recoveryMode, signOut } = useAuth();
 
   const [activeView, setActiveView] = useState('health');
   const [testData, setTestData] = useState(null);       // latest test
@@ -1632,25 +1828,26 @@ export default function App() {
   const [trialDaysLeft, setTrialDaysLeft] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
   const [equipment, setEquipment] = useState([]);
+  const [events, setEvents] = useState([]);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [dataReady, setDataReady] = useState(false);
+  const [openTestForm, setOpenTestForm] = useState(false); // one-shot: open the log form on the Tests page
+
+  // Shared action for every "Log test" entry point: go to Tests and open the form.
+  const goLogTest = () => {
+    setActiveView('tests');
+    setOpenTestForm(true);
+  };
 
   // Load everything from Supabase once signed in (and again after onboarding)
   const loadAll = async (uid) => {
-    // Each load is independent and time-boxed, so one slow or failing table
-    // can never stall or blank the whole dashboard.
-    const withTimeout = (p, label, ms = 12000) =>
-      Promise.race([
-        Promise.resolve(p),
-        new Promise((_, rej) => setTimeout(() => rej(new Error(`${label} timed out`)), ms)),
-      ]).catch((err) => { console.error(`Failed to load ${label}:`, err); return null; });
-
     try {
-      const [profile, pool, tests, equip] = await Promise.all([
-        withTimeout(db.loadUserProfile(uid), 'profile'),
-        withTimeout(db.loadPoolProfile(uid), 'pool'),
-        withTimeout(db.loadTests(uid), 'tests'),
-        withTimeout(db.loadEquipment(uid), 'equipment'),
+      const [profile, pool, tests, equip, evts] = await Promise.all([
+        db.loadUserProfile(uid),
+        db.loadPoolProfile(uid),
+        db.loadTests(uid),
+        db.loadEquipment(uid),
+        db.loadEvents(uid),
       ]);
       if (profile) {
         setIsPremium(!!profile.is_premium);
@@ -1660,13 +1857,12 @@ export default function App() {
         }
       }
       if (pool) setPoolProfile(pool);
-      if (Array.isArray(tests)) {
-        setTestHistory(tests);
-        setTestData(tests.length ? tests[tests.length - 1] : null);
-      }
-      if (Array.isArray(equip)) setEquipment(equip);
+      setTestHistory(tests);
+      setTestData(tests.length ? tests[tests.length - 1] : null);
+      setEquipment(equip);
+      setEvents(evts || []);
     } catch (err) {
-      console.error('Unexpected load error:', err);
+      console.error('Failed to load data:', err);
     } finally {
       setDataReady(true);
     }
@@ -1737,8 +1933,21 @@ export default function App() {
     db.deleteEquipment(id).catch(err => console.error('Failed to delete equipment:', err));
   };
 
+  const handleAddEvent = (event) => {
+    db.addEvent(user.id, poolProfile.id, event)
+      .then(saved => setEvents(e => [...e, saved]))
+      .catch(err => console.error('Failed to add event:', err));
+  };
+  const handleDeleteEvent = (id) => {
+    setEvents(e => e.filter(x => x.id !== id));
+    db.deleteEvent(id).catch(err => console.error('Failed to delete event:', err));
+  };
+
   // ── Auth / trial gates ──────────────────────────────────────
   if (loading) return <LoadingScreen />;
+  // Password recovery: the reset link creates a session, so gate on recoveryMode
+  // BEFORE the session check to show the "set a new password" screen.
+  if (recoveryMode) return <AuthScreen />;
   if (!session) return <AuthScreen />;
   if (trialExpired && !isPremium) return <TrialExpiredScreen />;
   if (!dataReady) return <LoadingScreen />;
@@ -1757,7 +1966,7 @@ export default function App() {
             <span className="topnav-trial-badge">{trialDaysLeft} {trialDaysLeft === 1 ? 'day' : 'days'} left</span>
           )}
           <button className="btn btn-ghost btn-sm">Help</button>
-          <button className="btn btn-nav" onClick={() => setActiveView('tests')}>
+          <button className="btn btn-nav" onClick={goLogTest}>
             Log test
           </button>
         </div>
@@ -1773,7 +1982,7 @@ export default function App() {
 
         <main className="main-content">
           {activeView === 'health' && (
-            <HealthScorePage testData={testData} poolProfile={poolProfile} />
+            <HealthScorePage testData={testData} poolProfile={poolProfile} onLogFirst={goLogTest} />
           )}
           {activeView === 'tests' && (
             <WaterTestsPage
@@ -1781,10 +1990,18 @@ export default function App() {
               onLogTest={handleLogTest}
               onScanTest={() => setShowScan(true)}
               poolProfile={poolProfile}
+              autoOpenForm={openTestForm}
+              onAutoOpened={() => setOpenTestForm(false)}
             />
           )}
           {activeView === 'history' && (
-            <ChemistryLogPage history={testHistory} />
+            <ChemistryLogPage
+              history={testHistory}
+              events={events}
+              equipment={equipment}
+              onAddEvent={handleAddEvent}
+              onDeleteEvent={handleDeleteEvent}
+            />
           )}
           {activeView === 'setup' && (
             <SetupPage poolProfile={poolProfile} onSave={handleSavePool} />
@@ -1868,7 +2085,7 @@ export default function App() {
         onNav={(view) => { setActiveView(view); setMobileDrawerOpen(false); }}
         pendingActions={pendingActions}
         onMore={() => setMobileDrawerOpen(v => !v)}
-        onLogTest={() => setActiveView('tests')}
+        onLogTest={goLogTest}
       />
 
       {/* Mobile More drawer */}
