@@ -79,8 +79,9 @@ const Icon = {
     </svg>
   ),
   logoBig: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3c-3 4-6 7-6 11a6 6 0 0 0 12 0c0-4-3-7-6-11z"/>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="8.4" fill="none" stroke="white" strokeWidth="2.1"/>
+      <path d="M3.68 13.5 Q 7.8 11.55 12 13.5 T 20.33 13.5 A 8.4 8.4 0 0 1 3.68 13.5 Z" fill="white"/>
     </svg>
   ),
   menu: (
@@ -112,7 +113,7 @@ function HealthScoreRing({ score, size = 88 }) {
         />
       </svg>
       <div className="score-ring-label">
-        <span className="score-number score-number-lg">{score}</span>
+        <span className="score-number score-number-lg" style={{ fontSize: Math.round(size * 0.46) }}>{score}</span>
         <span className="score-of">/ 100</span>
       </div>
     </div>
@@ -448,7 +449,7 @@ function HealthScorePage({ testData, poolProfile, onLogFirst }) {
       {/* Score card */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="score-card-row">
-          <HealthScoreRing score={score} />
+          <HealthScoreRing score={score} size={160} />
           <div className="score-summary">
             <div className="score-eyebrow">Health Score · updated {formatRelative(lastTest)}</div>
             <div className="score-headline">{headline}</div>
