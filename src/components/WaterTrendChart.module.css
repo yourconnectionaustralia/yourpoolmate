@@ -1,0 +1,146 @@
+/* File: src/components/WaterTrendChart.module.css */
+
+.wrap {
+  width: 100%;
+}
+
+/* ── Chemical toggle chips ── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.chip {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--gray-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--gray-mid);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.chip:hover {
+  border-color: var(--color-border-strong);
+}
+
+.chipActive {
+  background: var(--cc-ocean);
+  border-color: var(--cc-ocean);
+  color: #fff;
+}
+
+/* ── Readout ── */
+.readout {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 28px;
+  margin-bottom: 6px;
+}
+
+.readoutVal {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gray-dark);
+  line-height: 1;
+}
+
+.readoutUnit {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gray-mid);
+}
+
+.readoutDate {
+  font-size: 0.8125rem;
+  color: var(--gray-mid);
+}
+
+.readoutHint {
+  font-size: 0.8125rem;
+  color: var(--gray-mid);
+}
+
+/* ── SVG ── */
+.svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  touch-action: manipulation;
+}
+
+.grid {
+  stroke: var(--gray-line);
+  stroke-width: 1;
+}
+
+.axisLabel {
+  fill: var(--gray-mid);
+  font-family: var(--font-ui);
+  font-size: 12px;
+}
+
+.targetBand {
+  fill: var(--green-bg);
+}
+
+.targetLabel {
+  fill: var(--green);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.line {
+  stroke: var(--cc-ocean);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.point {
+  fill: var(--cc-ocean);
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+.hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+/* ── Untested gap bands ── */
+.gapBand {
+  fill: var(--amber-bg);
+  opacity: 0.6;
+}
+
+.gapEdge {
+  stroke: var(--amber);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.7;
+}
+
+/* ── Event markers ── */
+.eventLine {
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  opacity: 0.55;
+}
+
+.eventCode {
+  fill: #fff;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+}
