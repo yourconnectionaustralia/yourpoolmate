@@ -111,7 +111,7 @@ export async function savePoolProfile(userId, p) {
 export async function loadEquipment(userId) {
   const { data, error } = await supabase
     .from('equipment')
-    .select('id, type, brand, model, notes')
+    .select('id, type, brand, model, notes, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
   if (error) throw error;
@@ -123,7 +123,7 @@ export async function addEquipment(userId, item) {
     .from('equipment')
     .insert({ user_id: userId, type: item.type, brand: item.brand || null,
               model: item.model || null, notes: item.notes || null })
-    .select('id, type, brand, model, notes')
+    .select('id, type, brand, model, notes, created_at')
     .single();
   if (error) throw error;
   return data;
@@ -140,6 +140,53 @@ export async function updateEquipment(item) {
 
 export async function deleteEquipment(id) {
   const { error } = await supabase.from('equipment').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ── Pool events (timeline annotations) ───────────────────────
+// Manual special events the owner pins to their water-test timeline:
+// green-pool treatments, shock doses, drain/refills, custom notes, etc.
+
+export function rowToEvent(r) {
+  return {
+    id: r.id,
+    type: r.event_type || 'custom',
+    title: r.title || '',
+    notes: r.notes || '',
+    date: r.occurred_at,
+    source: 'manual',
+  };
+}
+
+export async function loadEvents(userId) {
+  const { data, error } = await supabase
+    .from('pool_events')
+    .select('*')
+    .eq('user_id', userId)
+    .order('occurred_at', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(rowToEvent);
+}
+
+export async function addEvent(userId, poolId, event) {
+  const { data, error } = await supabase
+    .from('pool_events')
+    .insert({
+      user_id:     userId,
+      pool_id:     poolId || null,
+      event_type:  event.type || 'custom',
+      title:       event.title,
+      notes:       event.notes || null,
+      occurred_at: event.date || new Date().toISOString(),
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return rowToEvent(data);
+}
+
+export async function deleteEvent(id) {
+  const { error } = await supabase.from('pool_events').delete().eq('id', id);
   if (error) throw error;
 }
 
