@@ -153,6 +153,13 @@ const EQUIPMENT_TYPES = [
   'Suction Cleaner', 'Salt Chlorinator', 'Lighting', 'Other',
 ];
 
+// Common AU pool equipment brands — suggestions only, the field stays free text.
+const EQUIPMENT_BRANDS = [
+  'AstralPool', 'Davey', 'Zodiac', 'Pentair', 'Hayward', 'Waterco',
+  'Onga', 'Hurlcon', 'Maytronics (Dolphin)', 'Kreepy Krauly', 'Poolrite',
+  'Emaux', 'Madimack', 'EvoHeat', 'Insnrg',
+];
+
 // ─────────────────────────────────────────────────────────────────
 // POOL SETUP OPTIONS
 // ─────────────────────────────────────────────────────────────────
@@ -936,14 +943,25 @@ function SetupPage({ poolProfile, onSave }) {
     yearBuilt: '',
     yearBuiltApprox: false,
     hasCover: false,
+    fenceCertDate: '',
     ...poolProfile,
   }));
   const [saved, setSaved] = useState(false);
+  // Volume estimator inputs (metres)
+  const [dims, setDims] = useState({ length: '', width: '', depth: '' });
 
   const set = (key, value) => { setForm(v => ({ ...v, [key]: value })); setSaved(false); };
 
+  const volumeEstimate = (() => {
+    const l = parseFloat(dims.length), w = parseFloat(dims.width), d = parseFloat(dims.depth);
+    if (l > 0 && w > 0 && d > 0) return Math.round(l * w * d * 1000);
+    return null;
+  })();
+
   const handleSave = () => {
-    onSave(form);
+    // Volume is held as a raw string while editing (so the field can sit
+    // empty instead of snapping back to a sticky 0) — coerce on save only.
+    onSave({ ...form, volumeL: parseFloat(form.volumeL) || 0 });
     setSaved(true);
     setTimeout(() => setSaved(false), 2200);
   };
@@ -978,14 +996,60 @@ function SetupPage({ poolProfile, onSave }) {
             type="number"
             inputMode="numeric"
             placeholder="e.g. 32000"
-            value={form.volumeL}
-            onChange={e => set('volumeL', parseFloat(e.target.value) || 0)}
+            value={form.volumeL === 0 ? '' : form.volumeL}
+            onChange={e => set('volumeL', e.target.value)}
           />
           <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 4 }}>
-            {form.volumeL > 0
-              ? `≈ ${(form.volumeL / 1000).toLocaleString('en-AU', { maximumFractionDigits: 1 })} kL`
+            {parseFloat(form.volumeL) > 0
+              ? `≈ ${(parseFloat(form.volumeL) / 1000).toLocaleString('en-AU', { maximumFractionDigits: 1 })} kL`
               : 'Length × width × average depth (m) × 1,000 = litres'}
           </div>
+
+          {/* Volume calculator (beta feedback: asked for on both devices) */}
+          <details style={{ marginTop: 8 }}>
+            <summary style={{
+              fontSize: 13, color: 'var(--blue)', cursor: 'pointer',
+              minHeight: 44, display: 'flex', alignItems: 'center',
+            }}>
+              Not sure? Work it out from your pool's size
+            </summary>
+            <div style={{ paddingTop: 4 }}>
+              <div style={{ fontSize: 13, color: 'var(--gray-mid)', marginBottom: 8 }}>
+                Measure in metres. Average depth = (shallow end + deep end) ÷ 2.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                {[
+                  { key: 'length', label: 'Length' },
+                  { key: 'width',  label: 'Width' },
+                  { key: 'depth',  label: 'Avg depth' },
+                ].map(f => (
+                  <div key={f.key} className="input-group" style={{ marginBottom: 0 }}>
+                    <label className="input-label">{f.label}</label>
+                    <input
+                      className="input"
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="m"
+                      value={dims[f.key]}
+                      onChange={e => setDims(v => ({ ...v, [f.key]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+              {volumeEstimate && (
+                <div style={{ fontSize: 13, marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>Estimated ≈ <strong>{volumeEstimate.toLocaleString('en-AU')} L</strong></span>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    type="button"
+                    onClick={() => set('volumeL', String(volumeEstimate))}
+                  >
+                    Use this
+                  </button>
+                </div>
+              )}
+            </div>
+          </details>
         </div>
 
         {/* Type + Shape */}
@@ -1052,6 +1116,23 @@ function SetupPage({ poolProfile, onSave }) {
             This is an approximate year / best guess
           </label>
         )}
+
+        {/* Fencing certificate date — part of the compliance record */}
+        <div className="input-group">
+          <label className="input-label" htmlFor="fence-cert-date">Pool fencing certificate date (if you have one)</label>
+          <input
+            id="fence-cert-date"
+            className="input"
+            type="date"
+            max={new Date().toISOString().slice(0, 10)}
+            value={form.fenceCertDate || ''}
+            onChange={e => set('fenceCertDate', e.target.value)}
+          />
+          <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 4 }}>
+            The date on your fencing compliance certificate — part of your pool's
+            record, handy at sale or inspection time.
+          </div>
+        </div>
 
         {/* Pool cover Y/N */}
         <div className="input-group">
@@ -1168,7 +1249,7 @@ function SeasonalTipsPage({ season }) {
 // ─────────────────────────────────────────────────────────────────
 // EQUIPMENT FORM (shared by add + edit)
 // ─────────────────────────────────────────────────────────────────
-function EquipmentForm({ form, setForm, onSave, onCancel, isNew }) {
+function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }) {
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1187,9 +1268,13 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew }) {
           <input
             className="input"
             placeholder="e.g. Davey, Zodiac"
+            list="equipment-brand-options"
             value={form.brand}
             onChange={e => setForm(v => ({ ...v, brand: e.target.value }))}
           />
+          <datalist id="equipment-brand-options">
+            {EQUIPMENT_BRANDS.map(b => <option key={b} value={b} />)}
+          </datalist>
         </div>
         <div className="input-group">
           <label className="input-label">Model</label>
@@ -1210,10 +1295,15 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew }) {
           />
         </div>
       </div>
+      {error && (
+        <p role="alert" style={{ fontSize: 13, color: '#e05555', marginTop: 10, marginBottom: 0 }}>
+          {error}
+        </p>
+      )}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-        <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
-        <button className="btn btn-primary btn-sm" onClick={onSave}>
-          {isNew ? 'Add equipment' : 'Save changes'}
+        <button className="btn btn-ghost btn-sm" onClick={onCancel} disabled={saving}>Cancel</button>
+        <button className="btn btn-primary btn-sm" onClick={onSave} disabled={saving}>
+          {saving ? 'Saving…' : isNew ? 'Add equipment' : 'Save changes'}
         </button>
       </div>
     </>
@@ -1227,19 +1317,33 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
   const EMPTY_FORM = { type: 'Pump', brand: '', model: '', notes: '' };
   const [mode, setMode] = useState('list'); // 'list' | 'new' | item-id string
   const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  const startNew = () => { setForm(EMPTY_FORM); setMode('new'); };
+  const startNew = () => { setForm(EMPTY_FORM); setError(''); setMode('new'); };
   const startEdit = (item) => {
     setForm({ type: item.type, brand: item.brand, model: item.model, notes: item.notes || '' });
+    setError('');
     setMode(item.id);
   };
-  const handleSave = () => {
-    if (mode === 'new') {
-      onAdd({ ...form, id: String(Date.now()) });
-    } else {
-      onUpdate({ ...form, id: mode });
+  // Save waits for the DB and keeps the form open on failure — a silent
+  // console-only error here was beta feedback ("Can't add").
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      if (mode === 'new') {
+        await onAdd(form);
+      } else {
+        await onUpdate({ ...form, id: mode });
+      }
+      setMode('list');
+    } catch (err) {
+      console.error('Equipment save failed:', err);
+      setError("Couldn't save that — check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
-    setMode('list');
   };
 
   return (
@@ -1266,6 +1370,8 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
                     onSave={handleSave}
                     onCancel={() => setMode('list')}
                     isNew={false}
+                    saving={saving}
+                    error={error}
                   />
                 </div>
               ) : (
@@ -1319,6 +1425,8 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
             onSave={handleSave}
             onCancel={() => setMode('list')}
             isNew={true}
+            saving={saving}
+            error={error}
           />
         </div>
       )}
@@ -1776,6 +1884,52 @@ function VolumeGateModal({ onCancel, onConfirm }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────
+// HELP SHEET — opened from the top-nav Help button
+// ─────────────────────────────────────────────────────────────────
+function HelpSheet({ onClose }) {
+  const steps = [
+    { n: '1', title: 'Log a water test', body: 'Type the readings in, or scan your pool shop\'s printout with your camera — it fills the numbers in for you.' },
+    { n: '2', title: 'Check your Health Score', body: 'One number out of 100 tells you where your water stands. Green is swim-ready.' },
+    { n: '3', title: 'Follow the plan, in order', body: 'The "what to do" list gives exact doses for your pool\'s volume. Re-test a day after dosing.' },
+  ];
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-panel" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">How Your Pool Mate works</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 16 }}>
+          {steps.map(s => (
+            <div key={s.n} style={{ display: 'flex', gap: 12 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                background: 'var(--water-pale)', color: 'var(--blue)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 600,
+              }}>
+                {s.n}
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--black)', marginBottom: 2 }}>{s.title}</div>
+                <div style={{ fontSize: 13, color: 'var(--gray-mid)', lineHeight: 1.5 }}>{s.body}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--gray-mid)', lineHeight: 1.5, marginBottom: 16 }}>
+          Every test is saved to your history automatically — that's your warranty
+          record. Stuck, or spotted something off? Use the feedback button, or email{' '}
+          <a href="mailto:yourconnectionaustralia@gmail.com" style={{ color: 'var(--blue)' }}>
+            yourconnectionaustralia@gmail.com
+          </a>.
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-primary btn-sm" onClick={onClose}>Got it</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const DEFAULT_POOL = {
   id: null,
   name: 'My pool',
@@ -1788,6 +1942,7 @@ const DEFAULT_POOL = {
   yearBuilt: '',
   yearBuiltApprox: false,
   hasCover: false,
+  fenceCertDate: '',
 };
 
 export default function App() {
@@ -1798,6 +1953,7 @@ export default function App() {
   const [testHistory, setTestHistory] = useState([]);   // all tests
   const [poolProfile, setPoolProfile] = useState(DEFAULT_POOL);
   const [showScan, setShowScan] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [pendingTest, setPendingTest] = useState(null); // test awaiting a pool volume
   const [trialDaysLeft, setTrialDaysLeft] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
@@ -1890,23 +2046,31 @@ export default function App() {
 
   const handleSavePool = (profile) => {
     setPoolProfile(p => ({ ...p, ...profile }));
-    db.savePoolProfile(user.id, profile)
+    // Merge with the current profile before persisting — savePoolProfile
+    // writes a full row, so a partial save (e.g. the volume gate passing
+    // only { volumeL }) must not null out every other column.
+    db.savePoolProfile(user.id, { ...poolProfile, ...profile })
       .then(id => setPoolProfile(p => ({ ...p, id })))
       .catch(err => console.error('Failed to save pool:', err));
   };
 
-  const handleAddEquipment = (item) => {
-    db.addEquipment(user.id, item)
-      .then(saved => setEquipment(e => [...e, saved]))
-      .catch(err => console.error('Failed to add equipment:', err));
+  // Equipment add/update await the DB and rethrow — EquipmentPage keeps the
+  // form open and shows the error instead of failing silently.
+  const handleAddEquipment = async (item) => {
+    const saved = await db.addEquipment(user.id, item);
+    setEquipment(e => [...e, saved]);
   };
-  const handleUpdateEquipment = (item) => {
+  const handleUpdateEquipment = async (item) => {
+    await db.updateEquipment(item);
     setEquipment(e => e.map(x => x.id === item.id ? item : x));
-    db.updateEquipment(item).catch(err => console.error('Failed to update equipment:', err));
   };
   const handleDeleteEquipment = (id) => {
+    const prev = equipment;
     setEquipment(e => e.filter(x => x.id !== id));
-    db.deleteEquipment(id).catch(err => console.error('Failed to delete equipment:', err));
+    db.deleteEquipment(id).catch(err => {
+      console.error('Failed to delete equipment:', err);
+      setEquipment(prev); // delete didn't stick — put the item back
+    });
   };
 
   const handleAddEvent = (event) => {
@@ -1941,7 +2105,7 @@ export default function App() {
           {!isPremium && trialDaysLeft !== null && (
             <span className="topnav-trial-badge">{trialDaysLeft} {trialDaysLeft === 1 ? 'day' : 'days'} left</span>
           )}
-          <button className="btn btn-ghost btn-sm">Help</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowHelp(true)}>Help</button>
           <button className="btn btn-nav" onClick={goLogTest}>
             Log test
           </button>
@@ -2041,6 +2205,9 @@ export default function App() {
       </div>
 
       {/* Scan modal — real OCR via the ocr-water-test Edge Function */}
+      {/* Help sheet */}
+      {showHelp && <HelpSheet onClose={() => setShowHelp(false)} />}
+
       {showScan && (
         <WaterTestScanner
           onClose={() => setShowScan(false)}

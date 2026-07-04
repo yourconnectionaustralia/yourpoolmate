@@ -73,6 +73,7 @@ export function rowToPool(r) {
     yearBuilt: r.year_built ?? '',
     yearBuiltApprox: r.year_built_approx ?? false,
     hasCover:  r.has_cover ?? false,
+    fenceCertDate: r.fence_cert_date ?? '',
   };
 }
 
@@ -99,6 +100,7 @@ export async function savePoolProfile(userId, p) {
     year_built:     p.yearBuilt ? parseInt(p.yearBuilt, 10) : null,
     year_built_approx: !!p.yearBuiltApprox,
     has_cover:      !!p.hasCover,
+    fence_cert_date: p.fenceCertDate || null,
     updated_at:     new Date().toISOString(),
   };
   const { data, error } = await supabase
