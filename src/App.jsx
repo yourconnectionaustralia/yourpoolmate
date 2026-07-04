@@ -7,7 +7,7 @@ import LoadingScreen from './components/LoadingScreen.jsx';
 import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
-import { calculateScore, isSaltPool } from './lib/healthScore.js';
+import { calculateScore, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM ICONS — inline SVG only, no library dependency
@@ -165,6 +165,42 @@ const EQUIPMENT_BRANDS = {
   'Heater / Heat Pump': ['Australian Energy Systems', 'Madimack', 'EvoHeat', 'Zodiac'],
   'Robotic Cleaner':    ['Zodiac', 'Kreepy Krauly', 'Maytronics'],
   'Chlorinator':        ['AstralPool', 'Zodiac', 'Pool Controls', 'Maytronics Mineral Swim', 'Pool Pro'],
+};
+
+// Popular AU models per equipment type + brand (keyed 'Type|Brand'). Shown as
+// a dropdown once a brand is picked, with an "Other" fall-back to free text.
+// Kept mostly at series level — owners rarely know the exact size variant, and
+// the free-text field still captures it. Includes well-known legacy lines
+// (owners log gear they already own, often 5–15 years old).
+const EQUIPMENT_MODELS = {
+  // Pumps
+  'Pump|AstralPool': ['Viron XT', 'CTX Series', 'BX Series', 'E-Series'],
+  'Pump|Davey':      ['PowerMaster 200', 'PowerMaster 250', 'PowerMaster 350', 'PowerMaster 450', 'PowerMaster Eco', 'Silensor SLL'],
+  'Pump|Hayward':    ['TriStar', 'Super Pump', 'MaxFlo'],
+  'Pump|Hurlcon':    ['CX Series', 'TX Series', 'CTX', 'E-Series'],
+  'Pump|Zodiac':     ['FloPro E3', 'FloPro'],
+  'Pump|Waterco':    ['Hydrostorm', 'Supastream', 'Supatuf'],
+  'Pump|Onga':       ['LeisureTime LTP', 'Pantera PPP', 'SilentFlo'],
+  'Pump|Poolrite':   ['SQI Series', 'SQ/SQI Gemini', 'Enduro'],
+  // Suction cleaners
+  'Suction Cleaner|Kreepy Krauly': ['Sprinta Plus', 'VTX-3', 'VTX-7', 'Marathon'],
+  'Suction Cleaner|Zodiac':        ['MX8', 'MX6'],
+  'Suction Cleaner|Hayward':       ['AquaNaut 250', 'AquaNaut 450', 'PoolVac XL', 'Navigator V-Flex'],
+  // Heaters / heat pumps
+  'Heater / Heat Pump|Australian Energy Systems': ['Ultra Inverter', 'Ai Aqua-Inverter Plus', 'EFI Ultra', 'TDI'],
+  'Heater / Heat Pump|Madimack': ['InverELITE V4', 'InverELITE V3'],
+  'Heater / Heat Pump|EvoHeat':  ['Fusion-i', 'Fusion-i Pro', 'Force-i'],
+  'Heater / Heat Pump|Zodiac':   ['Z400 iQ'],
+  // Robotic cleaners
+  'Robotic Cleaner|Zodiac':        ['CX20', 'CX35', 'TX35', 'VX40', 'VX50'],
+  'Robotic Cleaner|Kreepy Krauly': ['rX-Tank Pro'],
+  'Robotic Cleaner|Maytronics':    ['Dolphin M600', 'Dolphin M700', 'Dolphin S400', 'Liberty 600'],
+  // Chlorinators
+  'Chlorinator|AstralPool':             ['eQuilibrium EQ18', 'eQuilibrium EQ25', 'eQuilibrium EQ35', 'eQuilibrium EQ45'],
+  'Chlorinator|Zodiac':                 ['eXO iQ', 'eXO iQ pH', 'eXO PRO', 'TRi-XO', 'TRi'],
+  'Chlorinator|Pool Controls':          ['SWC 15', 'SWC 25', 'SWC 35', 'SWC 45', 'SWC 60', 'XLS'],
+  'Chlorinator|Maytronics Mineral Swim': ['PRO20', 'PRO25', 'PRO40'],
+  'Chlorinator|Pool Pro':               ['CPP', 'CPPS', 'MineralX'],
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -420,8 +456,8 @@ function MobileMoreDrawer({ activeView, onNav, onClose }) {
 // ─────────────────────────────────────────────────────────────────
 // HEALTH SCORE PAGE
 // ─────────────────────────────────────────────────────────────────
-function HealthScorePage({ testData, poolProfile, onLogFirst }) {
-  const score = testData ? scoreFor(testData, poolProfile?.sanitiser) : null;
+function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst }) {
+  const score = testData ? scoreFor(testData, poolProfile?.sanitiser, saltRange) : null;
   const lastTest = testData?.createdAt;
   const poolLabel = poolProfile
     ? `${poolProfile.name} · ${(poolProfile.volumeL ?? (poolProfile.volumeKl || 0) * 1000).toLocaleString('en-AU')} L`
@@ -446,11 +482,11 @@ function HealthScorePage({ testData, poolProfile, onLogFirst }) {
     );
   }
 
-  const params = buildParams(testData);
+  const params = buildParams(testData, saltRange);
   const scoreClass = score >= 80 ? 'score-good' : score >= 50 ? 'score-warn' : 'score-critical';
   const headline = scoreHeadline(score, params);
-  const primaryAction = getPrimaryAction(testData, poolProfile);
-  const recommendations = getRecommendations(testData, poolProfile);
+  const primaryAction = getPrimaryAction(testData, poolProfile, saltRange);
+  const recommendations = getRecommendations(testData, poolProfile, saltRange);
 
   return (
     <div>
@@ -542,7 +578,7 @@ function HealthScorePage({ testData, poolProfile, onLogFirst }) {
 // ─────────────────────────────────────────────────────────────────
 // WATER TESTS PAGE
 // ─────────────────────────────────────────────────────────────────
-function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, autoOpenForm, onAutoOpened }) {
+function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, saltRange, autoOpenForm, onAutoOpened }) {
   const [showForm, setShowForm] = useState(false);
   const EMPTY_FORM = {
     freeChlor: '', pH: '', alkalinity: '', cyanuricAcid: '', calciumHardness: '',
@@ -568,7 +604,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, autoOpen
     { key: 'alkalinity',      label: 'Total alkalinity', unit: 'ppm', placeholder: '80–120' },
     { key: 'cyanuricAcid',    label: 'Cyanuric acid',    unit: 'ppm', placeholder: '30–50' },
     { key: 'calciumHardness', label: 'Calcium hardness', unit: 'ppm', placeholder: '200–400' },
-    ...(saltPool ? [{ key: 'salt', label: 'Salt', unit: 'ppm', placeholder: '3000–4500' }] : []),
+    ...(saltPool ? [{ key: 'salt', label: 'Salt', unit: 'ppm', placeholder: saltRange ? `${saltRange.lo}–${saltRange.hi}` : '3000–4500' }] : []),
     { key: 'phosphates', label: 'Phosphates', unit: 'ppb', placeholder: 'optional' },
     { key: 'tds',        label: 'Total dissolved solids', unit: 'ppm', placeholder: 'optional' },
   ];
@@ -661,7 +697,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, autoOpen
               </tr>
             </thead>
             <tbody>
-              {buildParams(testData).map(p => (
+              {buildParams(testData, saltRange).map(p => (
                 <tr key={p.key}>
                   <td>{p.name}</td>
                   <td style={{ fontWeight: 500, color: 'var(--black)' }}>{p.reading}</td>
@@ -753,7 +789,7 @@ function deriveEquipmentEvents(equipment) {
 // ─────────────────────────────────────────────────────────────────
 // CHEMISTRY LOG PAGE  (trend graph + events + history table)
 // ─────────────────────────────────────────────────────────────────
-function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, onAddEvent, onDeleteEvent }) {
+function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, saltRange, onAddEvent, onDeleteEvent }) {
   const today = new Date().toISOString().slice(0, 10);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ type: 'green_treatment', title: '', date: today, notes: '' });
@@ -790,7 +826,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, o
     );
   }
 
-  const scored = history.map(t => ({ ...t, score: scoreFor(t, poolProfile?.sanitiser) }));
+  const scored = history.map(t => ({ ...t, score: scoreFor(t, poolProfile?.sanitiser, saltRange) }));
   const equipEvents = deriveEquipmentEvents(equipment);
   const allEvents = [...events, ...equipEvents].sort((a, b) => +new Date(a.date) - +new Date(b.date));
   const gaps = deriveGaps(history);
@@ -808,7 +844,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, o
             One test logged. Log another and the line graph will chart your trend.
           </p>
         ) : null}
-        <WaterTrendChart history={scored} events={allEvents} gaps={gaps} />
+        <WaterTrendChart history={scored} events={allEvents} gaps={gaps} saltRange={saltRange} />
       </div>
 
       {/* Events */}
@@ -917,7 +953,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, o
           </thead>
           <tbody>
             {history.slice().reverse().map((t, i) => {
-              const score = scoreFor(t, poolProfile?.sanitiser);
+              const score = scoreFor(t, poolProfile?.sanitiser, saltRange);
               const scoreClass = score >= 80 ? 'tag-good' : score >= 50 ? 'tag-warn' : 'tag-bad';
               return (
                 <tr key={i}>
@@ -1259,10 +1295,15 @@ function SeasonalTipsPage({ season }) {
 // ─────────────────────────────────────────────────────────────────
 function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }) {
   const brandOptions = EQUIPMENT_BRANDS[form.type];
+  const modelOptions = EQUIPMENT_MODELS[`${form.type}|${form.brand}`];
   // Free-text brand mode: chosen via "Other", or an existing item whose
   // brand isn't in the list for its type.
   const [customBrand, setCustomBrand] = useState(
     () => !!form.brand && !!EQUIPMENT_BRANDS[form.type] && !EQUIPMENT_BRANDS[form.type].includes(form.brand)
+  );
+  // Same idea for the model dropdown.
+  const [customModel, setCustomModel] = useState(
+    () => !!form.model && !!modelOptions && !modelOptions.includes(form.model)
   );
   return (
     <>
@@ -1274,11 +1315,12 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
             value={form.type}
             onChange={e => {
               const type = e.target.value;
-              setForm(v => ({ ...v, type }));
-              // If the current brand isn't in the new type's list, flip to
-              // free text so it stays visible instead of hiding in state.
+              // Changing type invalidates the brand/model lists — clear the
+              // model, flip brand to free text if it's not in the new list.
               const list = EQUIPMENT_BRANDS[type];
+              setForm(v => ({ ...v, type, model: '' }));
               setCustomBrand(!!form.brand && !!list && !list.includes(form.brand));
+              setCustomModel(false);
             }}
           >
             {EQUIPMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -1291,11 +1333,13 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
               className="input"
               value={brandOptions.includes(form.brand) ? form.brand : ''}
               onChange={e => {
+                // Brand drives the model list — always clear the model too.
+                setCustomModel(false);
                 if (e.target.value === '__other__') {
                   setCustomBrand(true);
-                  setForm(v => ({ ...v, brand: '' }));
+                  setForm(v => ({ ...v, brand: '', model: '' }));
                 } else {
-                  setForm(v => ({ ...v, brand: e.target.value }));
+                  setForm(v => ({ ...v, brand: e.target.value, model: '' }));
                 }
               }}
             >
@@ -1316,7 +1360,7 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
                   type="button"
                   className="btn btn-ghost btn-sm"
                   style={{ marginTop: 4, alignSelf: 'flex-start' }}
-                  onClick={() => { setCustomBrand(false); setForm(v => ({ ...v, brand: '' })); }}
+                  onClick={() => { setCustomBrand(false); setCustomModel(false); setForm(v => ({ ...v, brand: '', model: '' })); }}
                 >
                   Choose from the list instead
                 </button>
@@ -1326,12 +1370,43 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
         </div>
         <div className="input-group">
           <label className="input-label">Model</label>
-          <input
-            className="input"
-            placeholder="e.g. PowerMaster 200"
-            value={form.model}
-            onChange={e => setForm(v => ({ ...v, model: e.target.value }))}
-          />
+          {modelOptions && !customModel ? (
+            <select
+              className="input"
+              value={modelOptions.includes(form.model) ? form.model : ''}
+              onChange={e => {
+                if (e.target.value === '__other__') {
+                  setCustomModel(true);
+                  setForm(v => ({ ...v, model: '' }));
+                } else {
+                  setForm(v => ({ ...v, model: e.target.value }));
+                }
+              }}
+            >
+              <option value="">Select a model</option>
+              {modelOptions.map(m => <option key={m} value={m}>{m}</option>)}
+              <option value="__other__">Other</option>
+            </select>
+          ) : (
+            <>
+              <input
+                className="input"
+                placeholder="Model (if known)"
+                value={form.model}
+                onChange={e => setForm(v => ({ ...v, model: e.target.value }))}
+              />
+              {modelOptions && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ marginTop: 4, alignSelf: 'flex-start' }}
+                  onClick={() => { setCustomModel(false); setForm(v => ({ ...v, model: '' })); }}
+                >
+                  Choose from the list instead
+                </button>
+              )}
+            </>
+          )}
         </div>
         <div className="input-group" style={{ gridColumn: '1 / -1' }}>
           <label className="input-label">Date installed (if known)</label>
@@ -1576,9 +1651,10 @@ function TrialExpiredScreen() {
 // Health Score lives in src/lib/healthScore.js (mirrors the
 // calculate-health-score edge function). A test's stored score is
 // preferred over recomputing so history stays stable if the model
-// ever changes: use scoreFor(test, sanitiser) everywhere.
-const scoreFor = (test, sanitiser) =>
-  test?.healthScore ?? calculateScore(test, sanitiser);
+// ever changes: use scoreFor(test, sanitiser, saltRange) everywhere.
+// saltRange (from the owner's chlorinator) overrides the default salt band.
+const scoreFor = (test, sanitiser, saltRange) =>
+  test?.healthScore ?? calculateScore(test, sanitiser, saltRange);
 
 // Acceptable ranges (Australian residential pool standards).
 const PARAM_RANGES = {
@@ -1598,7 +1674,14 @@ function fmtReading(v, unit) {
   return unit ? `${v} ${unit}` : `${v}`;
 }
 
-function buildParams(test) {
+// Resolve the active range for a parameter — salt is overridden by the
+// owner's chlorinator band (saltRange) when one is known.
+function rangeFor(key, saltRange) {
+  if (key === 'salt' && saltRange) return { lo: saltRange.lo, hi: saltRange.hi };
+  return PARAM_RANGES[key];
+}
+
+function buildParams(test, saltRange) {
   const params = [
     { key: 'freeChlor',       name: 'Free Chlorine',    reading: fmtReading(test.freeChlor, 'ppm'),       target: '1.0–3.0', ...statusForParam('freeChlor', test.freeChlor) },
     { key: 'pH',              name: 'pH',               reading: fmtReading(test.pH, ''),                 target: '7.2–7.6', ...statusForParam('pH', test.pH) },
@@ -1606,8 +1689,14 @@ function buildParams(test) {
     { key: 'cyanuricAcid',    name: 'Cyanuric Acid',    reading: fmtReading(test.cyanuricAcid, 'ppm'),    target: '30–50',   ...statusForParam('cyanuricAcid', test.cyanuricAcid) },
     { key: 'calciumHardness', name: 'Calcium Hardness', reading: fmtReading(test.calciumHardness, 'ppm'), target: '200–400', ...statusForParam('calciumHardness', test.calciumHardness) },
   ];
-  if (test.salt != null && test.salt !== '')
-    params.push({ key: 'salt', name: 'Salt', reading: fmtReading(test.salt, 'ppm'), target: '3000–4500', ...statusForParam('salt', test.salt) });
+  if (test.salt != null && test.salt !== '') {
+    const sr = rangeFor('salt', saltRange);
+    params.push({
+      key: 'salt', name: 'Salt', reading: fmtReading(test.salt, 'ppm'),
+      target: `${sr.lo}–${sr.hi}`,
+      ...statusForParam('salt', test.salt, saltRange),
+    });
+  }
   if (test.phosphates != null && test.phosphates !== '')
     params.push({ key: 'phosphates', name: 'Phosphates', reading: fmtReading(test.phosphates, 'ppb'), target: '< 200', ...statusForParam('phosphates', test.phosphates) });
   if (test.tds != null && test.tds !== '')
@@ -1615,8 +1704,8 @@ function buildParams(test) {
   return params;
 }
 
-function statusForParam(key, val) {
-  const r = PARAM_RANGES[key];
+function statusForParam(key, val, saltRange) {
+  const r = rangeFor(key, saltRange);
   if (val === null || val === undefined || val === '' || !r) {
     return { tagClass: 'tag-neutral', status: '— No data', label: `? ${key}`, state: 'none' };
   }
@@ -1689,8 +1778,9 @@ const ACTION_LABEL = {
 };
 
 // Dose options for one parameter. `kl` is pool volume in 1000-L units (0 = unknown).
-function doseOptions(key, state, val, kl, saltPool) {
-  const t = TARGET_MID[key];
+// `saltMid` overrides the salt target midpoint for the owner's chlorinator.
+function doseOptions(key, state, val, kl, saltPool, saltMid) {
+  const t = key === 'salt' && saltMid != null ? saltMid : TARGET_MID[key];
   const d = state === 'low' ? (t - val) : (val - t);
   switch (key) {
     case 'pH':
@@ -1778,12 +1868,14 @@ function interactionNotes(key, state, statuses) {
 }
 
 // Ordered list of corrective steps for the current test.
-function buildSteps(test, pool) {
+function buildSteps(test, pool, saltRange) {
   if (!test) return [];
   const kl = hasVolume(pool) ? pool.volumeL / 1000 : 0;
   const saltPool = isSaltPool(pool?.sanitiser);
+  // Dose salt toward the middle of the owner's chlorinator band when known.
+  const saltMid = saltRange ? (saltRange.lo + saltRange.hi) / 2 : null;
   const statuses = {};
-  BALANCE_ORDER.forEach(key => { statuses[key] = statusForParam(key, test[key]).state; });
+  BALANCE_ORDER.forEach(key => { statuses[key] = statusForParam(key, test[key], saltRange).state; });
 
   return BALANCE_ORDER
     .filter(key => statuses[key] === 'low' || statuses[key] === 'high')
@@ -1793,7 +1885,7 @@ function buildSteps(test, pool) {
       return {
         key,
         action: ACTION_LABEL[key]?.[state] || key,
-        options: doseOptions(key, state, Number(test[key]), kl, saltPool),
+        options: doseOptions(key, state, Number(test[key]), kl, saltPool, saltMid),
         notes: [note, ...interactionNotes(key, state, statuses)].filter(Boolean),
         volumeKnown: kl > 0,
       };
@@ -1802,8 +1894,8 @@ function buildSteps(test, pool) {
 
 const optionText = (opt) => (opt.amount ? `add about ${opt.amount} ${opt.name}` : opt.name);
 
-function getPrimaryAction(test, pool) {
-  const steps = buildSteps(test, pool);
+function getPrimaryAction(test, pool, saltRange) {
+  const steps = buildSteps(test, pool, saltRange);
   if (!steps.length) return null;
   const s = steps[0];
   const primary = s.options[0];
@@ -1813,8 +1905,8 @@ function getPrimaryAction(test, pool) {
   };
 }
 
-function getRecommendations(test, pool) {
-  const steps = buildSteps(test, pool);
+function getRecommendations(test, pool, saltRange) {
+  const steps = buildSteps(test, pool, saltRange);
   if (!steps.length) {
     return [{
       type: 'success', iconColor: 'var(--green)', icon: Icon.check,
@@ -2073,15 +2165,18 @@ export default function App() {
     else setDataReady(false);
   }, [user?.id]);
 
+  // Salt/mineral target band from the owner's chlorinator (null = app default).
+  const saltRange = saltRangeForEquipment(equipment);
+
   // Count parameters out of range as pending actions.
   // Untested parameters (state 'none') are not actions — only real
   // low/high readings count.
   const pendingActions = testData
-    ? buildParams(testData).filter(p => p.state === 'low' || p.state === 'high').length
+    ? buildParams(testData, saltRange).filter(p => p.state === 'low' || p.state === 'high').length
     : 0;
 
   const persistTest = (data) => {
-    db.saveTest(user.id, poolProfile.id, data, calculateScore(data, poolProfile?.sanitiser))
+    db.saveTest(user.id, poolProfile.id, data, calculateScore(data, poolProfile?.sanitiser, saltRange))
       .catch(err => console.error('Failed to save test:', err));
   };
 
@@ -2193,7 +2288,7 @@ export default function App() {
 
         <main className="main-content">
           {activeView === 'health' && (
-            <HealthScorePage testData={testData} poolProfile={poolProfile} onLogFirst={goLogTest} />
+            <HealthScorePage testData={testData} poolProfile={poolProfile} saltRange={saltRange} onLogFirst={goLogTest} />
           )}
           {activeView === 'tests' && (
             <WaterTestsPage
@@ -2201,6 +2296,7 @@ export default function App() {
               onLogTest={handleLogTest}
               onScanTest={() => setShowScan(true)}
               poolProfile={poolProfile}
+              saltRange={saltRange}
               autoOpenForm={openTestForm}
               onAutoOpened={() => setOpenTestForm(false)}
             />
@@ -2211,6 +2307,7 @@ export default function App() {
               events={events}
               equipment={equipment}
               poolProfile={poolProfile}
+              saltRange={saltRange}
               onAddEvent={handleAddEvent}
               onDeleteEvent={handleDeleteEvent}
             />

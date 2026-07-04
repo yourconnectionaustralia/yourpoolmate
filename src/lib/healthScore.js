@@ -78,7 +78,9 @@ function scoreParam(value, min, max) {
   return Math.round(Math.max(0, 100 * (1 - penalty)));
 }
 
-export function calculateScore(test, sanitiserType) {
+// `saltRange` ({ lo, hi }, optional) overrides the default salt band — it
+// comes from the owner's chlorinator via saltRangeForEquipment() below.
+export function calculateScore(test, sanitiserType, saltRange) {
   if (!test) return 0;
   const weights = isSaltPool(sanitiserType) ? WEIGHTS_SALTWATER : WEIGHTS_DEFAULT;
 
@@ -88,7 +90,9 @@ export function calculateScore(test, sanitiserType) {
   for (const [param, weight] of Object.entries(weights)) {
     const value = sanitise(param, test[param]);
     if (value !== null) {
-      const { min, max } = SCORE_RANGES[param];
+      const { min, max } = param === 'salt' && saltRange
+        ? { min: saltRange.lo, max: saltRange.hi }
+        : SCORE_RANGES[param];
       total += scoreParam(value, min, max) * weight;
       weightSum += weight;
     }
@@ -96,4 +100,38 @@ export function calculateScore(test, sanitiserType) {
 
   if (weightSum === 0) return 0;
   return Math.round(total / weightSum);
+}
+
+// ── Chlorinator-specific salt / mineral bands ────────────────
+// Different chlorinators need very different salt (or mineral TDS) levels —
+// a Pool Controls XLS runs at ~1000 ppm while a Mineral Swim wants 3500+.
+// Manufacturer-sourced operating bands (July 2026):
+//   AstralPool eQuilibrium  — maintain ~4000, never below 3000 (product manual)
+//   Zodiac eXO / TRi        — ideal 4000, minimum 3300 (product spec)
+//   Pool Controls SWC / SG  — 3000–5000, ideally 4000 (user manual)
+//   Pool Controls XLS       — 900–2000, ideally 1000 (user manual)
+//   Mineral Swim PRO        — operational TDS 3500–6500 (maytronics.com.au)
+//   Pool Pro MineralX       — ultra-low salt from 1500 ppm (poolpro.com.au)
+// Order matters: first match wins, so put specific models before brand-wide
+// rules. `model` omitted = match on brand alone (any/empty model).
+const CHLORINATOR_SALT_RANGES = [
+  { brand: 'pool controls',           model: /xls/i,            lo: 900,  hi: 2000 },
+  { brand: 'pool controls',           model: /swc|sg/i,         lo: 3000, hi: 5000 },
+  { brand: 'maytronics mineral swim',                           lo: 3500, hi: 6500 },
+  { brand: 'pool pro',                model: /mineralx/i,       lo: 1500, hi: 4000 },
+  { brand: 'astralpool',              model: /equilibrium|eq/i, lo: 3000, hi: 5000 },
+  { brand: 'zodiac',                  model: /exo|tri/i,        lo: 3300, hi: 5000 },
+];
+
+// Given the owner's equipment register, return the salt band their
+// chlorinator actually needs, or null to use the app default.
+export function saltRangeForEquipment(equipment) {
+  const chl = (equipment || []).find(e => /chlorinator/i.test(e.type || ''));
+  if (!chl) return null;
+  const brand = (chl.brand || '').toLowerCase();
+  const match = CHLORINATOR_SALT_RANGES.find(r =>
+    brand.includes(r.brand) && (!r.model || r.model.test(chl.model || ''))
+  );
+  if (!match) return null;
+  return { lo: match.lo, hi: match.hi, label: [chl.brand, chl.model].filter(Boolean).join(' ') };
 }

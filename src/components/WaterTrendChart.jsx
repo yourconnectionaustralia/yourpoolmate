@@ -69,10 +69,15 @@ const valOf = (h, s) => {
   return Number.isFinite(v) ? v : null;
 };
 
-export function WaterTrendChart({ history = [], events = [], gaps = [] }) {
+export function WaterTrendChart({ history = [], events = [], gaps = [], saltRange = null }) {
+  // The salt "ideal" band follows the owner's chlorinator when known, so the
+  // chart matches the Health Score and readings table.
+  const seriesList = saltRange
+    ? SERIES.map(s => s.key === 'salt' ? { ...s, lo: saltRange.lo, hi: saltRange.hi } : s)
+    : SERIES;
   // Which series can actually be shown (has at least one data point).
   const hasSalt = history.some(h => Number.isFinite(h.salt) && h.salt > 0);
-  const available = SERIES.filter(s => {
+  const available = seriesList.filter(s => {
     if (s.saltOnly && !hasSalt) return false;
     if (s.isScore) return history.length > 0;
     return history.some(h => valOf(h, s) != null);
