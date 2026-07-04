@@ -601,16 +601,47 @@ function writeActionsDone(testKey, keys) {
   } catch { /* storage unavailable / full — non-fatal, ticks just won't persist */ }
 }
 
-function ActionsChecklist({ test, poolProfile, saltRange }) {
+// When the checklist is fully ticked we stamp the completion time — that
+// starts the "re-test in 2–3 hours to confirm the new balance" clock.
+const ACTIONS_DONE_AT_STORE = 'ypm.actionsDoneAt.v1';
+
+function readCompletedAt(testKey) {
+  try {
+    return JSON.parse(localStorage.getItem(ACTIONS_DONE_AT_STORE) || '{}')[testKey] || null;
+  } catch { return null; }
+}
+
+function writeCompletedAt(testKey, iso) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ACTIONS_DONE_AT_STORE) || '{}');
+    if (iso) all[testKey] = iso; else delete all[testKey];
+    localStorage.setItem(ACTIONS_DONE_AT_STORE, JSON.stringify(all));
+  } catch { /* non-fatal */ }
+}
+
+const fmtClock = (d) => d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' });
+
+function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
   const testKey = test.id || test.createdAt;
   const steps = buildSteps(test, poolProfile, saltRange);
   const [done, setDone] = useState(() => readActionsDone(testKey));
+  const [completedAt, setCompletedAt] = useState(() => readCompletedAt(testKey));
 
   const toggle = (k) => {
     setDone(prev => {
       const next = new Set(prev);
       if (next.has(k)) next.delete(k); else next.add(k);
       writeActionsDone(testKey, next);
+      // Stamp/clear the completion time as the checklist crosses fully-done.
+      // Ticking actions never changes the Health Score — it only starts the
+      // re-test clock; the score updates when the confirming test is logged.
+      const nowAll = steps.length > 0 && steps.every(s => next.has(s.key));
+      if (nowAll && !completedAt) {
+        const iso = new Date().toISOString();
+        setCompletedAt(iso); writeCompletedAt(testKey, iso);
+      } else if (!nowAll && completedAt) {
+        setCompletedAt(null); writeCompletedAt(testKey, null);
+      }
       return next;
     });
   };
@@ -695,8 +726,32 @@ function ActionsChecklist({ test, poolProfile, saltRange }) {
         })}
       </div>
 
+      {/* Re-test prompt — chemicals are in, the balance needs time to settle. */}
+      {allDone && (
+        <div className="callout callout-info" style={{ marginTop: 14 }}>
+          <span className="callout-icon" style={{ color: 'var(--blue)', display: 'inline-flex' }}>
+            {Icon.info}
+          </span>
+          <div className="callout-body">
+            <strong>Chemicals added.</strong> Give them time to circulate, then log a new
+            test in <strong>2–3 hours</strong> to confirm the new balance
+            {completedAt && (() => {
+              const base = new Date(completedAt).getTime();
+              return <> — from about {fmtClock(new Date(base + 2 * 3600000))} to {fmtClock(new Date(base + 3 * 3600000))}</>;
+            })()}.
+            {onLogRetest && (
+              <div style={{ marginTop: 10 }}>
+                <button className="btn btn-primary btn-sm" onClick={onLogRetest}>
+                  Log the re-test
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 12 }}>
-        Tick each step as you add it. Re-test a day after dosing.
+        Tick each step as you add it. Your Health Score updates when you log the confirming test.
       </div>
     </div>
   );
@@ -843,6 +898,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, saltRang
             test={testData}
             poolProfile={poolProfile}
             saltRange={saltRange}
+            onLogRetest={() => setShowForm(true)}
           />
         </>
       ) : (
