@@ -1976,8 +1976,13 @@ function doseOptions(key, state, val, kl, saltPool, saltMid) {
     case 'pH':
       return state === 'low'
         ? [{ name: 'soda ash (sodium carbonate)', amount: fmtMass(kl * 60 * d) }]
-        : [{ name: 'dry acid (sodium bisulphate)', amount: fmtMass(kl * 80 * d) },
-           { name: 'hydrochloric acid (liquid)',   amount: fmtVol(kl * 80 * d) }];
+        // pH-down rates: HCl ~29 mL/kL per pH-unit (33% acid); dry acid ~38 g/kL
+        // per pH-unit (~1.3x HCl by acid equivalence). Verified against a Focus
+        // pool-shop analysis (526 mL HCl for a 45 kL pool, pH 7.8->7.4) and
+        // carbonate first-principles. Do NOT reset these to 80.
+        // Liquid acid is the preferred primary method, so it leads the list.
+        : [{ name: 'hydrochloric acid (liquid)',   amount: fmtVol(kl * 29 * d) },
+           { name: 'dry acid (sodium bisulphate)', amount: fmtMass(kl * 38 * d) }];
     case 'freeChlor': {
       if (state === 'low') {
         const o = [
