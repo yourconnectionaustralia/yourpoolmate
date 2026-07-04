@@ -578,6 +578,130 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst }) {
 // ─────────────────────────────────────────────────────────────────
 // WATER TESTS PAGE
 // ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+// ACTIONS CHECKLIST — the corrective steps for the latest test, with
+// tickable "done" boxes. Completion persists in localStorage keyed by
+// the test, so ticks survive tab-switches and reloads. A new test is a
+// new key, so its checklist starts fresh.
+// ─────────────────────────────────────────────────────────────────
+const ACTIONS_STORE = 'ypm.actionsDone.v1';
+
+function readActionsDone(testKey) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ACTIONS_STORE) || '{}');
+    return new Set(all[testKey] || []);
+  } catch { return new Set(); }
+}
+
+function writeActionsDone(testKey, keys) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ACTIONS_STORE) || '{}');
+    all[testKey] = [...keys];
+    localStorage.setItem(ACTIONS_STORE, JSON.stringify(all));
+  } catch { /* storage unavailable / full — non-fatal, ticks just won't persist */ }
+}
+
+function ActionsChecklist({ test, poolProfile, saltRange }) {
+  const testKey = test.id || test.createdAt;
+  const steps = buildSteps(test, poolProfile, saltRange);
+  const [done, setDone] = useState(() => readActionsDone(testKey));
+
+  const toggle = (k) => {
+    setDone(prev => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k); else next.add(k);
+      writeActionsDone(testKey, next);
+      return next;
+    });
+  };
+
+  // Nothing to correct — celebrate the win.
+  if (steps.length === 0) {
+    return (
+      <div className="card-section" style={{ marginTop: 16 }}>
+        <div className="eyebrow" style={{ marginBottom: 12 }}>Actions</div>
+        <div className="callout callout-success">
+          <span className="callout-icon" style={{ color: 'var(--green)', display: 'inline-flex' }}>
+            {Icon.check}
+          </span>
+          <div className="callout-body">
+            <strong>All balanced — nothing to add.</strong> Your water's on target. Re-test in a few days.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const doneCount = steps.filter(s => done.has(s.key)).length;
+  const allDone = doneCount === steps.length;
+
+  return (
+    <div className="card-section" style={{ marginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div className="eyebrow" style={{ margin: 0 }}>Actions — in order</div>
+        <span
+          className={`tag ${allDone ? 'tag-good' : 'tag-neutral'}`}
+          style={{ flexShrink: 0 }}
+        >
+          {allDone ? 'All done' : `${doneCount} of ${steps.length} done`}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {steps.map((s, i) => {
+          const isDone = done.has(s.key);
+          return (
+            <label
+              key={s.key}
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 12,
+                padding: '12px 0', cursor: 'pointer',
+                borderBottom: i < steps.length - 1 ? 'var(--border)' : 'none',
+                minHeight: 44,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isDone}
+                onChange={() => toggle(s.key)}
+                style={{ width: 22, height: 22, marginTop: 1, flexShrink: 0, accentColor: 'var(--water-deep)', cursor: 'pointer' }}
+              />
+              <div style={{ flex: 1, minWidth: 0, opacity: isDone ? 0.55 : 1 }}>
+                <div style={{
+                  fontSize: 14, fontWeight: 600, color: 'var(--black)',
+                  textDecoration: isDone ? 'line-through' : 'none',
+                }}>
+                  {steps.length > 1 ? `${i + 1}. ` : ''}{s.action}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--gray-mid)', marginTop: 3 }}>
+                  {s.options.map((opt, j) => (
+                    <span key={j}>
+                      {j > 0 ? <span style={{ color: 'var(--gray-light)' }}> — or — </span> : null}
+                      {opt.amount ? <><strong>{opt.amount}</strong> {opt.name}</> : opt.name}
+                    </span>
+                  ))}
+                </div>
+                {!s.volumeKnown && (
+                  <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 3 }}>
+                    Set your pool volume in Setup to see exact quantities.
+                  </div>
+                )}
+                {s.notes[0] && (
+                  <div style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 3 }}>{s.notes[0]}</div>
+                )}
+              </div>
+            </label>
+          );
+        })}
+      </div>
+
+      <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 12 }}>
+        Tick each step as you add it. Re-test a day after dosing.
+      </div>
+    </div>
+  );
+}
+
 function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, saltRange, autoOpenForm, onAutoOpened }) {
   const [showForm, setShowForm] = useState(false);
   const EMPTY_FORM = {
@@ -685,32 +809,42 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, saltRang
 
       {/* Test history */}
       {testData ? (
-        <div className="card-section">
-          <div className="eyebrow" style={{ marginBottom: 12 }}>Latest reading</div>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Parameter</th>
-                <th>Reading</th>
-                <th>Target range</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {buildParams(testData, saltRange).map(p => (
-                <tr key={p.key}>
-                  <td>{p.name}</td>
-                  <td style={{ fontWeight: 500, color: 'var(--black)' }}>{p.reading}</td>
-                  <td className="col-muted">{p.target}</td>
-                  <td><span className={`tag ${p.tagClass}`}>{p.status}</span></td>
+        <>
+          <div className="card-section">
+            <div className="eyebrow" style={{ marginBottom: 12 }}>Latest reading</div>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Parameter</th>
+                  <th>Reading</th>
+                  <th>Target range</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 12 }}>
-            Logged {formatDate(testData.createdAt)}
+              </thead>
+              <tbody>
+                {buildParams(testData, saltRange).map(p => (
+                  <tr key={p.key}>
+                    <td>{p.name}</td>
+                    <td style={{ fontWeight: 500, color: 'var(--black)' }}>{p.reading}</td>
+                    <td className="col-muted">{p.target}</td>
+                    <td><span className={`tag ${p.tagClass}`}>{p.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 12 }}>
+              Logged {formatDate(testData.createdAt)}
+            </div>
           </div>
-        </div>
+
+          {/* Corrective actions with tickable "done" boxes */}
+          <ActionsChecklist
+            key={testData.id || testData.createdAt}
+            test={testData}
+            poolProfile={poolProfile}
+            saltRange={saltRange}
+          />
+        </>
       ) : (
         <div className="card">
           <div className="empty-state">
