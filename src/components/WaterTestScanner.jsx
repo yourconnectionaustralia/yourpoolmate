@@ -143,7 +143,9 @@ export default function WaterTestScanner({ onClose, onComplete }) {
   };
 
   const handleUse = () => {
-    const num = (s) => { const n = parseFloat(s); return Number.isFinite(n) ? n : 0; };
+    // Values the OCR couldn't read stay null ("not tested") — they're skipped
+    // by the Health Score instead of being scored as a 0 reading.
+    const num = (s) => { const n = parseFloat(s); return Number.isFinite(n) ? n : null; };
     const result = {
       freeChlor:       num(values.freeChlor),
       pH:              num(values.pH),

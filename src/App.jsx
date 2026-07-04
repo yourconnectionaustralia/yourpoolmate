@@ -7,6 +7,7 @@ import LoadingScreen from './components/LoadingScreen.jsx';
 import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
+import { calculateScore, isSaltPool } from './lib/healthScore.js';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM ICONS — inline SVG only, no library dependency
@@ -406,7 +407,7 @@ function MobileMoreDrawer({ activeView, onNav, onClose }) {
 // HEALTH SCORE PAGE
 // ─────────────────────────────────────────────────────────────────
 function HealthScorePage({ testData, poolProfile, onLogFirst }) {
-  const score = testData ? calculateScore(testData) : null;
+  const score = testData ? scoreFor(testData, poolProfile?.sanitiser) : null;
   const lastTest = testData?.createdAt;
   const poolLabel = poolProfile
     ? `${poolProfile.name} · ${(poolProfile.volumeL ?? (poolProfile.volumeKl || 0) * 1000).toLocaleString('en-AU')} L`
@@ -561,17 +562,20 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, autoOpen
   const handleSubmit = async () => {
     setSubmitting(true);
     await new Promise(r => setTimeout(r, 800)); // simulate save
+    // Untested fields stay null — they're skipped by the Health Score
+    // (weights renormalise) instead of being scored as a 0 reading.
+    const num = (s) => { const n = parseFloat(s); return Number.isFinite(n) ? n : null; };
     const data = {
-      freeChlor: parseFloat(form.freeChlor) || 0,
-      pH: parseFloat(form.pH) || 0,
-      alkalinity: parseFloat(form.alkalinity) || 0,
-      cyanuricAcid: parseFloat(form.cyanuricAcid) || 0,
-      calciumHardness: parseFloat(form.calciumHardness) || 0,
+      freeChlor: num(form.freeChlor),
+      pH: num(form.pH),
+      alkalinity: num(form.alkalinity),
+      cyanuricAcid: num(form.cyanuricAcid),
+      calciumHardness: num(form.calciumHardness),
       createdAt: new Date().toISOString(),
     };
-    if (form.salt !== '')       data.salt = parseFloat(form.salt) || 0;
-    if (form.phosphates !== '') data.phosphates = parseFloat(form.phosphates) || 0;
-    if (form.tds !== '')        data.tds = parseFloat(form.tds) || 0;
+    if (form.salt !== '')       data.salt = num(form.salt);
+    if (form.phosphates !== '') data.phosphates = num(form.phosphates);
+    if (form.tds !== '')        data.tds = num(form.tds);
     onLogTest(data);
     setSubmitting(false);
     setShowForm(false);
@@ -734,7 +738,7 @@ function deriveEquipmentEvents(equipment) {
 // ─────────────────────────────────────────────────────────────────
 // CHEMISTRY LOG PAGE  (trend graph + events + history table)
 // ─────────────────────────────────────────────────────────────────
-function ChemistryLogPage({ history, events = [], equipment = [], onAddEvent, onDeleteEvent }) {
+function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, onAddEvent, onDeleteEvent }) {
   const today = new Date().toISOString().slice(0, 10);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ type: 'green_treatment', title: '', date: today, notes: '' });
@@ -771,7 +775,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], onAddEvent, on
     );
   }
 
-  const scored = history.map(t => ({ ...t, score: calculateScore(t) }));
+  const scored = history.map(t => ({ ...t, score: scoreFor(t, poolProfile?.sanitiser) }));
   const equipEvents = deriveEquipmentEvents(equipment);
   const allEvents = [...events, ...equipEvents].sort((a, b) => +new Date(a.date) - +new Date(b.date));
   const gaps = deriveGaps(history);
@@ -898,15 +902,15 @@ function ChemistryLogPage({ history, events = [], equipment = [], onAddEvent, on
           </thead>
           <tbody>
             {history.slice().reverse().map((t, i) => {
-              const score = calculateScore(t);
+              const score = scoreFor(t, poolProfile?.sanitiser);
               const scoreClass = score >= 80 ? 'tag-good' : score >= 50 ? 'tag-warn' : 'tag-bad';
               return (
                 <tr key={i}>
                   <td className="col-muted">{formatDate(t.createdAt)}</td>
                   <td><span className={`tag ${scoreClass}`}>{score}</span></td>
-                  <td>{t.freeChlor} ppm</td>
-                  <td>{t.pH}</td>
-                  <td>{t.alkalinity} ppm</td>
+                  <td>{fmtReading(t.freeChlor, 'ppm')}</td>
+                  <td>{fmtReading(t.pH, '')}</td>
+                  <td>{fmtReading(t.alkalinity, 'ppm')}</td>
                 </tr>
               );
             })}
@@ -1391,47 +1395,12 @@ function TrialExpiredScreen() {
 // ─────────────────────────────────────────────────────────────────
 // CHEMISTRY LOGIC HELPERS
 // ─────────────────────────────────────────────────────────────────
-function calculateScore(test) {
-  if (!test) return 0;
-  let score = 0;
-
-  // Free chlorine (35%)
-  const fc = test.freeChlor;
-  score += fc >= 1 && fc <= 3 ? 35
-    : fc >= 0.5 && fc < 1    ? 20
-    : fc > 3 && fc <= 5      ? 22
-    : fc > 5                 ? 10 : 5;
-
-  // pH (25%)
-  const pH = test.pH;
-  score += pH >= 7.2 && pH <= 7.6 ? 25
-    : pH >= 7.0 && pH < 7.2       ? 15
-    : pH > 7.6 && pH <= 7.8       ? 15
-    : pH > 7.8 && pH <= 8.2       ? 8 : 3;
-
-  // Alkalinity (20%)
-  const alk = test.alkalinity;
-  score += alk >= 80 && alk <= 120 ? 20
-    : alk >= 60 && alk < 80        ? 12
-    : alk > 120 && alk <= 150      ? 12
-    : alk >= 40                    ? 6 : 2;
-
-  // Cyanuric acid (10%)
-  const cya = test.cyanuricAcid;
-  score += cya >= 30 && cya <= 50 ? 10
-    : cya >= 20 && cya < 30       ? 6
-    : cya > 50 && cya <= 80       ? 6
-    : cya > 0                     ? 3 : 0;
-
-  // Calcium hardness (10%)
-  const ca = test.calciumHardness;
-  score += ca >= 200 && ca <= 400 ? 10
-    : ca >= 150 && ca < 200       ? 6
-    : ca > 400 && ca <= 500       ? 6
-    : ca > 0                      ? 3 : 0;
-
-  return Math.min(100, Math.round(score));
-}
+// Health Score lives in src/lib/healthScore.js (mirrors the
+// calculate-health-score edge function). A test's stored score is
+// preferred over recomputing so history stays stable if the model
+// ever changes: use scoreFor(test, sanitiser) everywhere.
+const scoreFor = (test, sanitiser) =>
+  test?.healthScore ?? calculateScore(test, sanitiser);
 
 // Acceptable ranges (Australian residential pool standards).
 const PARAM_RANGES = {
@@ -1445,20 +1414,26 @@ const PARAM_RANGES = {
   tds:             { lo: 0,    hi: 2000 },
 };
 
+// Reading display — untested values render as a dash, never "null ppm".
+function fmtReading(v, unit) {
+  if (v === null || v === undefined || v === '') return '—';
+  return unit ? `${v} ${unit}` : `${v}`;
+}
+
 function buildParams(test) {
   const params = [
-    { key: 'freeChlor',       name: 'Free Chlorine',    reading: `${test.freeChlor} ppm`,    target: '1.0–3.0', ...statusForParam('freeChlor', test.freeChlor) },
-    { key: 'pH',              name: 'pH',               reading: `${test.pH}`,               target: '7.2–7.6', ...statusForParam('pH', test.pH) },
-    { key: 'alkalinity',      name: 'Total Alkalinity', reading: `${test.alkalinity} ppm`,   target: '80–120',  ...statusForParam('alkalinity', test.alkalinity) },
-    { key: 'cyanuricAcid',    name: 'Cyanuric Acid',    reading: `${test.cyanuricAcid} ppm`, target: '30–50',   ...statusForParam('cyanuricAcid', test.cyanuricAcid) },
-    { key: 'calciumHardness', name: 'Calcium Hardness', reading: `${test.calciumHardness} ppm`, target: '200–400', ...statusForParam('calciumHardness', test.calciumHardness) },
+    { key: 'freeChlor',       name: 'Free Chlorine',    reading: fmtReading(test.freeChlor, 'ppm'),       target: '1.0–3.0', ...statusForParam('freeChlor', test.freeChlor) },
+    { key: 'pH',              name: 'pH',               reading: fmtReading(test.pH, ''),                 target: '7.2–7.6', ...statusForParam('pH', test.pH) },
+    { key: 'alkalinity',      name: 'Total Alkalinity', reading: fmtReading(test.alkalinity, 'ppm'),      target: '80–120',  ...statusForParam('alkalinity', test.alkalinity) },
+    { key: 'cyanuricAcid',    name: 'Cyanuric Acid',    reading: fmtReading(test.cyanuricAcid, 'ppm'),    target: '30–50',   ...statusForParam('cyanuricAcid', test.cyanuricAcid) },
+    { key: 'calciumHardness', name: 'Calcium Hardness', reading: fmtReading(test.calciumHardness, 'ppm'), target: '200–400', ...statusForParam('calciumHardness', test.calciumHardness) },
   ];
   if (test.salt != null && test.salt !== '')
-    params.push({ key: 'salt', name: 'Salt', reading: `${test.salt} ppm`, target: '3000–4500', ...statusForParam('salt', test.salt) });
+    params.push({ key: 'salt', name: 'Salt', reading: fmtReading(test.salt, 'ppm'), target: '3000–4500', ...statusForParam('salt', test.salt) });
   if (test.phosphates != null && test.phosphates !== '')
-    params.push({ key: 'phosphates', name: 'Phosphates', reading: `${test.phosphates} ppb`, target: '< 200', ...statusForParam('phosphates', test.phosphates) });
+    params.push({ key: 'phosphates', name: 'Phosphates', reading: fmtReading(test.phosphates, 'ppb'), target: '< 200', ...statusForParam('phosphates', test.phosphates) });
   if (test.tds != null && test.tds !== '')
-    params.push({ key: 'tds', name: 'Total Dissolved Solids', reading: `${test.tds} ppm`, target: '< 2000', ...statusForParam('tds', test.tds) });
+    params.push({ key: 'tds', name: 'Total Dissolved Solids', reading: fmtReading(test.tds, 'ppm'), target: '< 2000', ...statusForParam('tds', test.tds) });
   return params;
 }
 
@@ -1483,7 +1458,7 @@ function paramShort(key) {
 
 function scoreHeadline(score, params) {
   if (score >= 80) {
-    const issues = params.filter(p => p.tagClass !== 'tag-good');
+    const issues = params.filter(p => p.state === 'low' || p.state === 'high');
     return issues.length === 0
       ? 'Your pool is in great shape — all readings on target.'
       : `Your pool is in great shape — ${issues.length === 1 ? 'one minor tweak' : `${issues.length} minor tweaks`}.`;
@@ -1509,8 +1484,6 @@ function poolKl(pool) {
 function hasVolume(pool) {
   return !!(pool && pool.volumeL && pool.volumeL > 0);
 }
-
-const isSaltPool = (s) => /salt|mineral/i.test(s || '');
 
 // Dose formatting
 const fmtMass = (g)  => (!g  || g  <= 0) ? null : (g  >= 1000 ? `${(g / 1000).toFixed(1)} kg` : `${Math.round(g / 5) * 5} g`);
@@ -1874,13 +1847,15 @@ export default function App() {
     else setDataReady(false);
   }, [user?.id]);
 
-  // Count parameters out of range as pending actions
+  // Count parameters out of range as pending actions.
+  // Untested parameters (state 'none') are not actions — only real
+  // low/high readings count.
   const pendingActions = testData
-    ? buildParams(testData).filter(p => p.tagClass !== 'tag-good').length
+    ? buildParams(testData).filter(p => p.state === 'low' || p.state === 'high').length
     : 0;
 
   const persistTest = (data) => {
-    db.saveTest(user.id, poolProfile.id, data, calculateScore(data))
+    db.saveTest(user.id, poolProfile.id, data, calculateScore(data, poolProfile?.sanitiser))
       .catch(err => console.error('Failed to save test:', err));
   };
 
@@ -2000,6 +1975,7 @@ export default function App() {
               history={testHistory}
               events={events}
               equipment={equipment}
+              poolProfile={poolProfile}
               onAddEvent={handleAddEvent}
               onDeleteEvent={handleDeleteEvent}
             />

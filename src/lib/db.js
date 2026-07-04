@@ -9,14 +9,17 @@ import { supabase } from './supabase';
 export function rowToTest(r) {
   return {
     id: r.id,
-    freeChlor:       r.free_chlorine ?? 0,
-    pH:              r.ph ?? 0,
-    alkalinity:      r.alkalinity ?? 0,
-    cyanuricAcid:    r.cyanuric_acid ?? 0,
-    calciumHardness: r.calcium ?? 0,
+    // null = not tested (skipped by the Health Score), never coerced to 0 —
+    // a 0 here is a real reading (e.g. no chlorine).
+    freeChlor:       r.free_chlorine ?? null,
+    pH:              r.ph ?? null,
+    alkalinity:      r.alkalinity ?? null,
+    cyanuricAcid:    r.cyanuric_acid ?? null,
+    calciumHardness: r.calcium ?? null,
     ...(r.salt != null ? { salt: r.salt } : {}),
     ...(r.phosphates != null ? { phosphates: r.phosphates } : {}),
     ...(r.tds != null ? { tds: r.tds } : {}),
+    healthScore: r.health_score ?? null, // score as stored at test time
     createdAt: r.tested_at,
     source: r.source || 'manual',
   };
@@ -36,11 +39,12 @@ export async function saveTest(userId, poolId, test, healthScore) {
   const row = {
     user_id: userId,
     pool_id: poolId || null,
-    ph:             test.pH || null,
-    free_chlorine:  test.freeChlor || null,
-    alkalinity:     test.alkalinity || null,
-    cyanuric_acid:  test.cyanuricAcid || null,
-    calcium:        test.calciumHardness || null,
+    // ?? not || — a 0 reading (e.g. no chlorine) is real data, not "untested".
+    ph:             test.pH ?? null,
+    free_chlorine:  test.freeChlor ?? null,
+    alkalinity:     test.alkalinity ?? null,
+    cyanuric_acid:  test.cyanuricAcid ?? null,
+    calcium:        test.calciumHardness ?? null,
     salt:           test.salt ?? null,
     phosphates:     test.phosphates ?? null,
     tds:            test.tds ?? null,

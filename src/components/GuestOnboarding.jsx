@@ -96,10 +96,12 @@ export default function GuestOnboarding({ onComplete }) {
           source: 'manual',
         }
 
-        // Calculate health score
+        // Calculate health score — sanitiser_type activates the saltwater
+        // weights server-side; it's only sent to the scorer, not stored on
+        // the water_tests row.
         try {
           const { data: scoreData } = await supabase.functions.invoke('calculate-health-score', {
-            body: readings
+            body: { ...readings, sanitiser_type: form.sanitiser_type || null }
           })
           if (scoreData?.health_score !== undefined) {
             readings.health_score = scoreData.health_score

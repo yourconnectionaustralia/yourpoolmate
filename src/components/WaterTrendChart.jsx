@@ -25,7 +25,7 @@ const SERIES = [
   { key: 'alkalinity',      label: 'Alkalinity',   unit: 'ppm',  lo: 80,   hi: 120,  decimals: 0 },
   { key: 'cyanuricAcid',    label: 'Cyanuric',     unit: 'ppm',  lo: 30,   hi: 50,   decimals: 0 },
   { key: 'calciumHardness', label: 'Calcium',      unit: 'ppm',  lo: 200,  hi: 400,  decimals: 0 },
-  { key: 'salt',            label: 'Salt',         unit: 'ppm',  lo: 2700, hi: 3400, decimals: 0, saltOnly: true },
+  { key: 'salt',            label: 'Salt',         unit: 'ppm',  lo: 3000, hi: 4500, decimals: 0, saltOnly: true },
   { key: 'score',           label: 'Health Score', unit: '/100', lo: 80,   hi: 100,  decimals: 0, isScore: true },
 ];
 
@@ -48,7 +48,8 @@ const fmtDateYr = (iso) =>
 
 const valOf = (h, s) => {
   const v = s.isScore ? h.score : h[s.key];
-  return Number.isFinite(v) && v > 0 ? v : null;
+  // 0 is a real reading (e.g. no chlorine) and must plot; null/undefined = not tested.
+  return Number.isFinite(v) ? v : null;
 };
 
 export function WaterTrendChart({ history = [], events = [], gaps = [] }) {
