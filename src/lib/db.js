@@ -117,7 +117,7 @@ export async function savePoolProfile(userId, p) {
 export async function loadEquipment(userId) {
   const { data, error } = await supabase
     .from('equipment')
-    .select('id, type, brand, model, notes, created_at')
+    .select('id, type, brand, model, notes, installed_at, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
   if (error) throw error;
@@ -128,8 +128,9 @@ export async function addEquipment(userId, item) {
   const { data, error } = await supabase
     .from('equipment')
     .insert({ user_id: userId, type: item.type, brand: item.brand || null,
-              model: item.model || null, notes: item.notes || null })
-    .select('id, type, brand, model, notes, created_at')
+              model: item.model || null, notes: item.notes || null,
+              installed_at: item.installed_at || null })
+    .select('id, type, brand, model, notes, installed_at, created_at')
     .single();
   if (error) throw error;
   return data;
@@ -139,7 +140,8 @@ export async function updateEquipment(item) {
   const { error } = await supabase
     .from('equipment')
     .update({ type: item.type, brand: item.brand || null, model: item.model || null,
-              notes: item.notes || null, updated_at: new Date().toISOString() })
+              notes: item.notes || null, installed_at: item.installed_at || null,
+              updated_at: new Date().toISOString() })
     .eq('id', item.id);
   if (error) throw error;
 }

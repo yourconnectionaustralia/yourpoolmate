@@ -148,17 +148,24 @@ const SEASONAL_TIPS_LABEL = 'Seasonal Tips';
 // ─────────────────────────────────────────────────────────────────
 // EQUIPMENT CONSTANTS
 // ─────────────────────────────────────────────────────────────────
+// 'Chlorinator' covers both salt and mineral units (renamed from 'Salt
+// Chlorinator', July 2026). Existing rows with the old label are
+// normalised when opened for editing.
 const EQUIPMENT_TYPES = [
   'Pump', 'Filter', 'Heater / Heat Pump', 'Robotic Cleaner',
-  'Suction Cleaner', 'Salt Chlorinator', 'Lighting', 'Other',
+  'Suction Cleaner', 'Chlorinator', 'Lighting', 'Other',
 ];
 
-// Common AU pool equipment brands — suggestions only, the field stays free text.
-const EQUIPMENT_BRANDS = [
-  'AstralPool', 'Davey', 'Zodiac', 'Pentair', 'Hayward', 'Waterco',
-  'Onga', 'Hurlcon', 'Maytronics (Dolphin)', 'Kreepy Krauly', 'Poolrite',
-  'Emaux', 'Madimack', 'EvoHeat', 'Insnrg',
-];
+// Popular AU brands per equipment type — shown as a dropdown with an
+// "Other" escape hatch to free text. Types not listed here (Filter,
+// Lighting, Other) get a plain free-text brand field.
+const EQUIPMENT_BRANDS = {
+  'Pump':               ['AstralPool', 'Davey', 'Hayward', 'Hurlcon', 'Zodiac', 'Waterco', 'Onga', 'Poolrite'],
+  'Suction Cleaner':    ['Kreepy Krauly', 'Zodiac', 'Hayward'],
+  'Heater / Heat Pump': ['Australian Energy Systems', 'Madimack', 'EvoHeat', 'Zodiac'],
+  'Robotic Cleaner':    ['Zodiac', 'Kreepy Krauly', 'Maytronics'],
+  'Chlorinator':        ['AstralPool', 'Zodiac', 'Pool Controls', 'Maytronics Mineral Swim', 'Pool Pro'],
+};
 
 // ─────────────────────────────────────────────────────────────────
 // POOL SETUP OPTIONS
@@ -729,14 +736,15 @@ function deriveGaps(history) {
 }
 
 // Auto "new equipment" markers, pulled from the equipment register.
+// The install date (owner-entered) beats the row's created_at when known.
 function deriveEquipmentEvents(equipment) {
-  return (equipment || []).filter(e => e.created_at).map(e => {
+  return (equipment || []).filter(e => e.installed_at || e.created_at).map(e => {
     const make = [e.brand, e.model].filter(Boolean).join(' ');
     return {
       id: `eq-${e.id}`,
       type: 'new_equipment',
       title: make ? `${e.type}: ${make}` : e.type,
-      date: e.created_at,
+      date: e.installed_at || e.created_at,
       source: 'auto',
     };
   });
@@ -1250,6 +1258,12 @@ function SeasonalTipsPage({ season }) {
 // EQUIPMENT FORM (shared by add + edit)
 // ─────────────────────────────────────────────────────────────────
 function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }) {
+  const brandOptions = EQUIPMENT_BRANDS[form.type];
+  // Free-text brand mode: chosen via "Other", or an existing item whose
+  // brand isn't in the list for its type.
+  const [customBrand, setCustomBrand] = useState(
+    () => !!form.brand && !!EQUIPMENT_BRANDS[form.type] && !EQUIPMENT_BRANDS[form.type].includes(form.brand)
+  );
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1258,23 +1272,57 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
           <select
             className="input"
             value={form.type}
-            onChange={e => setForm(v => ({ ...v, type: e.target.value }))}
+            onChange={e => {
+              const type = e.target.value;
+              setForm(v => ({ ...v, type }));
+              // If the current brand isn't in the new type's list, flip to
+              // free text so it stays visible instead of hiding in state.
+              const list = EQUIPMENT_BRANDS[type];
+              setCustomBrand(!!form.brand && !!list && !list.includes(form.brand));
+            }}
           >
             {EQUIPMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
         <div className="input-group">
           <label className="input-label">Brand</label>
-          <input
-            className="input"
-            placeholder="e.g. Davey, Zodiac"
-            list="equipment-brand-options"
-            value={form.brand}
-            onChange={e => setForm(v => ({ ...v, brand: e.target.value }))}
-          />
-          <datalist id="equipment-brand-options">
-            {EQUIPMENT_BRANDS.map(b => <option key={b} value={b} />)}
-          </datalist>
+          {brandOptions && !customBrand ? (
+            <select
+              className="input"
+              value={brandOptions.includes(form.brand) ? form.brand : ''}
+              onChange={e => {
+                if (e.target.value === '__other__') {
+                  setCustomBrand(true);
+                  setForm(v => ({ ...v, brand: '' }));
+                } else {
+                  setForm(v => ({ ...v, brand: e.target.value }));
+                }
+              }}
+            >
+              <option value="">Select a brand</option>
+              {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+              <option value="__other__">Other</option>
+            </select>
+          ) : (
+            <>
+              <input
+                className="input"
+                placeholder="Brand name"
+                value={form.brand}
+                onChange={e => setForm(v => ({ ...v, brand: e.target.value }))}
+              />
+              {brandOptions && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ marginTop: 4, alignSelf: 'flex-start' }}
+                  onClick={() => { setCustomBrand(false); setForm(v => ({ ...v, brand: '' })); }}
+                >
+                  Choose from the list instead
+                </button>
+              )}
+            </>
+          )}
         </div>
         <div className="input-group">
           <label className="input-label">Model</label>
@@ -1286,10 +1334,20 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
           />
         </div>
         <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+          <label className="input-label">Date installed (if known)</label>
+          <input
+            className="input"
+            type="date"
+            max={new Date().toISOString().slice(0, 10)}
+            value={form.installed_at || ''}
+            onChange={e => setForm(v => ({ ...v, installed_at: e.target.value }))}
+          />
+        </div>
+        <div className="input-group" style={{ gridColumn: '1 / -1' }}>
           <label className="input-label">Notes (optional)</label>
           <input
             className="input"
-            placeholder="e.g. Installed 2022, runs 8 hrs/day"
+            placeholder="e.g. Runs 8 hrs/day in summer"
             value={form.notes}
             onChange={e => setForm(v => ({ ...v, notes: e.target.value }))}
           />
@@ -1314,7 +1372,7 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
 // EQUIPMENT PAGE
 // ─────────────────────────────────────────────────────────────────
 function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
-  const EMPTY_FORM = { type: 'Pump', brand: '', model: '', notes: '' };
+  const EMPTY_FORM = { type: 'Pump', brand: '', model: '', notes: '', installed_at: '' };
   const [mode, setMode] = useState('list'); // 'list' | 'new' | item-id string
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -1322,7 +1380,14 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
 
   const startNew = () => { setForm(EMPTY_FORM); setError(''); setMode('new'); };
   const startEdit = (item) => {
-    setForm({ type: item.type, brand: item.brand, model: item.model, notes: item.notes || '' });
+    setForm({
+      // Normalise the pre-July-2026 type label so the select matches an option.
+      type: item.type === 'Salt Chlorinator' ? 'Chlorinator' : item.type,
+      brand: item.brand || '',
+      model: item.model || '',
+      notes: item.notes || '',
+      installed_at: item.installed_at || '',
+    });
     setError('');
     setMode(item.id);
   };
@@ -1388,6 +1453,11 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
                     <div style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 2 }}>
                       {[item.brand, item.model].filter(Boolean).join(' · ') || 'No brand/model added'}
                     </div>
+                    {item.installed_at && (
+                      <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 2 }}>
+                        Installed {formatDate(item.installed_at)}
+                      </div>
+                    )}
                     {item.notes && (
                       <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 2 }}>{item.notes}</div>
                     )}
@@ -2062,7 +2132,8 @@ export default function App() {
   };
   const handleUpdateEquipment = async (item) => {
     await db.updateEquipment(item);
-    setEquipment(e => e.map(x => x.id === item.id ? item : x));
+    // Merge, don't replace — the form payload doesn't carry created_at.
+    setEquipment(e => e.map(x => x.id === item.id ? { ...x, ...item } : x));
   };
   const handleDeleteEquipment = (id) => {
     const prev = equipment;
