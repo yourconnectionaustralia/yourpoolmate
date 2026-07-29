@@ -2317,6 +2317,7 @@ export default function App() {
   const [equipment, setEquipment] = useState([]);
   const [events, setEvents] = useState([]);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false); // session-scoped
   const [dataReady, setDataReady] = useState(false);
   const [openTestForm, setOpenTestForm] = useState(false); // one-shot: open the log form on the Tests page
 
@@ -2604,9 +2605,16 @@ export default function App() {
         />
       )}
 
-      {/* Guest onboarding — auto-shows for signed-in users with no pool profile */}
-      {hasPoolProfile === false && (
-        <GuestOnboarding onComplete={() => loadAll(user.id)} />
+      {/* Guest onboarding — auto-shows for signed-in users with no pool profile.
+          Dismissible for this session: hasPoolProfile is also set false when the
+          profile lookup errors (see AuthContext), so a network blip must not
+          leave the user locked behind an unclosable sheet. It re-appears on the
+          next app launch until a pool profile exists. */}
+      {hasPoolProfile === false && !onboardingDismissed && (
+        <GuestOnboarding
+          onComplete={() => loadAll(user.id)}
+          onDismiss={() => setOnboardingDismissed(true)}
+        />
       )}
 
       {/* Feedback overlay — accumulate notes per page, submit as a round */}
