@@ -99,17 +99,27 @@ export function AuthProvider({ children }) {
         setTrialExpired(false)
       }
 
-      // Check if user has a pool profile (drives onboarding trigger)
-      const { data: poolProfile } = await supabase
+      // Check if user has a pool profile (drives onboarding trigger).
+      // maybeSingle() so "no rows" is a clean null instead of a PGRST116
+      // error, letting us tell "no profile yet" apart from "lookup failed".
+      const { data: poolProfile, error: poolError } = await supabase
         .from('pool_profiles')
         .select('id')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
 
-      setHasPoolProfile(!!poolProfile)
+      if (poolError) {
+        // A network blip must not be read as "this user has no pool" —
+        // that pushed existing users into the onboarding sheet. Stay at
+        // null (unknown) so the modal doesn't fire on a failed lookup.
+        console.error('Pool profile lookup failed:', poolError)
+        setHasPoolProfile(null)
+      } else {
+        setHasPoolProfile(!!poolProfile)
+      }
     } catch (err) {
       console.error('Error checking user status:', err)
-      setHasPoolProfile(false)
+      setHasPoolProfile(null)
     } finally {
       setLoading(false)
     }
