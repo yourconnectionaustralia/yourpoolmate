@@ -1,9 +1,20 @@
 // File: src/components/GuestOnboarding.jsx
 // Six-step pool setup modal.
 // Auto-triggered for any authenticated user with no pool profile.
-// This wires the highest-priority conversion gap before launch.
+//
+// iPhone dismissal fixes (Jul 2026):
+//  - Always-present close (×) button — the modal was previously inescapable.
+//  - Backdrop tap + Escape key dismiss.
+//  - Skip now renders on the "first test" step (an off-by-one guard
+//    silently excluded it, making that step a hard wall).
+//  - Save failures surface an error banner with Retry / "Set up later"
+//    instead of being swallowed to console, which trapped the user.
+//  - hasPoolProfile is only flipped on the final "Let's go" tap, so the
+//    completion step is actually reachable (App unmounts on that flag).
+//  - visualViewport sizing keeps the nav row above the iOS keyboard and
+//    Safari's bottom toolbar.
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import styles from './GuestOnboarding.module.css'
@@ -14,8 +25,11 @@ const STEPS = [
   { id: 'sanitiser',   title: 'How do you sanitise?',        skippable: false },
   { id: 'equipment',   title: 'Your pool equipment',         skippable: true  },
   { id: 'first_test',  title: 'Log your first water test',   skippable: true  },
-  { id: 'complete',    title: "You're all set",               skippable: false },
+  { id: 'complete',    title: "You're all set",              skippable: false },
 ]
+
+const LAST_STEP = STEPS.length - 1   // 5 — completion
+const TEST_STEP = STEPS.length - 2   // 4 — first water test
 
 const POOL_SHAPES = [
   { value: 'rectangular', label: 'Rectangular' },
@@ -38,10 +52,11 @@ const FILTER_TYPES = [
   { value: 'DE',         label: 'Diatomaceous earth (DE)' },
 ]
 
-export default function GuestOnboarding({ onComplete }) {
+export function GuestOnboarding({ onComplete, onDismiss }) {
   const { user, setHasPoolProfile } = useAuth()
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
 
   const [form, setForm] = useState({
     pool_shape: '',
@@ -50,7 +65,7 @@ export default function GuestOnboarding({ onComplete }) {
     filter_type: '',
     has_heater: false,
     has_spa: false,
-    // Water test readings (step 5)
+    // Water test readings (step 4)
     ph: '',
     free_chlorine: '',
     alkalinity: '',
@@ -58,23 +73,70 @@ export default function GuestOnboarding({ onComplete }) {
     calcium: '',
   })
 
+  // ── Dismissal ────────────────────────────────────────────
+  // A modal with no exit is worse than a skipped onboarding. Dismiss is
+  // always available; App re-shows it on the next launch while the user
+  // still has no pool profile.
+  const dismiss = useCallback(() => {
+    if (saving) return
+    onDismiss?.()
+  }, [saving, onDismiss])
+
+  // Escape key (external keyboards on iPad/iPhone, and desktop).
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === 'Escape') { e.stopPropagation(); dismiss() }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [dismiss])
+
+  // Lock the page behind the sheet so iOS doesn't scroll-chain the body
+  // (which reads as "the popup is frozen").
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+
+  // iOS: track the *visual* viewport so the nav row (Continue / Close) is
+  // never hidden under the keyboard or Safari's bottom toolbar.
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const root = document.documentElement
+    const sync = () => {
+      root.style.setProperty('--ypm-vvh', `${Math.round(vv.height)}px`)
+      root.style.setProperty('--ypm-vvtop', `${Math.round(vv.offsetTop)}px`)
+    }
+    sync()
+    vv.addEventListener('resize', sync)
+    vv.addEventListener('scroll', sync)
+    return () => {
+      vv.removeEventListener('resize', sync)
+      vv.removeEventListener('scroll', sync)
+      root.style.removeProperty('--ypm-vvh')
+      root.style.removeProperty('--ypm-vvtop')
+    }
+  }, [])
+
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
-  function nextStep() { setStep(s => Math.min(s + 1, STEPS.length - 1)) }
+  function nextStep() { setStep(s => Math.min(s + 1, LAST_STEP)) }
   function prevStep() { setStep(s => Math.max(s - 1, 0)) }
 
   async function saveAndComplete() {
     setSaving(true)
+    setError(null)
     try {
-      // Save pool profile
       const { error: poolError } = await supabase
         .from('pool_profiles')
         .upsert({
           user_id: user.id,
           pool_shape: form.pool_shape || null,
-          volume_litres: form.volume_litres ? parseInt(form.volume_litres) : null,
+          volume_litres: form.volume_litres ? parseInt(form.volume_litres, 10) : null,
           sanitiser_type: form.sanitiser_type || null,
           filter_type: form.filter_type || null,
           has_heater: form.has_heater,
@@ -83,7 +145,6 @@ export default function GuestOnboarding({ onComplete }) {
 
       if (poolError) throw poolError
 
-      // Save first water test if any readings provided
       const hasReadings = form.ph || form.free_chlorine || form.alkalinity
       if (hasReadings) {
         const readings = {
@@ -96,9 +157,9 @@ export default function GuestOnboarding({ onComplete }) {
           source: 'manual',
         }
 
-        // Calculate health score — sanitiser_type activates the saltwater
-        // weights server-side; it's only sent to the scorer, not stored on
-        // the water_tests row.
+        // Health score — sanitiser_type activates the saltwater weights
+        // server-side; it is only sent to the scorer, never stored on the
+        // water_tests row.
         try {
           const { data: scoreData } = await supabase.functions.invoke('calculate-health-score', {
             body: { ...readings, sanitiser_type: form.sanitiser_type || null }
@@ -107,34 +168,65 @@ export default function GuestOnboarding({ onComplete }) {
             readings.health_score = scoreData.health_score
           }
         } catch {
-          // Score calculation failure is non-fatal
+          // Score calculation failure is non-fatal — the profile still saved.
         }
 
-        await supabase.from('water_tests').insert(readings)
+        const { error: testError } = await supabase.from('water_tests').insert(readings)
+        if (testError) throw testError
       }
 
-      setHasPoolProfile(true)
-      nextStep() // → completion step
+      // NOTE: do NOT call setHasPoolProfile(true) here. App renders this
+      // modal on `hasPoolProfile === false`, so flipping it now would
+      // unmount the sheet and the completion step would never be seen.
+      setStep(LAST_STEP)
     } catch (err) {
       console.error('Onboarding save error:', err)
+      setError(
+        err?.message
+          ? `Couldn't save your pool: ${err.message}`
+          : "Couldn't save your pool. Check your connection and try again."
+      )
     } finally {
       setSaving(false)
     }
   }
 
+  function finish() {
+    setHasPoolProfile(true)
+    onComplete?.()
+  }
+
   const current = STEPS[step]
+  const isCompleteStep = step === LAST_STEP
 
   return (
-    <div className={styles.overlay} role="dialog" aria-modal="true" aria-label={current.title}>
+    <div
+      className={styles.overlay}
+      role="dialog"
+      aria-modal="true"
+      aria-label={current.title}
+      onClick={e => { if (e.target === e.currentTarget) dismiss() }}
+    >
       <div className={styles.sheet}>
-        {/* Progress dots */}
-        <div className={styles.progress} aria-hidden="true">
-          {STEPS.map((s, i) => (
-            <span
-              key={s.id}
-              className={`${styles.dot} ${i < step ? styles.dotDone : ''} ${i === step ? styles.dotActive : ''}`}
-            />
-          ))}
+        {/* Header — progress dots plus an always-available close */}
+        <div className={styles.header}>
+          <div className={styles.progress} aria-hidden="true">
+            {STEPS.map((s, i) => (
+              <span
+                key={s.id}
+                className={`${styles.dot} ${i < step ? styles.dotDone : ''} ${i === step ? styles.dotActive : ''}`}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={isCompleteStep ? finish : dismiss}
+            disabled={saving}
+            aria-label={isCompleteStep ? 'Close' : 'Close setup — you can finish this later'}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
 
         {/* Step content */}
@@ -147,33 +239,58 @@ export default function GuestOnboarding({ onComplete }) {
           {step === 5 && <StepComplete />}
         </div>
 
+        {/* Save error — never a dead end */}
+        {error && (
+          <div className={styles.errorBanner} role="alert">
+            <p className={styles.errorText}>{error}</p>
+            <div className={styles.errorActions}>
+              <button type="button" className={styles.errorRetry} onClick={saveAndComplete} disabled={saving}>
+                Try again
+              </button>
+              <button type="button" className={styles.errorLater} onClick={dismiss} disabled={saving}>
+                Set up later
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Navigation */}
         <div className={styles.nav}>
-          {step > 0 && step < STEPS.length - 1 && (
-            <button className={styles.backBtn} onClick={prevStep}>Back</button>
+          {step > 0 && step < LAST_STEP && (
+            <button type="button" className={styles.backBtn} onClick={prevStep} disabled={saving}>
+              Back
+            </button>
+          )}
+          {step === 0 && (
+            <button type="button" className={styles.skipBtn} onClick={dismiss}>
+              Set up later
+            </button>
           )}
 
           <div className={styles.navRight}>
-            {current.skippable && step < STEPS.length - 2 && (
-              <button className={styles.skipBtn} onClick={nextStep}>Skip</button>
-            )}
-
-            {step < STEPS.length - 2 && step !== 3 && step !== 4 && (
-              <button className={styles.nextBtn} onClick={nextStep}>
-                Continue
-              </button>
-            )}
-
-            {/* Equipment step — has Continue */}
-            {step === 3 && (
-              <button className={styles.nextBtn} onClick={nextStep}>
-                Continue
-              </button>
-            )}
-
-            {/* First test step — save */}
-            {step === 4 && (
+            {/* Skip — now correctly available on the equipment AND first-test
+                steps. The old `step < STEPS.length - 2` guard excluded the
+                first-test step, leaving it with no way forward on failure. */}
+            {current.skippable && (
               <button
+                type="button"
+                className={styles.skipBtn}
+                onClick={step === TEST_STEP ? saveAndComplete : nextStep}
+                disabled={saving}
+              >
+                Skip
+              </button>
+            )}
+
+            {step < TEST_STEP && (
+              <button type="button" className={styles.nextBtn} onClick={nextStep}>
+                Continue
+              </button>
+            )}
+
+            {step === TEST_STEP && (
+              <button
+                type="button"
                 className={styles.nextBtn}
                 onClick={saveAndComplete}
                 disabled={saving}
@@ -182,9 +299,8 @@ export default function GuestOnboarding({ onComplete }) {
               </button>
             )}
 
-            {/* Complete step */}
-            {step === STEPS.length - 1 && (
-              <button className={styles.nextBtn} onClick={onComplete}>
+            {step === LAST_STEP && (
+              <button type="button" className={styles.nextBtn} onClick={finish}>
                 Let's go
               </button>
             )}
@@ -194,6 +310,8 @@ export default function GuestOnboarding({ onComplete }) {
     </div>
   )
 }
+
+export default GuestOnboarding
 
 // ── Step components ─────────────────────────────────────────
 
