@@ -76,7 +76,6 @@ export function AuthProvider({ children }) {
       // Check trial status
       const trialStart = new Date(user.created_at)
       const now = new Date()
-      const daysSinceSignup = (now - trialStart) / (1000 * 60 * 60 * 24)
 
       // Check if user has paid (premium tier)
       const { data: profile } = await supabase
@@ -137,6 +136,45 @@ export function AuthProvider({ children }) {
       options: {
         // IMPORTANT: Always use window.location.origin — never hardcode a domain.
         // Ensures confirmation email redirects back to the correct app URL.
+        // NOTE: the bare origin (no trailing slash) is what gets sent, so the
+        // Supabase Redirect URL allow-list must contain the bare origin too —
+        // a "/**" entry alone does NOT match it.
+        emailRedirectTo: window.location.origin
+      }
+    })
+    return { data, error }
+  }
+
+  /**
+   * Detects Supabase's anti-enumeration response to signing up an address
+   * that ALREADY has a confirmed account.
+   *
+   * Supabase deliberately does not error in this case — it returns a
+   * success-shaped payload with an obfuscated user object, no session, and
+   * an EMPTY identities array, and it sends no email at all. Without this
+   * check the UI cheerfully says "check your email" and the user waits
+   * forever for a message that was never sent. This was the single most
+   * common "the confirmation email never arrives" report.
+   */
+  function isExistingAccount(data) {
+    return Boolean(
+      data?.user &&
+      !data?.session &&
+      Array.isArray(data.user.identities) &&
+      data.user.identities.length === 0
+    )
+  }
+
+  /**
+   * Re-sends the signup confirmation email. Supabase enforces its own
+   * per-address cooldown (60s by default) and will error if called sooner,
+   * so the UI must gate this behind a visible countdown.
+   */
+  async function resendConfirmation(email) {
+    const { data, error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
         emailRedirectTo: window.location.origin
       }
     })
@@ -149,7 +187,12 @@ export function AuthProvider({ children }) {
       options: {
         // IMPORTANT: Always use window.location.origin — never hardcode a domain.
         // This ensures redirects work on both app.yourpoolmate.com.au and dev environments.
-        emailRedirectTo: window.location.origin
+        emailRedirectTo: window.location.origin,
+        // Magic link is only offered from the "I already have an account"
+        // path. Leaving this at its default (true) means a typo'd address
+        // silently creates a SECOND empty account and starts a second
+        // 30-day trial — which then has no pool data and no payment path.
+        shouldCreateUser: false
       }
     })
     return { data, error }
@@ -194,6 +237,8 @@ export function AuthProvider({ children }) {
     signInWithMagicLink,
     resetPassword,
     updatePassword,
+    resendConfirmation,
+    isExistingAccount,
     signOut
   }
 
