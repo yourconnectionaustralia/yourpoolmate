@@ -1,7 +1,39 @@
 // File: src/components/AuthScreen.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import styles from './AuthScreen.module.css'
+
+// Seconds Supabase enforces between confirmation-email resends for the
+// same address. Calling sooner returns an error, so the button is gated.
+const RESEND_COOLDOWN_SECONDS = 60
+
+/**
+ * Turns raw Supabase auth errors into something a pool owner can act on.
+ * The raw messages ("AuthApiError: For security purposes, you can only
+ * request this after 47 seconds") are not usable by our audience.
+ * The original is always logged so it stays debuggable.
+ */
+function friendlyAuthError(error) {
+  const raw = error?.message || ''
+  console.error('[auth]', error)
+
+  if (/rate limit|too many|for security purposes|after \d+ seconds/i.test(raw)) {
+    return 'Too many attempts just now — wait a minute and try again.'
+  }
+  if (/error sending|smtp|confirmation email|recovery email/i.test(raw)) {
+    return "We couldn't send that email just now. Please try again in a moment."
+  }
+  if (/password/i.test(raw) && /at least|should be|characters/i.test(raw)) {
+    return 'Password must be at least 8 characters.'
+  }
+  if (/invalid.*email|unable to validate email/i.test(raw)) {
+    return "That email address doesn't look right — please check it."
+  }
+  if (/already registered|already exists/i.test(raw)) {
+    return 'An account with that email already exists. Try signing in instead.'
+  }
+  return 'Something went wrong — please try again in a moment.'
+}
 
 // Password input with a built-in show/hide toggle.
 // Each field manages its own visibility so toggling one doesn't reveal another.
@@ -39,33 +71,83 @@ function PasswordField({ id, label, value, onChange, placeholder, autoComplete, 
 }
 
 export default function AuthScreen() {
-  const { signInWithEmail, signUpWithEmail, signInWithMagicLink, resetPassword, updatePassword, recoveryMode } = useAuth()
+  const {
+    signInWithEmail,
+    signUpWithEmail,
+    signInWithMagicLink,
+    resetPassword,
+    updatePassword,
+    resendConfirmation,
+    isExistingAccount,
+    recoveryMode
+  } = useAuth()
+
   const [mode, setMode] = useState('start') // 'start' | 'signup' | 'login' | 'magic' | 'reset'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState('')
+  const [loading, setLoading] = useState(false)
   const [magicSent, setMagicSent] = useState(false)
   const [confirmSent, setConfirmSent] = useState(false)
   const [resetSent, setResetSent] = useState(false)
   const [passwordUpdated, setPasswordUpdated] = useState(false)
+  const [alreadyExists, setAlreadyExists] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
+  const [resendNote, setResendNote] = useState('')
+
+  // Countdown ticker for the resend button.
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
+
+  function resetFlowState() {
+    setError('')
+    setResendNote('')
+    setAlreadyExists(false)
+    setConfirmSent(false)
+    setMagicSent(false)
+    setResetSent(false)
+  }
 
   async function handleSignUp(e) {
     e.preventDefault()
     setLoading(true)
     setError('')
     const { data, error } = await signUpWithEmail(email, password)
+
     if (error) {
-      setError(error.message)
+      setError(friendlyAuthError(error))
+    } else if (isExistingAccount(data)) {
+      // Supabase sent NOTHING here — the address already has a confirmed
+      // account. Telling this user to "check your email" is the bug that
+      // makes confirmation emails look like they've gone missing.
+      setAlreadyExists(true)
     } else if (data?.user && !data?.session) {
-      // Supabase accepted the signup but email confirmation is required.
-      // Show a "check your email" screen so the user isn't left hanging.
+      // Genuine new signup, email confirmation required.
       setConfirmSent(true)
+      setCooldown(RESEND_COOLDOWN_SECONDS)
     }
     // If data.session exists, onAuthStateChange fires SIGNED_IN and the app
     // automatically moves past AuthScreen — no action needed here.
+    setLoading(false)
+  }
+
+  async function handleResendConfirmation() {
+    if (cooldown > 0 || loading) return
+    setLoading(true)
+    setError('')
+    setResendNote('')
+    const { error } = await resendConfirmation(email)
+    if (error) {
+      setError(friendlyAuthError(error))
+    } else {
+      setResendNote('Sent again — it can take a minute or two to arrive.')
+      setCooldown(RESEND_COOLDOWN_SECONDS)
+    }
     setLoading(false)
   }
 
@@ -83,8 +165,16 @@ export default function AuthScreen() {
     setLoading(true)
     setError('')
     const { error } = await signInWithMagicLink(email)
+
     if (error) {
-      setError('Something went wrong — try again in a moment.')
+      // With shouldCreateUser: false, an unknown address errors. Don't leak
+      // whether the account exists — show the same neutral screen either way.
+      if (/signups not allowed|user not found|otp_disabled/i.test(error.message || '')) {
+        console.warn('[auth] magic link requested for unknown address')
+        setMagicSent(true)
+      } else {
+        setError(friendlyAuthError(error))
+      }
     } else {
       setMagicSent(true)
     }
@@ -102,8 +192,7 @@ export default function AuthScreen() {
     try {
       const { error } = await resetPassword(email.trim())
       if (error) {
-        console.error('Password reset failed:', error)
-        setError(error.message || 'Something went wrong — try again in a moment.')
+        setError(friendlyAuthError(error))
       } else {
         setResetSent(true)
       }
@@ -191,10 +280,149 @@ export default function AuthScreen() {
 
             {error && <p className={styles.error} role="alert">{error}</p>}
 
-            <button className={styles.btnPrimary} type="submit" disabled={!!loading}>
+            <button className={styles.btnPrimary} type="submit" disabled={loading}>
               {loading ? 'Updating…' : 'Update password'}
             </button>
           </form>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Account already exists (Supabase sent no email) ────────
+  if (alreadyExists) {
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.formWrap}>
+          <div className={styles.successIcon} aria-hidden="true">👋</div>
+          <h2 className={styles.formHeading}>You've already got an account</h2>
+          <p className={styles.formSubtext}>
+            There's already an account for <strong>{email}</strong>, so we haven't
+            sent a new confirmation email. Sign in with your password, or reset it
+            if you've forgotten.
+          </p>
+
+          <div className={styles.actions}>
+            <button
+              className={styles.btnPrimary}
+              onClick={() => { resetFlowState(); setPassword(''); setMode('login') }}
+            >
+              Sign in
+            </button>
+            <button
+              className={styles.btnSecondary}
+              onClick={() => { resetFlowState(); setMode('reset') }}
+            >
+              Reset my password
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Email confirmation required ────────────────────────────
+  if (confirmSent) {
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.formWrap}>
+          <div className={styles.successIcon} aria-hidden="true">✉️</div>
+          <h2 className={styles.formHeading}>Check your email</h2>
+          <p className={styles.formSubtext}>
+            We've sent a confirmation link to <strong>{email}</strong>.
+            Click it to activate your account and start your free trial.
+          </p>
+          <p className={styles.formSubtext} style={{ fontSize: '0.9rem', marginTop: 'var(--space-2)' }}>
+            Can't find it? Check your spam or junk folder — and make sure the
+            address above is spelled correctly.
+          </p>
+
+          {error && <p className={styles.error} role="alert">{error}</p>}
+          {resendNote && (
+            <p className={styles.formSubtext} role="status" style={{ fontSize: '0.9rem' }}>
+              {resendNote}
+            </p>
+          )}
+
+          <div className={styles.actions}>
+            <button
+              className={styles.btnPrimary}
+              onClick={handleResendConfirmation}
+              disabled={cooldown > 0 || loading}
+              aria-live="polite"
+            >
+              {loading
+                ? 'Sending…'
+                : cooldown > 0
+                  ? `Resend email (${cooldown}s)`
+                  : 'Resend email'}
+            </button>
+            <button
+              className={styles.btnSecondary}
+              onClick={() => { resetFlowState(); setMode('signup') }}
+            >
+              Use a different email
+            </button>
+          </div>
+
+          <p className={styles.switchMode}>
+            <button
+              className={styles.linkBtn}
+              onClick={() => { resetFlowState(); setMode('start') }}
+            >
+              Back to start
+            </button>
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Magic link sent ────────────────────────────────────────
+  if (magicSent) {
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.formWrap}>
+          <div className={styles.successIcon} aria-hidden="true">✉️</div>
+          <h2 className={styles.formHeading}>Check your email</h2>
+          <p className={styles.formSubtext}>
+            If an account exists for <strong>{email}</strong>, we've sent a
+            sign-in link. Tap it to get into your pool mate.
+          </p>
+          <p className={styles.formSubtext} style={{ fontSize: '0.9rem', marginTop: 'var(--space-2)' }}>
+            Can't find it? Check your spam or junk folder.
+          </p>
+          <button
+            className={styles.btnSecondary}
+            onClick={() => { resetFlowState(); setMode('login') }}
+          >
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Reset link sent ────────────────────────────────────────
+  if (resetSent) {
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.formWrap}>
+          <div className={styles.successIcon} aria-hidden="true">✉️</div>
+          <h2 className={styles.formHeading}>Check your email</h2>
+          <p className={styles.formSubtext}>
+            If an account exists for <strong>{email}</strong>, we've sent a link to
+            reset your password. Tap it to choose a new one.
+          </p>
+          <p className={styles.formSubtext} style={{ fontSize: '0.9rem', marginTop: 'var(--space-2)' }}>
+            Can't find it? Check your spam or junk folder.
+          </p>
+          <button
+            className={styles.btnSecondary}
+            onClick={() => { resetFlowState(); setMode('login') }}
+          >
+            Back to sign in
+          </button>
         </div>
       </div>
     )
@@ -249,80 +477,17 @@ export default function AuthScreen() {
           <div className={styles.actions}>
             <button
               className={styles.btnPrimary}
-              onClick={() => setMode('signup')}
+              onClick={() => { resetFlowState(); setMode('signup') }}
             >
               Start free trial
             </button>
             <button
               className={styles.btnSecondary}
-              onClick={() => setMode('login')}
+              onClick={() => { resetFlowState(); setMode('login') }}
             >
               I already have an account
             </button>
           </div>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Email confirmation required ────────────────────────────
-  if (confirmSent) {
-    return (
-      <div className={styles.wrap}>
-        <div className={styles.formWrap}>
-          <div className={styles.successIcon} aria-hidden="true">✉️</div>
-          <h2 className={styles.formHeading}>Check your email</h2>
-          <p className={styles.formSubtext}>
-            We've sent a confirmation link to <strong>{email}</strong>.
-            Click it to activate your account and start your free trial.
-          </p>
-          <p className={styles.formSubtext} style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.5rem' }}>
-            Can't find it? Check your spam folder.
-          </p>
-          <button className={styles.btnSecondary} onClick={() => { setConfirmSent(false); setMode('start') }}>
-            Back to start
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Magic link sent ────────────────────────────────────────
-  if (magicSent) {
-    return (
-      <div className={styles.wrap}>
-        <div className={styles.formWrap}>
-          <div className={styles.successIcon} aria-hidden="true">✉️</div>
-          <h2 className={styles.formHeading}>Check your email</h2>
-          <p className={styles.formSubtext}>
-            We've sent a sign-in link to <strong>{email}</strong>.
-            Tap it to get into your pool mate.
-          </p>
-          <button className={styles.btnSecondary} onClick={() => { setMagicSent(false); setMode('start') }}>
-            Back to start
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Reset link sent ────────────────────────────────────────
-  if (resetSent) {
-    return (
-      <div className={styles.wrap}>
-        <div className={styles.formWrap}>
-          <div className={styles.successIcon} aria-hidden="true">✉️</div>
-          <h2 className={styles.formHeading}>Check your email</h2>
-          <p className={styles.formSubtext}>
-            If an account exists for <strong>{email}</strong>, we've sent a link to
-            reset your password. Tap it to choose a new one.
-          </p>
-          <p className={styles.formSubtext} style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.5rem' }}>
-            Can't find it? Check your spam folder.
-          </p>
-          <button className={styles.btnSecondary} onClick={() => { setResetSent(false); setMode('login') }}>
-            Back to sign in
-          </button>
         </div>
       </div>
     )
@@ -333,7 +498,7 @@ export default function AuthScreen() {
     return (
       <div className={styles.wrap}>
         <div className={styles.formWrap}>
-          <button className={styles.backBtn} onClick={() => { setError(''); setMode('login') }} aria-label="Back">
+          <button className={styles.backBtn} onClick={() => { resetFlowState(); setMode('login') }} aria-label="Back">
             Back
           </button>
           <h2 className={styles.formHeading}>Reset your password</h2>
@@ -356,14 +521,60 @@ export default function AuthScreen() {
 
             {error && <p className={styles.error} role="alert">{error}</p>}
 
-            <button className={styles.btnPrimary} type="submit" disabled={!!loading}>
+            <button className={styles.btnPrimary} type="submit" disabled={loading}>
               {loading ? 'Sending…' : 'Send reset link'}
             </button>
           </form>
 
           <p className={styles.switchMode}>
             Remembered it?{' '}
-            <button className={styles.linkBtn} onClick={() => { setError(''); setMode('login') }}>Sign in</button>
+            <button className={styles.linkBtn} onClick={() => { resetFlowState(); setMode('login') }}>Sign in</button>
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Magic link request form ────────────────────────────────
+  // Previously this mode had no branch at all: setMode('magic') fell through
+  // to the password login form, so "Email me a sign-in link instead" appeared
+  // to do nothing and handleMagicLink was unreachable.
+  if (mode === 'magic') {
+    return (
+      <div className={styles.wrap}>
+        <div className={styles.formWrap}>
+          <button className={styles.backBtn} onClick={() => { resetFlowState(); setMode('login') }} aria-label="Back">
+            Back
+          </button>
+          <h2 className={styles.formHeading}>Email me a sign-in link</h2>
+          <p className={styles.formSubtext}>
+            No password needed. We'll send a link to your email — tap it and
+            you're in.
+          </p>
+
+          <form onSubmit={handleMagicLink} className={styles.form} noValidate>
+            <label className={styles.label} htmlFor="magic-email">Email address</label>
+            <input
+              id="magic-email"
+              className={styles.input}
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="your@email.com.au"
+              required
+            />
+
+            {error && <p className={styles.error} role="alert">{error}</p>}
+
+            <button className={styles.btnPrimary} type="submit" disabled={loading}>
+              {loading ? 'Sending…' : 'Send me a link'}
+            </button>
+          </form>
+
+          <p className={styles.switchMode}>
+            Prefer a password?{' '}
+            <button className={styles.linkBtn} onClick={() => { resetFlowState(); setMode('login') }}>Sign in</button>
           </p>
         </div>
       </div>
@@ -375,7 +586,7 @@ export default function AuthScreen() {
     return (
       <div className={styles.wrap}>
         <div className={styles.formWrap}>
-          <button className={styles.backBtn} onClick={() => setMode('start')} aria-label="Back">
+          <button className={styles.backBtn} onClick={() => { resetFlowState(); setMode('start') }} aria-label="Back">
             Back
           </button>
           <h2 className={styles.formHeading}>Start your free trial</h2>
@@ -410,7 +621,7 @@ export default function AuthScreen() {
             <button
               className={styles.btnPrimary}
               type="submit"
-              disabled={!!loading}
+              disabled={loading}
             >
               {loading ? 'Creating account…' : 'Create account'}
             </button>
@@ -418,7 +629,7 @@ export default function AuthScreen() {
 
           <p className={styles.switchMode}>
             Already have an account?{' '}
-            <button className={styles.linkBtn} onClick={() => setMode('login')}>Sign in</button>
+            <button className={styles.linkBtn} onClick={() => { resetFlowState(); setMode('login') }}>Sign in</button>
           </p>
         </div>
       </div>
@@ -429,7 +640,7 @@ export default function AuthScreen() {
   return (
     <div className={styles.wrap}>
       <div className={styles.formWrap}>
-        <button className={styles.backBtn} onClick={() => setMode('start')} aria-label="Back">
+        <button className={styles.backBtn} onClick={() => { resetFlowState(); setMode('start') }} aria-label="Back">
           Back
         </button>
         <h2 className={styles.formHeading}>Welcome back</h2>
@@ -461,7 +672,7 @@ export default function AuthScreen() {
             <button
               type="button"
               className={styles.linkBtn}
-              onClick={() => { setError(''); setMode('reset') }}
+              onClick={() => { resetFlowState(); setMode('reset') }}
             >
               Forgot password?
             </button>
@@ -472,7 +683,7 @@ export default function AuthScreen() {
           <button
             className={styles.btnPrimary}
             type="submit"
-            disabled={!!loading}
+            disabled={loading}
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
@@ -482,14 +693,14 @@ export default function AuthScreen() {
 
         <button
           className={styles.btnGhost}
-          onClick={() => setMode('magic')}
+          onClick={() => { resetFlowState(); setMode('magic') }}
         >
           Email me a sign-in link instead
         </button>
 
         <p className={styles.switchMode}>
           Don't have an account?{' '}
-          <button className={styles.linkBtn} onClick={() => setMode('signup')}>Start free trial</button>
+          <button className={styles.linkBtn} onClick={() => { resetFlowState(); setMode('signup') }}>Start free trial</button>
         </p>
       </div>
     </div>
