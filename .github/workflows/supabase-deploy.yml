@@ -5,9 +5,6 @@
 name: Deploy Supabase
 
 on:
-  push:
-    branches: [main]
-    paths: ['supabase/**', 'scripts/apply_migrations.py', '.github/workflows/supabase-deploy.yml']
   workflow_dispatch:
 
 jobs:
