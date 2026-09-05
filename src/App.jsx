@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import FeedbackOverlay from './FeedbackOverlay.jsx';
 import WaterTestScanner from './components/WaterTestScanner.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
 import GuestOnboarding from './components/GuestOnboarding.jsx';
+import AppTour from './components/AppTour.jsx';
 import LoadingScreen from './components/LoadingScreen.jsx';
 import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
@@ -303,6 +304,7 @@ function Sidebar({ activeView, onNav, pendingActions }) {
         <div
           className={`sidebar-item ${activeView === 'health' ? 'active' : ''}`}
           onClick={() => onNav('health')}
+          data-tour="health"
         >
           <span className="sidebar-icon">{Icon.waves}</span>
           Health Score
@@ -310,6 +312,7 @@ function Sidebar({ activeView, onNav, pendingActions }) {
         <div
           className={`sidebar-item ${activeView === 'tests' ? 'active' : ''}`}
           onClick={() => onNav('tests')}
+          data-tour="tests"
         >
           <span className="sidebar-icon">{Icon.flask}</span>
           Water Tests
@@ -320,6 +323,7 @@ function Sidebar({ activeView, onNav, pendingActions }) {
         <div
           className={`sidebar-item ${activeView === 'history' ? 'active' : ''}`}
           onClick={() => onNav('history')}
+          data-tour="history"
         >
           <span className="sidebar-icon">{Icon.droplet}</span>
           Chemistry log
@@ -331,6 +335,7 @@ function Sidebar({ activeView, onNav, pendingActions }) {
         <div
           className={`sidebar-item ${activeView === 'setup' ? 'active' : ''}`}
           onClick={() => onNav('setup')}
+          data-tour="setup"
         >
           <span className="sidebar-icon">{Icon.settings}</span>
           Setup
@@ -338,6 +343,7 @@ function Sidebar({ activeView, onNav, pendingActions }) {
         <div
           className={`sidebar-item ${activeView === 'equipment' ? 'active' : ''}`}
           onClick={() => onNav('equipment')}
+          data-tour="equipment"
         >
           <span className="sidebar-icon">{Icon.equipment}</span>
           Equipment
@@ -378,6 +384,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
       <button
         className={`mobile-nav-item ${activeView === 'health' ? 'active' : ''}`}
         onClick={() => onNav('health')}
+        data-tour="health"
       >
         <span className="mobile-nav-icon">{Icon.waves}</span>
         <span className="mobile-nav-label">Health</span>
@@ -387,6 +394,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
       <button
         className={`mobile-nav-item ${activeView === 'tests' ? 'active' : ''}`}
         onClick={() => onNav('tests')}
+        data-tour="tests"
       >
         <span className="mobile-nav-icon">{Icon.flask}</span>
         <span className="mobile-nav-label">Tests</span>
@@ -405,6 +413,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
       <button
         className={`mobile-nav-item ${activeView === 'history' ? 'active' : ''}`}
         onClick={() => onNav('history')}
+        data-tour="history"
       >
         <span className="mobile-nav-icon">{Icon.droplet}</span>
         <span className="mobile-nav-label">History</span>
@@ -414,6 +423,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
       <button
         className={`mobile-nav-item ${moreActive ? 'active' : ''}`}
         onClick={onMore}
+        data-tour="more"
       >
         <span className="mobile-nav-icon">{Icon.menu}</span>
         <span className="mobile-nav-label">More</span>
@@ -443,6 +453,7 @@ function MobileMoreDrawer({ activeView, onNav, onClose }) {
             key={item.view}
             className={`mobile-drawer-item ${activeView === item.view ? 'active' : ''}`}
             onClick={() => { onNav(item.view); onClose(); }}
+            data-tour={`drawer-${item.view}`}
           >
             <span className="mobile-drawer-icon">{item.icon}</span>
             <span>{item.label}</span>
@@ -1636,7 +1647,7 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
 // ─────────────────────────────────────────────────────────────────
 // EQUIPMENT PAGE
 // ─────────────────────────────────────────────────────────────────
-function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
+function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAutoOpened }) {
   const EMPTY_FORM = { type: 'Pump', brand: '', model: '', notes: '', installed_at: '' };
   const [mode, setMode] = useState('list'); // 'list' | 'new' | item-id string
   const [form, setForm] = useState(EMPTY_FORM);
@@ -1644,6 +1655,17 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
   const [error, setError] = useState('');
 
   const startNew = () => { setForm(EMPTY_FORM); setError(''); setMode('new'); };
+
+  // One-shot: the walkthrough finishes on "Add my equipment", which lands here
+  // with the form already open rather than on an empty list.
+  useEffect(() => {
+    if (autoOpenAdd) {
+      setForm(EMPTY_FORM);
+      setError('');
+      setMode('new');
+      onAutoOpened?.();
+    }
+  }, [autoOpenAdd, onAutoOpened]);
   const startEdit = (item) => {
     setForm({
       // Normalise the pre-July-2026 type label so the select matches an option.
@@ -2320,6 +2342,25 @@ export default function App() {
   const [onboardingDismissed, setOnboardingDismissed] = useState(false); // session-scoped
   const [dataReady, setDataReady] = useState(false);
   const [openTestForm, setOpenTestForm] = useState(false); // one-shot: open the log form on the Tests page
+  const [openEquipmentForm, setOpenEquipmentForm] = useState(false); // one-shot: open the add-equipment form
+  const [tourActive, setTourActive] = useState(false); // post-onboarding walkthrough
+
+  // Walkthrough drives the view so each popup describes the page in front of
+  // the user. Stable identity so AppTour's effects don't re-fire every render.
+  const handleTourNavigate = useCallback((view) => {
+    setActiveView(view);
+    setMobileDrawerOpen(false);
+  }, []);
+
+  // Seen once, never again — the walkthrough is a first-run thing.
+  const endTour = useCallback(({ addEquipment = false } = {}) => {
+    setTourActive(false);
+    try { localStorage.setItem('ypm_tour_seen', '1'); } catch { /* private mode */ }
+    if (addEquipment) {
+      setActiveView('equipment');
+      setOpenEquipmentForm(true);
+    }
+  }, []);
 
   // Shared action for every "Log test" entry point: go to Tests and open the form.
   const goLogTest = () => {
@@ -2517,6 +2558,8 @@ export default function App() {
               onAdd={handleAddEquipment}
               onUpdate={handleUpdateEquipment}
               onDelete={handleDeleteEquipment}
+              autoOpenAdd={openEquipmentForm}
+              onAutoOpened={() => setOpenEquipmentForm(false)}
             />
           )}
           {activeView === 'schedule' && (
@@ -2612,8 +2655,27 @@ export default function App() {
           next app launch until a pool profile exists. */}
       {hasPoolProfile === false && !onboardingDismissed && (
         <GuestOnboarding
-          onComplete={() => loadAll(user.id)}
+          onComplete={() => {
+            loadAll(user.id);
+            // Straight into the walkthrough — unless they've already had it.
+            let seen = false;
+            try { seen = localStorage.getItem('ypm_tour_seen') === '1'; } catch { /* private mode */ }
+            if (!seen) {
+              setActiveView('health');
+              setTourActive(true);
+            }
+          }}
           onDismiss={() => setOnboardingDismissed(true)}
+        />
+      )}
+
+      {/* Post-onboarding walkthrough — anchored popups over the real nav.
+          Finishes on Equipment and hands off into the add-equipment form. */}
+      {tourActive && (
+        <AppTour
+          onNavigate={handleTourNavigate}
+          onFinish={() => endTour({ addEquipment: true })}
+          onDismiss={() => endTour()}
         />
       )}
 
