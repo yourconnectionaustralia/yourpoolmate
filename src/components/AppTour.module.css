@@ -1,0 +1,182 @@
+/* File: src/components/AppTour.module.css */
+/* Post-onboarding walkthrough — anchored popups over the real navigation. */
+
+/* ── Spotlight ────────────────────────────────────────────────
+   One element does both jobs: the ring around the highlighted nav item and
+   the page dim (a 9999px spread shadow fills the rest of the viewport).
+   It captures clicks on purpose — five short steps with an always-visible
+   close is friendlier than letting the user wander mid-tour. */
+.spotlight {
+  position: fixed;
+  z-index: 500;
+  border-radius: var(--r-lg, 12px);
+  box-shadow:
+    0 0 0 2px var(--color-foam, #9FD4E8),
+    0 0 0 9999px rgba(6, 59, 76, 0.62);
+  transition: top 0.24s ease, left 0.24s ease, width 0.24s ease, height 0.24s ease;
+  pointer-events: auto;
+}
+
+/* No anchor visible (very small viewport, hidden nav) — dim only. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(6, 59, 76, 0.62);
+}
+
+/* ── Popup ────────────────────────────────────────────────── */
+.popup {
+  position: fixed;
+  z-index: 501;
+  width: min(320px, calc(100vw - 32px));
+  background: var(--white, #fff);
+  border-radius: var(--r-lg, 12px);
+  box-shadow: 0 24px 60px rgba(8, 94, 120, 0.28);
+  padding: 18px 18px 14px;
+  animation: tourIn 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.measuring { visibility: hidden; }
+
+@keyframes tourIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Caret pointing at the highlighted item. */
+.caret {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--white, #fff);
+  transform: rotate(45deg);
+}
+
+.caretRight  { left: -6px; }
+.caretTop    { bottom: -6px; }
+.caretBottom { top: -6px; }
+
+/* ── Header ───────────────────────────────────────────────── */
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.step {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ocean, #0B7799);
+  flex: 1;
+  padding-top: 3px;
+}
+
+/* Always available — the tour is never a trap. */
+.close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin: -4px -4px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg-muted, #F4F8FA);
+  color: var(--color-text-secondary, #4A6570);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--transition-fast, 0.1s);
+}
+
+.close:hover { background: var(--gray-line, #DCE9EE); }
+.close:active { transform: scale(0.92); }
+
+.title {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-text-primary, #13262E);
+  margin-bottom: 6px;
+}
+
+.body {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-text-secondary, #4A6570);
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.dots {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gray-line, #DCE9EE);
+  transition: background var(--transition-base, 0.12s), transform var(--transition-base, 0.12s);
+}
+
+.dotDone   { background: var(--color-foam, #9FD4E8); }
+.dotActive { background: var(--color-ocean, #0B7799); transform: scale(1.35); }
+
+.skip {
+  border: none;
+  background: none;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--color-text-muted, #6B838C);
+  cursor: pointer;
+  padding: 8px 4px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.next {
+  min-height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--r-md, 8px);
+  background: var(--color-ocean, #0B7799);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter var(--transition-fast, 0.1s), transform var(--transition-fast, 0.1s);
+}
+
+.next:hover  { filter: brightness(1.08); }
+.next:active { transform: scale(0.97); }
+
+.next:focus-visible,
+.close:focus-visible,
+.skip:focus-visible {
+  outline: 2px solid var(--color-ocean, #0B7799);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spotlight, .popup { transition: none; animation: none; }
+}
