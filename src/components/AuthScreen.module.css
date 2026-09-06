@@ -70,9 +70,10 @@
 }
 
 .propIcon {
-  font-size: 1.25rem;
   flex-shrink: 0;
   margin-top: 1px;
+  display: inline-flex;
+  color: var(--color-ocean);
 }
 
 /* ── Trial badge ───────────────────────────────────────────── */
@@ -325,6 +326,7 @@
 }
 
 .successIcon {
-  font-size: 2.5rem;
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  color: var(--color-ocean);
 }

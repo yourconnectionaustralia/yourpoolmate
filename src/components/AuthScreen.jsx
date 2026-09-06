@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import styles from './AuthScreen.module.css'
+import { PoolIcon } from './PoolIcon.jsx'
 
 // Seconds Supabase enforces between confirmation-email resends for the
 // same address. Calling sooner returns an error, so the button is gated.
@@ -240,7 +241,7 @@ export default function AuthScreen() {
       return (
         <div className={styles.wrap}>
           <div className={styles.formWrap}>
-            <div className={styles.successIcon} aria-hidden="true">✅</div>
+            <div className={styles.successIcon}><PoolIcon name="checkCircle" size={44} /></div>
             <h2 className={styles.formHeading}>Password updated</h2>
             <p className={styles.formSubtext}>
               Your password has been changed. You're all set — loading your pool mate…
@@ -294,7 +295,7 @@ export default function AuthScreen() {
     return (
       <div className={styles.wrap}>
         <div className={styles.formWrap}>
-          <div className={styles.successIcon} aria-hidden="true">👋</div>
+          <div className={styles.successIcon}><PoolIcon name="userCheck" size={44} /></div>
           <h2 className={styles.formHeading}>You've already got an account</h2>
           <p className={styles.formSubtext}>
             There's already an account for <strong>{email}</strong>, so we haven't
@@ -326,7 +327,7 @@ export default function AuthScreen() {
     return (
       <div className={styles.wrap}>
         <div className={styles.formWrap}>
-          <div className={styles.successIcon} aria-hidden="true">✉️</div>
+          <div className={styles.successIcon}><PoolIcon name="mail" size={44} /></div>
           <h2 className={styles.formHeading}>Check your email</h2>
           <p className={styles.formSubtext}>
             We've sent a confirmation link to <strong>{email}</strong>.
@@ -383,7 +384,7 @@ export default function AuthScreen() {
     return (
       <div className={styles.wrap}>
         <div className={styles.formWrap}>
-          <div className={styles.successIcon} aria-hidden="true">✉️</div>
+          <div className={styles.successIcon}><PoolIcon name="mail" size={44} /></div>
           <h2 className={styles.formHeading}>Check your email</h2>
           <p className={styles.formSubtext}>
             If an account exists for <strong>{email}</strong>, we've sent a
@@ -408,7 +409,7 @@ export default function AuthScreen() {
     return (
       <div className={styles.wrap}>
         <div className={styles.formWrap}>
-          <div className={styles.successIcon} aria-hidden="true">✉️</div>
+          <div className={styles.successIcon}><PoolIcon name="mail" size={44} /></div>
           <h2 className={styles.formHeading}>Check your email</h2>
           <p className={styles.formSubtext}>
             If an account exists for <strong>{email}</strong>, we've sent a link to
@@ -452,19 +453,19 @@ export default function AuthScreen() {
 
           <div className={styles.valueProps}>
             <div className={styles.prop}>
-              <span className={styles.propIcon}>💧</span>
+              <span className={styles.propIcon}><PoolIcon name="droplet" size={20} /></span>
               <span>Know your pool's health at a glance</span>
             </div>
             <div className={styles.prop}>
-              <span className={styles.propIcon}>🎯</span>
+              <span className={styles.propIcon}><PoolIcon name="target" size={20} /></span>
               <span>Exactly what chemicals to add — no guessing</span>
             </div>
             <div className={styles.prop}>
-              <span className={styles.propIcon}>📋</span>
+              <span className={styles.propIcon}><PoolIcon name="clipboard" size={20} /></span>
               <span>Protect your pool warranty with timestamped records</span>
             </div>
             <div className={styles.prop}>
-              <span className={styles.propIcon}>📸</span>
+              <span className={styles.propIcon}><PoolIcon name="camera" size={20} /></span>
               <span>Scan your pool shop test — auto-fills in seconds</span>
             </div>
           </div>
