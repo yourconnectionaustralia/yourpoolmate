@@ -53,6 +53,13 @@ const Icon = {
       <circle cx="12" cy="9" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>
     </svg>
   ),
+  help: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M9.4 9.2a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.3-2.6 4"/>
+      <path d="M12 17.2h.01"/>
+    </svg>
+  ),
   camera: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -296,7 +303,7 @@ const SEASONAL_TIPS = {
 // ─────────────────────────────────────────────────────────────────
 // SIDEBAR
 // ─────────────────────────────────────────────────────────────────
-function Sidebar({ activeView, onNav, pendingActions }) {
+function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-section">
@@ -366,6 +373,12 @@ function Sidebar({ activeView, onNav, pendingActions }) {
           <span className="sidebar-icon">{Icon.user}</span>
           Profile
         </div>
+        {/* Help is an action, not a view — it opens the help sheet, which is
+            also where the walkthrough can be replayed. */}
+        <div className="sidebar-item" onClick={onHelp}>
+          <span className="sidebar-icon">{Icon.help}</span>
+          Help
+        </div>
       </div>
     </aside>
   );
@@ -397,16 +410,16 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
         data-tour="tests"
       >
         <span className="mobile-nav-icon">{Icon.flask}</span>
-        <span className="mobile-nav-label">Tests</span>
+        <span className="mobile-nav-label">Recent</span>
         {pendingActions > 0 && (
           <span className="mobile-nav-badge">{pendingActions}</span>
         )}
       </button>
 
-      {/* Centre CTA — Log test */}
+      {/* Centre CTA — Test Water */}
       <button className="mobile-nav-item mobile-nav-cta" onClick={onLogTest}>
         <span className="mobile-nav-cta-icon">+</span>
-        <span className="mobile-nav-label">Log</span>
+        <span className="mobile-nav-label">Test</span>
       </button>
 
       {/* History */}
@@ -435,7 +448,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
 // ─────────────────────────────────────────────────────────────────
 // MOBILE MORE DRAWER (slide-up sheet)
 // ─────────────────────────────────────────────────────────────────
-function MobileMoreDrawer({ activeView, onNav, onClose }) {
+function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
   const items = [
     { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
     { view: 'equipment', icon: Icon.equipment,  label: 'Equipment' },
@@ -459,6 +472,13 @@ function MobileMoreDrawer({ activeView, onNav, onClose }) {
             <span>{item.label}</span>
           </button>
         ))}
+        <button
+          className="mobile-drawer-item"
+          onClick={() => { onClose(); onHelp?.(); }}
+        >
+          <span className="mobile-drawer-icon">{Icon.help}</span>
+          <span>Help</span>
+        </button>
       </div>
     </>
   );
@@ -486,7 +506,7 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst }) {
             <div className="empty-state-body">
               Add your first water test and your Health Score will appear here within seconds.
             </div>
-            <button className="btn btn-primary btn-sm" onClick={onLogFirst}>Log first water test</button>
+            <button className="btn btn-primary btn-sm" onClick={onLogFirst}>Enter first test results</button>
           </div>
         </div>
       </div>
@@ -830,7 +850,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, saltRang
       {/* Actions row */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-          Log water test
+          Enter Test Results
         </button>
         <button className="btn btn-ghost" onClick={onScanTest}>
           <span style={{ display: 'inline-flex' }}>{Icon.camera}</span>
@@ -2266,9 +2286,9 @@ function VolumeGateModal({ onCancel, onConfirm }) {
 // ─────────────────────────────────────────────────────────────────
 // HELP SHEET — opened from the top-nav Help button
 // ─────────────────────────────────────────────────────────────────
-function HelpSheet({ onClose }) {
+function HelpSheet({ onClose, onReplayTour }) {
   const steps = [
-    { n: '1', title: 'Log a water test', body: 'Type the readings in, or scan your pool shop\'s printout with your camera — it fills the numbers in for you.' },
+    { n: '1', title: 'Enter your test results', body: 'Type the readings in, or scan your pool shop\'s printout with your camera — it fills the numbers in for you.' },
     { n: '2', title: 'Check your Health Score', body: 'One number out of 100 tells you where your water stands. Green is swim-ready.' },
     { n: '3', title: 'Follow the plan, in order', body: 'The "what to do" list gives exact doses for your pool\'s volume. Re-test a day after dosing.' },
   ];
@@ -2302,6 +2322,11 @@ function HelpSheet({ onClose }) {
           </a>.
         </div>
         <div className="modal-actions">
+          {onReplayTour && (
+            <button className="btn btn-ghost btn-sm" onClick={onReplayTour}>
+              Replay the walkthrough
+            </button>
+          )}
           <button className="btn btn-primary btn-sm" onClick={onClose}>Got it</button>
         </div>
       </div>
@@ -2510,7 +2535,7 @@ export default function App() {
           )}
           <button className="btn btn-ghost btn-sm" onClick={() => setShowHelp(true)}>Help</button>
           <button className="btn btn-nav" onClick={goLogTest}>
-            Log test
+            Test Water
           </button>
         </div>
       </nav>
@@ -2521,6 +2546,7 @@ export default function App() {
           activeView={activeView}
           onNav={setActiveView}
           pendingActions={pendingActions}
+          onHelp={() => setShowHelp(true)}
         />
 
         <main className="main-content">
@@ -2613,7 +2639,17 @@ export default function App() {
 
       {/* Scan modal — real OCR via the ocr-water-test Edge Function */}
       {/* Help sheet */}
-      {showHelp && <HelpSheet onClose={() => setShowHelp(false)} />}
+      {showHelp && (
+        <HelpSheet
+          onClose={() => setShowHelp(false)}
+          onReplayTour={() => {
+            setShowHelp(false);
+            setMobileDrawerOpen(false);
+            setActiveView('health');
+            setTourActive(true);
+          }}
+        />
+      )}
 
       {showScan && (
         <WaterTestScanner
@@ -2645,6 +2681,7 @@ export default function App() {
           activeView={activeView}
           onNav={setActiveView}
           onClose={() => setMobileDrawerOpen(false)}
+          onHelp={() => setShowHelp(true)}
         />
       )}
 
