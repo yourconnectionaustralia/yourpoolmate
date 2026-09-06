@@ -31,8 +31,8 @@ export const TOUR_STEPS = [
     id: 'tests',
     view: 'tests',
     anchors: ['tests'],
-    title: 'Log a water test',
-    body: 'Type in your readings, or photograph a pool shop printout and let the scanner read it. You get exact doses for your pool volume — no guessing.',
+    title: 'Test your water',
+    body: 'Tap Enter Test Results to type your readings in, or photograph a pool shop printout and let the scanner read it. You get exact doses for your pool volume — no guessing.',
   },
   {
     id: 'history',
