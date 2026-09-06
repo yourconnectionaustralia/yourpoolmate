@@ -4,6 +4,7 @@ import WaterTestScanner from './components/WaterTestScanner.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
 import GuestOnboarding from './components/GuestOnboarding.jsx';
 import AppTour from './components/AppTour.jsx';
+import { PoolIcon, equipmentIconName } from './components/PoolIcon.jsx';
 import LoadingScreen from './components/LoadingScreen.jsx';
 import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
@@ -39,8 +40,10 @@ const Icon = {
   ),
   equipment: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>
+      <rect x="2.8" y="8.4" width="18.4" height="11.2" rx="2"/>
+      <path d="M2.8 12.6h18.4"/>
+      <path d="M8.8 8.4V6.6a1.6 1.6 0 0 1 1.6-1.6h3.2a1.6 1.6 0 0 1 1.6 1.6v1.8"/>
+      <path d="M10.4 12.6v2.2h3.2v-2.2"/>
     </svg>
   ),
   calendar: (
@@ -164,6 +167,20 @@ const EQUIPMENT_TYPES = [
   'Suction Cleaner', 'Chlorinator', 'Lighting', 'Other',
 ];
 
+// The Equipment page prompts for each of these until one has been added.
+// 'Other' is deliberately absent — it's a catch-all, not something an owner
+// can be asked to go and find. Each line says what the app does with it, so
+// the row answers "why should I bother" before it's asked.
+const EQUIPMENT_PROMPTS = [
+  { type: 'Pump',               why: 'Sets your daily run time and turnover guidance.' },
+  { type: 'Filter',             why: 'Drives backwash and media-change reminders.' },
+  { type: 'Chlorinator',        why: 'Sets your salt target and cell-clean interval.' },
+  { type: 'Heater / Heat Pump', why: 'Adjusts seasonal chemistry for a heated pool.' },
+  { type: 'Robotic Cleaner',    why: 'Adds service intervals for the unit.' },
+  { type: 'Suction Cleaner',    why: 'Tracks hose and diaphragm wear.' },
+  { type: 'Lighting',           why: 'Logs globe and transformer replacements.' },
+];
+
 // Popular AU brands per equipment type — shown as a dropdown with an
 // "Other" escape hatch to free text. Types not listed here (Filter,
 // Lighting, Other) get a plain free-text brand field.
@@ -238,24 +255,13 @@ const FILTER_TYPES = [
 // Current year, for the "Year built" dropdown
 const CURRENT_YEAR = new Date().getFullYear();
 
-function equipmentEmoji(type) {
-  if (!type) return '⚙️';
-  const t = type.toLowerCase();
-  if (t.includes('pump'))    return '💧';
-  if (t.includes('filter'))  return '🔵';
-  if (t.includes('heat'))    return '🔥';
-  if (t.includes('robot') || t.includes('suction') || t.includes('cleaner')) return '🤖';
-  if (t.includes('chlorin') || t.includes('salt'))  return '⚗️';
-  if (t.includes('light'))   return '💡';
-  return '⚙️';
-}
 
 // ─────────────────────────────────────────────────────────────────
 // SEASONAL TIPS DATA
 // ─────────────────────────────────────────────────────────────────
 const SEASONAL_TIPS = {
   Autumn: {
-    icon: '🍂',
+    icon: 'leaf',
     intro: 'As temperatures drop your pool needs less chlorine but more protection. Stay ahead of algae and prepare for winter.',
     tips: [
       { title: 'Reduce chlorine dosage', body: 'Cooler water consumes chlorine more slowly. Cut your dose by 20–30% and let your readings guide you.' },
@@ -266,7 +272,7 @@ const SEASONAL_TIPS = {
     ],
   },
   Winter: {
-    icon: '❄️',
+    icon: 'snowflake',
     intro: "Minimal chemicals, minimal effort — but don't ignore it completely. A well-maintained pool in winter opens cleanly in spring.",
     tips: [
       { title: 'Test fortnightly', body: "Water chemistry moves slowly in winter. Fortnightly testing is enough unless you've had heavy rain or high winds." },
@@ -277,7 +283,7 @@ const SEASONAL_TIPS = {
     ],
   },
   Spring: {
-    icon: '🌿',
+    icon: 'sprout',
     intro: 'Time to wake your pool up. A thorough test and a good shock now means a clean opening before summer arrives.',
     tips: [
       { title: 'Full water test first', body: 'Test all parameters — chlorine, pH, alkalinity, CYA, and calcium. Winter drift compounds, so start with a complete picture.' },
@@ -288,7 +294,7 @@ const SEASONAL_TIPS = {
     ],
   },
   Summer: {
-    icon: '☀️',
+    icon: 'sun',
     intro: 'High temperatures and heavy use challenge water chemistry fast. Test twice weekly and stay on top of chlorine.',
     tips: [
       { title: 'Test twice a week', body: 'In summer, chlorine can drop to zero within 48 hours of heavy use. Test Monday and Thursday as a minimum.' },
@@ -1147,9 +1153,9 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
                       className="btn btn-ghost btn-sm"
                       aria-label="Delete event"
                       onClick={() => onDeleteEvent?.(e.id)}
-                      style={{ minWidth: 44, minHeight: 44, padding: 0 }}
+                      style={{ minWidth: 44, minHeight: 44, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                     >
-                      ✕
+                      <PoolIcon name="close" size={16} />
                     </button>
                   )}
                 </div>
@@ -1460,7 +1466,12 @@ function SeasonalTipsPage({ season }) {
   const data = SEASONAL_TIPS[season] || SEASONAL_TIPS.Autumn;
   return (
     <div>
-      <h1 className="page-title">{data.icon} {season} Tips</h1>
+      <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ color: 'var(--blue)', display: 'inline-flex' }}>
+          <PoolIcon name={data.icon} size={26} />
+        </span>
+        {season} Tips
+      </h1>
       <p className="page-subtitle">{data.intro}</p>
 
       <div className="card-section" style={{ marginBottom: 16 }}>
@@ -1675,14 +1686,19 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
   const [error, setError] = useState('');
 
   const startNew = () => { setForm(EMPTY_FORM); setError(''); setMode('new'); };
+  // Opening the form from a checklist row pre-fills the type, so the owner
+  // never picks it twice.
+  const startNewOfType = (type) => { setForm({ ...EMPTY_FORM, type }); setError(''); setMode('new'); };
 
-  // One-shot: the walkthrough finishes on "Add my equipment", which lands here
-  // with the form already open rather than on an empty list.
+  // Types still missing — these are the rows the checklist offers.
+  const addedTypes = new Set((equipment || []).map(e => e.type));
+  const remaining = EQUIPMENT_PROMPTS.filter(pr => !addedTypes.has(pr.type));
+
+  // The walkthrough finishes on "Add my equipment" and lands here. The
+  // checklist is now the add UI, so make sure it is what they see.
   useEffect(() => {
     if (autoOpenAdd) {
-      setForm(EMPTY_FORM);
-      setError('');
-      setMode('new');
+      setMode('list');
       onAutoOpened?.();
     }
   }, [autoOpenAdd, onAutoOpened]);
@@ -1723,7 +1739,7 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
         <h1 className="page-title" style={{ margin: 0 }}>Equipment</h1>
         {mode === 'list' && equipment.length > 0 && (
-          <button className="btn btn-primary btn-sm" onClick={startNew}>+ Add</button>
+          <button className="btn btn-ghost btn-sm" onClick={startNew}>+ Add</button>
         )}
       </div>
       <p className="page-subtitle" style={{ marginBottom: 20 }}>Pump, filter, heater, and pool hardware</p>
@@ -1754,7 +1770,9 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
                   padding: '12px 0',
                   borderBottom: i < equipment.length - 1 ? 'var(--border)' : 'none',
                 }}>
-                  <span style={{ fontSize: 22, flexShrink: 0 }}>{equipmentEmoji(item.type)}</span>
+                  <span style={{ flexShrink: 0, color: 'var(--blue)', display: 'inline-flex' }}>
+                    <PoolIcon name={equipmentIconName(item.type)} size={22} />
+                  </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--black)' }}>{item.type}</div>
                     <div style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 2 }}>
@@ -1795,7 +1813,9 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
       {/* Add new inline form */}
       {mode === 'new' && (
         <div className="card-section" style={{ marginBottom: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 12 }}>Add equipment</div>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>
+            Add {form.type && form.type !== 'Other' ? form.type.toLowerCase() : 'equipment'}
+          </div>
           <EquipmentForm
             form={form}
             setForm={setForm}
@@ -1808,31 +1828,71 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
         </div>
       )}
 
-      {/* Empty state */}
-      {equipment.length === 0 && mode === 'list' && (
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-state-icon">{Icon.equipment}</div>
-            <div className="empty-state-title">No equipment added</div>
-            <div className="empty-state-body">
-              Add your pump, filter, and heater details. Your Pool Mate uses this to tailor maintenance schedules for your setup.
+      {/* Checklist — one row per equipment type not yet added. A row leaves
+          the list the moment that type has an entry, so what's left on screen
+          is exactly what's still missing. */}
+      {mode === 'list' && remaining.length > 0 && (
+        <div className="card-section">
+          <div className="eyebrow" style={{ marginBottom: 4 }}>
+            {equipment.length === 0 ? 'Add your equipment' : 'Still to add'}
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--gray-mid)', lineHeight: 1.5, marginBottom: 12 }}>
+            {equipment.length === 0
+              ? "Add whatever you have — skip anything you don't. Each one sharpens your reminders."
+              : "Anything else on your pool? Skip what you don't have."}
+          </p>
+
+          {remaining.map((pr, i) => (
+            <div
+              key={pr.type}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '12px 0',
+                borderBottom: i < remaining.length - 1 ? 'var(--border)' : 'none',
+              }}
+            >
+              <span style={{ flexShrink: 0, color: 'var(--blue)', display: 'inline-flex' }}>
+                <PoolIcon name={equipmentIconName(pr.type)} size={22} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--black)' }}>{pr.type}</div>
+                <div style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 2 }}>{pr.why}</div>
+              </div>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ flexShrink: 0 }}
+                onClick={() => startNewOfType(pr.type)}
+              >
+                Add
+              </button>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={startNew}>Add first item</button>
+          ))}
+
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ marginTop: 12 }}
+            onClick={() => startNewOfType('Other')}
+          >
+            Something else? Add it manually
+          </button>
+        </div>
+      )}
+
+      {/* Every prompted type is covered. */}
+      {mode === 'list' && remaining.length === 0 && equipment.length > 0 && (
+        <div className="callout callout-success" style={{ marginBottom: 8 }}>
+          <span className="callout-icon" style={{ color: 'var(--green)', display: 'inline-flex' }}>
+            {Icon.check}
+          </span>
+          <div className="callout-body">
+            That's your whole setup logged. Use <strong>+ Add</strong> if you add another
+            piece of gear later.
           </div>
         </div>
       )}
 
-      {/* Tip callout when items exist */}
-      {equipment.length > 0 && mode === 'list' && (
-        <div className="callout callout-info" style={{ marginTop: 8 }}>
-          <span className="callout-icon" style={{ color: 'var(--blue)', display: 'inline-flex' }}>
-            {Icon.info}
-          </span>
-          <div className="callout-body">
-            Accurate equipment details improve maintenance reminders and service interval tracking.
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1851,7 +1911,9 @@ function TrialExpiredScreen() {
       padding: 24,
     }}>
       <div className="card-elevated" style={{ maxWidth: 440, width: '100%', padding: '48px 40px', textAlign: 'center' }}>
-        <div style={{ fontSize: 40, marginBottom: 16 }}>🏊</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, color: 'var(--blue)' }}>
+          <PoolIcon name="swimmer" size={44} />
+        </div>
         <h2 style={{ fontFamily: 'var(--font-read)', fontSize: 24, fontWeight: 400, color: 'var(--black)', marginBottom: 12 }}>
           Your free trial has ended
         </h2>
