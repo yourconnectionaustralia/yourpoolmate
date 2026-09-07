@@ -7,24 +7,19 @@
   <meta name="description" content="Your Pool Mate gives Australian pool owners a live Health Score, exact chemical doses, and a complete water test history — so you always know your pool is safe and balanced." />
 
   <script>
+    // Sep 2026 model: no payment on this page. Everyone starts a 30-day free
+    // trial in the app; payment happens in-app when the trial ends (first 300
+    // members lock in $79 lifetime, everyone after pays $49/year). This site's
+    // only job is to send people to the app to start free.
     const CONFIG = {
-      SUPABASE_URL: "https://YOUR_PROJECT.supabase.co",
-      SUPABASE_ANON_KEY: "YOUR_ANON_KEY",
-      EDGE_FUNCTION_URL: "https://YOUR_PROJECT.supabase.co/functions/v1/stripe-checkout",
-      STRIPE_PUBLISHABLE_KEY: "pk_test_YOUR_STRIPE_PUBLISHABLE_KEY",
       APP_URL: "https://app.yourpoolmate.com.au",
-      PRICE_AUD: 79,
-      SPOTS_TOTAL: 200,
-      SPOTS_FOMO_THRESHOLD: 175,
-      TEST_MODE: true,
-      TEST_CARD: "4242 4242 4242 4242 · Any future date · Any CVC",
     };
+    function startFree() { window.location.href = CONFIG.APP_URL; }
   </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet" />
-  <script src="https://js.stripe.com/v3/"></script>
 
   <!-- Structured data: FAQPage (GEO answers + product FAQ) -->
   <script type="application/ld+json">
@@ -74,13 +69,13 @@
       },
       {
         "@type": "Question",
-        "name": "What does lifetime access mean exactly?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Pay $79 once, use Your Pool Mate forever. No annual renewals, no creeping subscription. As the product grows — new features, better AI, deeper analytics — you get all of it. Your $79 is your total cost." }
+        "name": "What does founding lifetime access mean exactly?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Our first 300 members pay $79 once and use Your Pool Mate forever — no annual renewals, no creeping subscription. As the product grows — new features, better AI, deeper analytics — you get all of it. Your $79 is your total cost. You claim it inside the app when your free trial ends." }
       },
       {
         "@type": "Question",
-        "name": "Why only 200 founding members?",
-        "acceptedAnswer": { "@type": "Answer", "text": "We want a tight first cohort we can actually talk to. Founding members get direct access to the founder, influence the product roadmap, and help us build something that genuinely works. After 200, pricing moves to $39/year subscription only — permanently." }
+        "name": "Why is founding access limited to 300 members?",
+        "acceptedAnswer": { "@type": "Answer", "text": "We want a tight first cohort we can actually talk to. Our first 300 members get direct access to the founder, influence the product roadmap, and lock in $79 lifetime access. Everyone who joins after that pays $49/year — the standard price." }
       },
       {
         "@type": "Question",
@@ -104,8 +99,8 @@
       },
       {
         "@type": "Question",
-        "name": "When does the price go up to $99?",
-        "acceptedAnswer": { "@type": "Answer", "text": "When 175 spots are taken (25 remaining), the founding price increases to $99. After all 200 are filled, access moves to $39/year subscription only. The counter is live." }
+        "name": "What happens after the 300 founding places are gone?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Once the first 300 members have joined, founding lifetime access closes. New members still get the full 30-day free trial, then continue for $49/year — cancel anytime. The earlier you join, the better your chance of a founding place." }
       },
       {
         "@type": "Question",
@@ -719,7 +714,7 @@
       <button class="nav-link" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">Why It Works</button>
       <button class="nav-link" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Pricing</button>
       <button class="nav-link" onclick="document.getElementById('answers').scrollIntoView({behavior:'smooth'})">Questions</button>
-      <button class="nav-btn" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Get founding access →</button>
+      <button class="nav-btn" onclick="startFree()">Start free →</button>
     </div>
   </div>
 </nav>
@@ -728,13 +723,13 @@
 <section class="hero">
   <div class="hero-chip">
     <span class="chip-dot"></span>
-    Founding member access · 200 spots only
+    Free for 30 days · First 300 members lock in lifetime pricing
   </div>
   <h1>Your pool,<br />looked after <em>properly.</em></h1>
   <p class="hero-sub">A live Health Score for your water. Chemical doses calculated to the gram. A complete record of every test — so you always know what's going on and what to do next.</p>
   <p class="hero-body">Most pool problems don't appear overnight. They build up slowly when small imbalances go unnoticed. Your Pool Mate gives you the same visibility a pool technician uses — presented simply, so you can act confidently without needing a chemistry background.</p>
   <div class="hero-actions">
-    <button class="btn-cta" onclick="document.getElementById('checkout').scrollIntoView({behavior:'smooth'})">Get founding access — $79 AUD</button>
+    <button class="btn-cta" onclick="startFree()">Start free — 30-day trial</button>
     <button class="btn-ghost" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">See what's included ↓</button>
   </div>
 </section>
@@ -813,7 +808,7 @@
     <p>It's not that pool chemistry is complicated. It's that most people have never been shown how to read the numbers properly, or what to do when they're out of range.</p>
     <div class="problem-stat">
       <div class="stat-num">$79</div>
-      <div class="stat-desc">Your total lifetime cost — less than many single trips to the pool shop</div>
+      <div class="stat-desc">Founding members' total lifetime cost — the first 300 lock it in. Less than many single trips to the pool shop.</div>
     </div>
   </div>
   <div class="problem-page reveal reveal-d1">
@@ -964,25 +959,16 @@
 <section class="pricing" id="checkout">
   <div class="pricing-inner">
     <div class="pricing-left reveal">
-      <div class="section-eyebrow">Founding member access</div>
-      <h2>One price.<br />Paid once.<br /><em>Yours forever.</em></h2>
-      <p>We're opening access to 200 founding members only. After that, pricing moves to a $39/year subscription — permanently. Founding members keep lifetime access at no ongoing cost, and get every future feature included.</p>
-      <div class="spots-block">
-        <div class="spots-header">
-          <span class="spots-title">Founding spots remaining</span>
-          <span class="spots-count"><strong id="spots-num">…</strong> of 200</span>
-        </div>
-        <div class="spots-track">
-          <div class="spots-fill" id="spots-fill" style="width:0%"></div>
-        </div>
-      </div>
+      <div class="section-eyebrow">Start free · Founding pricing</div>
+      <h2>Free for 30 days.<br />Then <em>yours to keep.</em></h2>
+      <p>Start with a full 30-day free trial — no card required. When it ends, our first 300 members lock in <strong>$79 once, lifetime</strong>. Everyone after that continues for <strong>$49/year</strong>. You choose inside the app when your trial ends — nothing to pay today.</p>
       <ul class="includes-list">
-        <li>Full lifetime access to Your Pool Mate</li>
-        <li>All future features, included at no extra cost</li>
+        <li>30-day free trial — a full month of tests and trends</li>
+        <li>First 300 members: $79 once, lifetime — no renewals</li>
         <li>AI-powered photo scanning for test results</li>
         <li>Complete water test history — timestamped and exportable</li>
         <li>Direct access to the founder — shape the roadmap</li>
-        <li>Price locked before subscription model begins</li>
+        <li>All future features, included</li>
       </ul>
     </div>
     <div>
@@ -990,15 +976,13 @@
         <div class="price-card-top">
           <div class="price-row">
             <span class="price-currency">AUD</span>
-            <span class="price-amount" id="price-display">$79</span>
+            <span class="price-amount">$79</span>
           </div>
-          <div class="price-note" id="price-note">One-time payment · No subscription · No renewal</div>
+          <div class="price-note">One-time · lifetime · for the first 300 members<br />Then $49/year · cancel anytime</div>
         </div>
         <div class="price-card-body">
-          <button class="btn-buy" id="btn-buy" onclick="handleBuy(event)">Claim founding access</button>
-          <div class="price-secure">🔒 &nbsp;Secured by Stripe</div>
-          <div id="test-banner"></div>
-          <div id="stripe-container"></div>
+          <button class="btn-buy" onclick="startFree()">Start your free trial</button>
+          <div class="price-secure">No card required to start · Secured by Stripe when you pay</div>
         </div>
       </div>
     </div>
@@ -1009,12 +993,12 @@
 <section class="faq" id="faq">
   <h2>Questions</h2>
   <div class="faq-item">
-    <button class="faq-q" onclick="toggleFaq(this)">What does lifetime access mean exactly?<span class="faq-toggle">+</span></button>
-    <div class="faq-a">Pay $79 once, use Your Pool Mate forever. No annual renewals, no creeping subscription. As the product grows — new features, better AI, deeper analytics — you get all of it. Your $79 is your total cost.</div>
+    <button class="faq-q" onclick="toggleFaq(this)">What does founding lifetime access mean exactly?<span class="faq-toggle">+</span></button>
+    <div class="faq-a">Our first 300 members pay $79 once and use Your Pool Mate forever — no annual renewals, no creeping subscription. As the product grows — new features, better AI, deeper analytics — you get all of it. Your $79 is your total cost. You claim it inside the app when your free trial ends.</div>
   </div>
   <div class="faq-item">
-    <button class="faq-q" onclick="toggleFaq(this)">Why only 200 founding members?<span class="faq-toggle">+</span></button>
-    <div class="faq-a">We want a tight first cohort we can actually talk to. Founding members get direct access to the founder, influence the product roadmap, and help us build something that genuinely works. After 200, pricing moves to $39/year subscription only — permanently.</div>
+    <button class="faq-q" onclick="toggleFaq(this)">Why is founding access limited to 300 members?<span class="faq-toggle">+</span></button>
+    <div class="faq-a">We want a tight first cohort we can actually talk to. Our first 300 members get direct access to the founder, influence the product roadmap, and lock in $79 lifetime access. Everyone who joins after that pays $49/year — the standard price.</div>
   </div>
   <div class="faq-item">
     <button class="faq-q" onclick="toggleFaq(this)">Do I need to install anything?<span class="faq-toggle">+</span></button>
@@ -1033,8 +1017,8 @@
     <div class="faq-a">30-day no-questions-asked refund. If Your Pool Mate isn't delivering value in your first month, email the founder directly and we'll process a full refund the same day.</div>
   </div>
   <div class="faq-item">
-    <button class="faq-q" onclick="toggleFaq(this)">When does the price go up to $99?<span class="faq-toggle">+</span></button>
-    <div class="faq-a">When 175 spots are taken (25 remaining), the founding price increases to $99. After all 200 are filled, access moves to $39/year subscription only. The counter above is live.</div>
+    <button class="faq-q" onclick="toggleFaq(this)">What happens after the 300 founding places are gone?<span class="faq-toggle">+</span></button>
+    <div class="faq-a">Once the first 300 members have joined, founding lifetime access closes. New members still get the full 30-day free trial, then continue for $49/year — cancel anytime. The earlier you join, the better your chance of a founding place.</div>
   </div>
   <div class="faq-item">
     <button class="faq-q" onclick="toggleFaq(this)">Will it replace my pool shop?<span class="faq-toggle">+</span></button>
@@ -1063,15 +1047,6 @@
   </div>
 </footer>
 
-<!-- SUCCESS -->
-<div id="success-overlay">
-  <div class="success-modal">
-    <div class="success-icon">✓</div>
-    <h2>You're in.</h2>
-    <p>Welcome to Your Pool Mate. Your founding member access is confirmed. Let's get your pool balanced.</p>
-    <button class="btn-launch" onclick="window.location.href = CONFIG.APP_URL">Open Your Pool Mate →</button>
-  </div>
-</div>
 
 <script>
 // Scroll reveal
@@ -1088,87 +1063,8 @@ function toggleFaq(btn) {
   if (!open) item.classList.add('open');
 }
 
-// Spots
-async function loadSpots() {
-  if (CONFIG.TEST_MODE) { renderSpots(188, 200); return; }
-  try {
-    const r = await fetch(CONFIG.EDGE_FUNCTION_URL, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'get_spots' })
-    });
-    const d = await r.json();
-    renderSpots(d.spots_remaining, d.spots_total);
-    if (d.spots_remaining <= (CONFIG.SPOTS_TOTAL - CONFIG.SPOTS_FOMO_THRESHOLD)) {
-      document.getElementById('price-display').textContent = '$99';
-      document.getElementById('price-note').textContent = 'One-time payment · Final price before close';
-    }
-  } catch { renderSpots(CONFIG.SPOTS_TOTAL, CONFIG.SPOTS_TOTAL); }
-}
-function renderSpots(remaining, total) {
-  document.getElementById('spots-num').textContent = remaining;
-  document.getElementById('spots-fill').style.width = (((total - remaining) / total) * 100) + '%';
-  if (remaining < 30) document.querySelector('#spots-num').style.color = 'var(--red)';
-}
-loadSpots();
-
-// Stripe
-let stripeInstance = null, checkout = null;
-async function handleBuy(e) {
-  const btn = document.getElementById('btn-buy');
-  const r = document.createElement('span'); r.className = 'ripple-el';
-  const rect = btn.getBoundingClientRect();
-  const sz = Math.max(rect.width, rect.height);
-  r.style.cssText = `width:${sz}px;height:${sz}px;left:${e.clientX-rect.left-sz/2}px;top:${e.clientY-rect.top-sz/2}px;`;
-  btn.appendChild(r); setTimeout(() => r.remove(), 600);
-
-  if (CONFIG.TEST_MODE) {
-    const b = document.getElementById('test-banner');
-    b.style.display = 'block';
-    b.innerHTML = `<strong>🧪 Test mode active</strong>Use card: <code>${CONFIG.TEST_CARD}</code>`;
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = '<span class="dot-loader"><span></span><span></span><span></span></span>';
-
-  try {
-    if (!stripeInstance) stripeInstance = Stripe(CONFIG.STRIPE_PUBLISHABLE_KEY);
-    const res = await fetch(CONFIG.EDGE_FUNCTION_URL, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create_session', successUrl: window.location.href, cancelUrl: window.location.href })
-    });
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || 'Session error');
-    const container = document.getElementById('stripe-container');
-    container.style.display = 'block';
-    if (checkout) checkout.destroy();
-    checkout = await stripeInstance.initEmbeddedCheckout({ clientSecret: data.clientSecret, onComplete: showSuccess });
-    checkout.mount('#stripe-container');
-    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    btn.disabled = false;
-    btn.innerHTML = '↑ Complete payment above';
-  } catch (err) {
-    btn.disabled = false;
-    btn.innerHTML = 'Claim founding access';
-    alert('Could not start checkout. Please try again or email hello@yourpoolmate.com.au');
-  }
-}
-
-function showSuccess() { document.getElementById('success-overlay').classList.add('show'); }
-
-(function() {
-  const p = new URLSearchParams(window.location.search);
-  if (p.get('session_id')) { showSuccess(); window.history.replaceState({}, '', window.location.pathname); }
-})();
-
-if (CONFIG.TEST_MODE) {
-  // Visible ribbon so test mode can never silently ship to production.
-  const ribbon = document.createElement('div');
-  ribbon.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:998;background:#92400E;color:#fff;text-align:center;font-size:12px;font-weight:600;padding:6px 12px;letter-spacing:0.5px;';
-  ribbon.textContent = '🧪 TEST MODE — payments are not live and the spots counter is simulated. Set CONFIG.TEST_MODE = false before launch.';
-  document.body.appendChild(ribbon);
-  document.addEventListener('keydown', e => { if (e.ctrlKey && e.shiftKey && e.key === 'T') showSuccess(); });
-  console.log('%c[Your Pool Mate · Test Mode]\nCtrl+Shift+T → simulate success\nTest card: ' + CONFIG.TEST_CARD, 'color:#1565A0;font-weight:600');
-}
+// Payment happens inside the app when the 30-day trial ends — this page
+// only sends people to the app to start free (see startFree() in <head>).
 </script>
 </body>
 </html>

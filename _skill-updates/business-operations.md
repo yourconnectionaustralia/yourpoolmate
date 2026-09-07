@@ -42,14 +42,19 @@ Phase 4: Closed-loop marketplace (in-app bookings, product purchases)
 
 ## REVENUE MODEL
 
-### B2C Revenue (current)
+### B2C Revenue (current — in-app paywall, updated Sep 2026)
+
+No payment up front. Everyone gets the 30-day trial; payment happens in-app at
+trial end (user is authenticated → premium granted via Stripe webhook).
 
 | Stream | Price | Unit | Notes |
 |--------|-------|------|-------|
 | 30-day hard trial | Free | — | Hard block at expiry |
-| Founding Member LTD | $79 AUD | once-off | Capped at 200 spots |
-| FOMO close | $99 AUD | once-off | ~175 spots trigger |
-| Annual subscription | $39 AUD | per year | Permanent post-LTD |
+| Founding (first 300 users) | $79 AUD | once-off, lifetime | Stamped at signup by rank; never shifts |
+| Standard (users 301+) | $49 AUD | per year | Recurring subscription |
+
+**Retired Sep 2026:** the marketing-page "$79 LTD, 200 spots, $99 FOMO bump, $39/yr after"
+model. Founding is now a signup-order cohort (first 300), sold in-app, not a marketing-page LTD.
 
 ### B2B Revenue (Phase 2+)
 
@@ -72,9 +77,9 @@ Phase 4: Closed-loop marketplace (in-app bookings, product purchases)
 ## STRATEGIC SEQUENCING (locked)
 
 1. **B2C product-market fit** — trial users find genuine value, health score is trusted
-2. **Founding member LTD launch** — Facebook Groups, 200 spots, $79
+2. **Founding launch** — Facebook Groups; first 300 signups lock in $79 lifetime
 3. **Domain + SEO foundation** — `yourpoolmate.com.au` registered, marketing site live
-4. **Subscription conversion** — LTD closes, $39/year becomes default
+4. **Subscription conversion** — founding cohort fills (300), $49/year becomes default
 5. **"Shop Near Me" feature live** — directory built in-app, all shops appear organically (free), proximity-sorted
 6. **B2B listing sales begin** — pitch paid positions to shops in areas with ≥ 50 local users
 7. **B2B data intelligence upsell** — once listing shops are retained 30+ days, offer data dashboard
@@ -145,8 +150,8 @@ No competitor has claimed this positioning. It is blue-ocean. Use it in every co
 **Current top priorities (in order):**
 1. Wire guest onboarding trigger (auto-display for new users with no pool profile)
 2. Register `yourpoolmate.com.au` + launch marketing site
-3. 30-day trial paywall enforcement + LTD purchase flow
-4. Facebook Group founding member launch
+3. 30-day trial paywall enforcement + in-app Stripe purchase flow (built Sep 2026 — needs Stripe keys/webhook live)
+4. Facebook Group founding launch (first 300 users → $79 lifetime)
 
 ---
 
@@ -164,10 +169,10 @@ No competitor has claimed this positioning. It is blue-ocean. Use it in every co
 
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
-| Trial users don't convert to LTD | Medium | Improve onboarding → Health Score aha moment |
+| Trial users don't convert at paywall | Medium | Improve onboarding → Health Score aha moment |
 | PWA-only creates app store friction | High | Acknowledged — SEO + Facebook compensate; warranty angle reduces friction |
 | Shops don't see enough user traffic | Medium | Pitch only when ≥ 50 local users; show user count in pitch |
-| Founding member spots fill too slowly | Medium | Community warm-up before launch, authentic scarcity |
+| Founding cohort (300) fills too slowly | Medium | Community warm-up before launch, authentic scarcity |
 | Data privacy (pool water data) | Low | Supabase RLS, anonymised B2B data, clear privacy policy |
 
 ---

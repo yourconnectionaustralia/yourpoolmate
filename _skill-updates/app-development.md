@@ -29,7 +29,7 @@ mistakes already resolved.
 | Storage | Supabase Storage | For pool photos, test strip images |
 | Edge Functions | Supabase Edge Functions (Deno) | Not Node.js — Deno runtime only |
 | OCR | Claude Vision API via Edge Function | See OCR section |
-| Payments | Stripe Checkout (embedded) via Edge Function | Currently test mode |
+| Payments | Stripe-hosted Checkout via `stripe-checkout` + `stripe-webhook` Edge Functions | In-app paywall at trial end; test mode until keys set |
 | Deployment | Cloudflare Pages | GitHub integration, auto-deploy on push to main |
 | Commits | GitHub web interface | Copy-paste method, never CLI as primary |
 
@@ -97,7 +97,8 @@ Two separate Cloudflare Pages projects:
 | Premium tier gating | ✅ Built | |
 | Floating feedback widget | ✅ Built | |
 | 30-day hard-countdown trial | ✅ Built | Hard block at expiry — no soft gates |
-| Marketing/checkout page | ✅ Built | HTML + Stripe integration |
+| Marketing site | ✅ Built | HTML; "Start free" CTA → app. Payment moved in-app Sep 2026 |
+| Stripe payment processing | ✅ Built (Sep 2026) | `stripe-checkout` + `stripe-webhook` fns, migration 014, paywall wired in App.jsx |
 
 ### HIGHEST PRIORITY UNWIRED ITEM
 The guest onboarding trigger exists but is **not wired into the app flow**.
