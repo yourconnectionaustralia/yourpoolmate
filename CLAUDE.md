@@ -42,7 +42,7 @@ He arrives with formed strategic positions and uses Claude to produce **deployab
   4. **Asset preservation** — documented history transfers at home sale
 - Behaviour: Facebook Groups (AUS Pool Owners, state-based groups), Google searches for pool problems
 - Less tech-savvy: all UX must use 44px tap targets, 4.5:1 contrast, system font scaling
-- Price sensitivity: willing to pay for clear value; $79 LTD feels like a bargain vs ongoing shop visits
+- Price sensitivity: willing to pay for clear value; $79 lifetime (founding) or $49/yr feels like a bargain vs ongoing shop visits
 
 **Secondary:** New pool owner (first 12 months) — high anxiety, high conversion potential
 
@@ -71,13 +71,25 @@ Phase 3: B2B data intelligence upsell (after 30+ days of shop listing retention)
 Phase 4: Closed-loop marketplace (in-app bookings / purchases)
 ```
 
-### B2C Pricing
-| Phase | Offer | Price | Trigger |
-|-------|-------|-------|---------|
-| Now | 30-day hard-countdown free trial | Free | App download / signup |
-| Launch | Founding Member LTD | $79 AUD | Facebook Groups, 200 spots max |
-| FOMO close | Price bump | $99 AUD | ~175 spots sold |
-| Post-LTD | Annual subscription | $39 AUD/year | Permanent price |
+### B2C Pricing — in-app paywall model (updated Sep 2026)
+**No payment up front.** Everyone signs up and gets the 30-day free trial. When the
+trial ends, an in-app paywall (`TrialExpiredScreen` in `src/App.jsx`) takes payment —
+the user is authenticated at that point, so fulfilment grants premium straight to their
+account via the Stripe webhook.
+
+| Cohort | Offer | Price | Stripe mode |
+|--------|-------|-------|-------------|
+| Everyone | 30-day hard-countdown free trial | Free | — |
+| First 300 users (by signup order) | Founding — lifetime | $79 AUD once | payment |
+| Users 301+ | Standard — annual | $49 AUD/year | subscription |
+
+Founding eligibility is stamped at signup (`user_profiles.founding_member`, `signup_rank`)
+and never shifts. Price is decided **server-side** in the `stripe-checkout` Edge Function —
+never trusted from the client.
+
+**Retired (Sep 2026):** the old "$79 LTD sold via marketing page, 200 spots, $99 FOMO bump,
+$39/yr after" model. The marketing site no longer takes payment — its CTA is "Start free"
+→ app signup.
 
 ### B2B Pricing (future)
 | Position | Price | Notes |
@@ -99,7 +111,7 @@ B2B pitch threshold: **≥ 50 active users in the shop's postcode cluster.** Do 
 | Auth + DB | Supabase | Postgres, RLS required on ALL tables |
 | Edge Functions | Supabase Edge Functions | **Deno runtime — NOT Node.js** |
 | OCR | Claude Vision API via Edge Function | rate-limited, auth-required |
-| Payments | Stripe Checkout (embedded) via Edge Function | Currently test mode |
+| Payments | Stripe-hosted Checkout via Edge Function (`stripe-checkout`) + webhook (`stripe-webhook`) | In-app paywall at trial end. Currently test mode |
 | Deployment | Cloudflare Pages | Auto-deploy on push to main branch |
 | Version control | Git push via Claude (Cowork sessions) | GitHub web UI as fallback only — folder is a real clone |
 | Storage | Supabase Storage | For test strip images |
@@ -144,7 +156,8 @@ B2B pitch threshold: **≥ 50 active users in the shop's postcode cluster.** Do 
 | Premium tier gating | ✅ Built |
 | Floating feedback widget | ✅ Built |
 | 30-day hard-countdown free trial logic | ✅ Built (migration 004) |
-| Marketing/checkout page (HTML, Stripe integration) | ✅ Built |
+| Marketing site (HTML) — "Start free" CTA, no payment | ✅ Built (checkout moved in-app Sep 2026) |
+| Stripe payment processing — checkout + webhook Edge Functions, paywall wired | ✅ Built (Sep 2026, migration 014) — needs Stripe keys/secrets + webhook endpoint set |
 
 **Highest-priority unwired item:**
 The guest onboarding trigger exists but is **not wired into the app flow**. New guests with no pool profile should automatically see the onboarding modal. This is the single highest-conversion-impact fix before launch.
@@ -173,7 +186,7 @@ The guest onboarding trigger exists but is **not wired into the app flow**. New 
 **Open actions only James can do:**
 1. **Add repo secrets** (GitHub → repo → Settings → Secrets and variables → Actions): `SUPABASE_ACCESS_TOKEN` and `ANTHROPIC_API_KEY`. Then re-run the failed "Deploy Supabase" action.
 2. Install the updated skills — click "Save skill" on the five `.skill` files Claude provides (no pasting).
-3. Set `CONFIG.TEST_MODE = false` + real Stripe keys before launch (the page shows a warning ribbon until then).
+3. **Stripe go-live:** add repo secrets `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` (Actions secrets), create the Stripe webhook endpoint pointing at the `stripe-webhook` function (events: checkout.session.completed, customer.subscription.updated/deleted, invoice.paid, invoice.payment_failed), then run the "Deploy Supabase" workflow manually to apply migration 014. Test with card 4242…, then swap test keys for live.
 4. **Launch timing decision:** recommendation is warm-up + fixes over winter, founding launch Sep–Oct pre-season, geo-concentrated (Melbourne metro first) so postcode clusters can reach the ≥50-user B2B threshold. A national winter launch fills no clusters and undermines real scarcity.
 
 ---
@@ -189,7 +202,7 @@ The guest onboarding trigger exists but is **not wired into the app flow**. New 
 7. **Live Stripe account** — currently test mode only
 8. **Facebook Page** — reserve "Your Pool Mate" handle before launch
 9. **Facebook Group warm-up** — 2-week value-posting phase before founder story post
-10. **Founding member launch** — Facebook Group soft launch, 200 spots at $79
+10. **Founding member launch** — Facebook Group soft launch; first 300 users lock in $79 lifetime (then $49/yr)
 
 ---
 
@@ -220,7 +233,7 @@ These are never up for debate within a session:
 4. **RLS on every Supabase table** — no exceptions
 5. **Deno, not Node** — all Edge Functions use Deno runtime
 6. **Accessibility is pre-launch non-negotiable** — 44px taps, 4.5:1 contrast
-7. **Value-led conversion, not urgency-led** — scarcity is real (200 spots), never manufactured panic
+7. **Value-led conversion, not urgency-led** — scarcity is real (first 300 users get the $79 lifetime founding rate), never manufactured panic
 8. **Clear water is the outcome, not the motivation** — copy must speak to independence, warranty protection, safety confidence, and asset value — not "keep your pool clean"
 
 ---

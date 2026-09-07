@@ -56,7 +56,7 @@ Example: "Wire the guest onboarding trigger"
 |--------|--------|-------------|
 | App | Trial + onboarding built; OCR complete; all major features built | **Wire guest onboarding trigger** (highest priority); rebrand all PoolConnection references |
 | Marketing | Channels identified; copy templates ready; brand renamed | Register yourpoolmate.com.au; reserve Facebook Page; 2-week warm-up; founder story post |
-| Business | LTD model locked; B2B = listing-first; warranty angle confirmed as primary differentiator | Execute founding member launch; register business name; trademark search |
+| Business | In-app paywall model (first 300 users $79 lifetime, then $49/yr); B2B = listing-first; warranty angle confirmed as primary differentiator | Execute founding launch; register business name; trademark search |
 | UX | 6-step onboarding built | Auto-trigger onboarding for new guests; surface warranty angle at test completion |
 
 ---
@@ -71,16 +71,16 @@ Example: "Wire the guest onboarding trigger"
 - [ ] Register ASIC business name "Your Pool Mate" (Operations)
 - [ ] Trademark search IP Australia Class 42 (Operations)
 
-### Before founding member launch
-- [ ] Live Stripe account (not test mode) (App Dev)
+### Before founding launch
+- [ ] Stripe live: STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET set, webhook endpoint created, migration 014 applied (App Dev)
 - [ ] Marketing site live at yourpoolmate.com.au (App Dev + Marketing)
 - [ ] Facebook Page "Your Pool Mate" reserved (Marketing)
 - [ ] 2-week Facebook Group warm-up complete (Marketing)
 
 ### Launch day
 - [ ] Founder story post — Facebook Groups (Marketing)
-- [ ] Monitor spots sold → FOMO post at ~175 (Marketing)
-- [ ] Close LTD at 200 → transition to $39/year (Business + App Dev)
+- [ ] Post founding-cohort updates as the first 300 fill (Marketing)
+- [ ] Founding cohort closes at 300 → standard $49/year for new users (Business + App Dev)
 
 ---
 

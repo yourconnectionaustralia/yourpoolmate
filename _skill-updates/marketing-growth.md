@@ -71,19 +71,24 @@ Use this in Facebook posts, landing page headlines, and trial CTAs. It is blue-o
 
 ## PRICING MODEL (sequential phases — do not skip or reorder)
 
+In-app paywall model (updated Sep 2026). No payment up front — everyone starts a
+free trial in the app; the marketing site's only CTA is "Start free" → app signup.
+
 | Phase | Offer | Price | Trigger |
 |-------|-------|-------|---------|
-| 1 | 30-day hard-countdown free trial | Free | App download / signup |
-| 2 | Founding Member LTD (private launch) | $79 AUD | Facebook Groups, ~200 spots |
-| 3 | FOMO close | $99 AUD | ~175 spots sold |
-| 4 | Annual subscription | $39 AUD/year | Post-LTD permanent price |
+| 1 | 30-day hard-countdown free trial | Free | App signup (no card) |
+| 2 | Founding rate (first 300 users) | $79 AUD once, lifetime | In-app paywall at trial end |
+| 3 | Standard rate (users 301+) | $49 AUD/year | In-app paywall at trial end |
 | Future | B2B pool shop partner tier | $149 AUD/month | After B2C critical mass |
 
 **Key pricing principles:**
-- $79 LTD is the anchor — it must feel like a no-brainer vs $39/year × 3 years
-- Scarcity is real (200 spots cap) — never imply unlimited supply
-- Never discount the LTD — urgency comes from spot count, not price drops
+- $79 lifetime (founding) is the anchor — a no-brainer vs $49/year ongoing
+- Scarcity is real (first 300 users get founding) — never imply unlimited founding supply
+- Never discount — urgency comes from the founding cohort filling, not price drops
+- The marketing site never takes payment — it drives free signups; payment is in-app
 - B2B is sequenced AFTER B2C traction — do not promote or build it prematurely
+
+**Retired Sep 2026:** "$79 LTD sold on the marketing page, 200 spots, $99 FOMO bump, $39/yr."
 
 ---
 
@@ -135,9 +140,9 @@ Post format: "I built something..." story post. Personal, founder voice.
 Share the problem you had, the solution you built, invite founding members.
 One link in comments (not post body — reduces reach suppression).
 
-**Phase 3 — FOMO close:**
-Post format: Spot count update. "X of 200 spots remaining."
-Urgency is authentic — do not manufacture it.
+**Phase 3 — Founding close:**
+Post format: founding-cohort update. "We're past X of our first 300 founding members —
+after 300 it's $49/year, not $79 lifetime." Urgency is authentic — do not manufacture it.
 
 **Post cadence:** Max 2 posts/week per group. Comment on others' posts daily.
 
@@ -158,24 +163,24 @@ Content format: 1,500–2,500 word guides. Answer the question completely. CTA t
 
 ---
 
-## LAUNCH SEQUENCE (founding member LTD)
+## LAUNCH SEQUENCE (founding cohort — first 300 users)
 
 1. ✅ Build app to trial-worthy state
 2. ✅ Set up 30-day trial with hard countdown
 3. ⬜ Register `yourpoolmate.com.au`
-4. ⬜ Launch marketing site at root domain
+4. ⬜ Launch marketing site at root domain ("Start free" CTA — no payment on site)
 5. ⬜ Reserve "Your Pool Mate" Facebook Page handle
 6. ⬜ 2-week Facebook Group warm-up (value posts, no product)
-7. ⬜ Founder story post — soft launch, invite founding members
-8. ⬜ Monitor spot count → trigger FOMO post at ~175 spots
-9. ⬜ Close LTD, transition to $39/year subscription
+7. ⬜ Founder story post — soft launch, invite people to start free
+8. ⬜ Post founding-cohort updates as the first 300 fill
+9. ⬜ Founding cohort closes at 300 → standard $49/year for new users
 
 ---
 
 ## COPY TEMPLATES
 
 ### Trial CTA (short)
-> "7 days free. No credit card. See your pool's health score in under 2 minutes."
+> "30 days free. No credit card. See your pool's health score in under 2 minutes."
 
 ### Warranty angle (Facebook / landing page)
 > "Did you know your pool builder's warranty — and your Pentair/Zodiac equipment warranty — requires documented water chemistry records? Most pool owners find out the hard way when a claim gets denied.
@@ -184,11 +189,11 @@ Content format: 1,500–2,500 word guides. Answer the question completely. CTA t
 ### Founding Member pitch (Facebook)
 > "I got sick of guessing what my pool needed and spending $80 at the shop for a test I couldn't keep track of.
 > So I built Your Pool Mate — it tracks your water, tells you exactly what to add, and even reads your shop test results automatically. It also keeps a record of every test for your pool warranty.
-> I'm opening 200 founding member spots at $79 once-off (it goes to $39/year after that).
+> It's free for 30 days — no card to start. Our first 300 members lock in $79 once, lifetime (it's $49/year after that).
 > Drop a 💧 and I'll DM you the link."
 
 ### Urgency close
-> "47 of 200 founding member spots left. After that it's $39/year. Jump in before they're gone → [link]"
+> "We're filling our first 300 founding spots — they lock in $79 lifetime. After that it's $49/year. Start free before they're gone → [link]"
 
 ---
 
@@ -198,7 +203,8 @@ Content format: 1,500–2,500 word guides. Answer the question completely. CTA t
 |---|------|-----------------------|------------|
 | 1 | Init | AppSumo rejected — wrong audience for vertical consumer app | Channel strategy |
 | 2 | Init | Facebook post links in comments, not post body — reduces reach suppression | FB playbook |
-| 3 | Init | LTD scarcity is real — never imply unlimited; urgency from spot count not price drops | Pricing copy |
+| 3 | Init | Founding scarcity is real — never imply unlimited; urgency from the cohort filling, not price drops | Pricing copy |
+| 7 | Sep 2026 | Model change: no payment up front. In-app paywall at trial end. First 300 users → $79 lifetime; users 301+ → $49/year. Marketing site takes no payment (CTA = "Start free"). Retired the marketing-page $79 LTD / 200-spots / $99 FOMO / $39-yr model | Pricing, launch, all copy |
 | 4 | Init | B2B not to be promoted until B2C critical mass — remove from any consumer-facing copy | All copy |
 | 5 | May 2026 | Rebrand: PoolConnection → Your Pool Mate. ICP updated: 55–70. Warranty angle added as primary differentiator. | All |
 | 6 | Jun 2026 | Trial now 30 days. Landing claims corrected: climate-intelligence feature replaced with warranty-records row (never claim unbuilt features); unsourced cost stats removed; privacy + terms pages live; body-text contrast fixed to ≥4.5:1 | Landing page, all copy |

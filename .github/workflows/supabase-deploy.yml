@@ -37,6 +37,10 @@ jobs:
         run: |
           supabase functions deploy calculate-health-score --project-ref "$PROJECT_REF" --use-api
           supabase functions deploy ocr-water-test --project-ref "$PROJECT_REF" --use-api
+          # stripe-checkout is called by signed-in app users → keep JWT verification.
+          supabase functions deploy stripe-checkout --project-ref "$PROJECT_REF" --use-api
+          # stripe-webhook is called by Stripe (no Supabase JWT) → verify by signature instead.
+          supabase functions deploy stripe-webhook --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
 
       - name: Set OCR secret (skipped if not configured)
         env:
@@ -46,4 +50,20 @@ jobs:
             supabase secrets set ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" --project-ref "$PROJECT_REF"
           else
             echo "::warning::ANTHROPIC_API_KEY repo secret not set — OCR function will return NOT_CONFIGURED"
+          fi
+
+      - name: Set Stripe secrets (skipped if not configured)
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+        run: |
+          if [ -n "$STRIPE_SECRET_KEY" ]; then
+            supabase secrets set STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" --project-ref "$PROJECT_REF"
+          else
+            echo "::warning::STRIPE_SECRET_KEY repo secret not set — checkout will return NOT_CONFIGURED"
+          fi
+          if [ -n "$STRIPE_WEBHOOK_SECRET" ]; then
+            supabase secrets set STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET" --project-ref "$PROJECT_REF"
+          else
+            echo "::warning::STRIPE_WEBHOOK_SECRET repo secret not set — webhook will reject all events"
           fi

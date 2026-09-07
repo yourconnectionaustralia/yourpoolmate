@@ -74,10 +74,14 @@ Health Score update → dosing recommendations → done
 
 ### 3. Trial expiry
 ```
-Day 7: Hard block screen → "Your trial has ended" →
-Founding member offer (if spots remain) OR subscription CTA →
+Day 30: Hard block screen → "Your free trial has ended" →
+Founding users (first 300 signups): $79 once, lifetime
+Everyone else: $49/year →
+Redirect to Stripe-hosted Checkout →
 No access until payment (no soft gates, no "remind me later")
 ```
+Price is fetched server-side (stripe-checkout `get_pricing`) so the screen
+shows the user's actual offer; never hardcode the price in the paywall.
 
 ### 4. Shop test photo (OCR trust bridge)
 ```
