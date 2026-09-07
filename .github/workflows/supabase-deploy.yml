@@ -1,10 +1,17 @@
-# Deploys Supabase migrations + edge functions automatically on push.
+# Deploys Supabase edge functions automatically on push to main.
+# MIGRATIONS DO NOT RUN ON PUSH — they run only on a manual workflow_dispatch
+# (see the `if:` guard on the "Apply new migrations" step below). A push to
+# main redeploys the edge functions; a human must click "Run workflow" to
+# apply any migration against production.
 # Required repo secrets (Settings → Secrets and variables → Actions):
 #   SUPABASE_ACCESS_TOKEN — personal access token (supabase.com/dashboard/account/tokens)
 #   ANTHROPIC_API_KEY     — for the ocr-water-test function (set as a Supabase secret)
 name: Deploy Supabase
 
 on:
+  push:
+    branches: [main]
+    paths: ['supabase/**', 'scripts/apply_migrations.py', '.github/workflows/supabase-deploy.yml']
   workflow_dispatch:
 
 jobs:
@@ -16,7 +23,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Migrations run ONLY on a manual workflow_dispatch — never on push.
+      # (A job can't carry its own trigger, so the gate lives on the step.)
       - name: Apply new migrations
+        if: github.event_name == 'workflow_dispatch'
         run: python3 scripts/apply_migrations.py
 
       - uses: supabase/setup-cli@v1
