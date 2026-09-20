@@ -1,11 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import FeedbackOverlay from './FeedbackOverlay.jsx';
 import WaterTestScanner from './components/WaterTestScanner.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
 import GuestOnboarding from './components/GuestOnboarding.jsx';
+import AppTour from './components/AppTour.jsx';
+import { PoolIcon, equipmentIconName } from './components/PoolIcon.jsx';
 import LoadingScreen from './components/LoadingScreen.jsx';
 import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
+import { supabase } from './lib/supabase.js';
 import * as db from './lib/db.js';
 import { calculateScore, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 
@@ -38,8 +41,10 @@ const Icon = {
   ),
   equipment: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>
+      <rect x="2.8" y="8.4" width="18.4" height="11.2" rx="2"/>
+      <path d="M2.8 12.6h18.4"/>
+      <path d="M8.8 8.4V6.6a1.6 1.6 0 0 1 1.6-1.6h3.2a1.6 1.6 0 0 1 1.6 1.6v1.8"/>
+      <path d="M10.4 12.6v2.2h3.2v-2.2"/>
     </svg>
   ),
   calendar: (
@@ -50,6 +55,13 @@ const Icon = {
   user: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="9" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>
+    </svg>
+  ),
+  help: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M9.4 9.2a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.3-2.6 4"/>
+      <path d="M12 17.2h.01"/>
     </svg>
   ),
   camera: (
@@ -156,6 +168,20 @@ const EQUIPMENT_TYPES = [
   'Suction Cleaner', 'Chlorinator', 'Lighting', 'Other',
 ];
 
+// The Equipment page prompts for each of these until one has been added.
+// 'Other' is deliberately absent — it's a catch-all, not something an owner
+// can be asked to go and find. Each line says what the app does with it, so
+// the row answers "why should I bother" before it's asked.
+const EQUIPMENT_PROMPTS = [
+  { type: 'Pump',               why: 'Sets your daily run time and turnover guidance.' },
+  { type: 'Filter',             why: 'Drives backwash and media-change reminders.' },
+  { type: 'Chlorinator',        why: 'Sets your salt target and cell-clean interval.' },
+  { type: 'Heater / Heat Pump', why: 'Adjusts seasonal chemistry for a heated pool.' },
+  { type: 'Robotic Cleaner',    why: 'Adds service intervals for the unit.' },
+  { type: 'Suction Cleaner',    why: 'Tracks hose and diaphragm wear.' },
+  { type: 'Lighting',           why: 'Logs globe and transformer replacements.' },
+];
+
 // Popular AU brands per equipment type — shown as a dropdown with an
 // "Other" escape hatch to free text. Types not listed here (Filter,
 // Lighting, Other) get a plain free-text brand field.
@@ -230,24 +256,13 @@ const FILTER_TYPES = [
 // Current year, for the "Year built" dropdown
 const CURRENT_YEAR = new Date().getFullYear();
 
-function equipmentEmoji(type) {
-  if (!type) return '⚙️';
-  const t = type.toLowerCase();
-  if (t.includes('pump'))    return '💧';
-  if (t.includes('filter'))  return '🔵';
-  if (t.includes('heat'))    return '🔥';
-  if (t.includes('robot') || t.includes('suction') || t.includes('cleaner')) return '🤖';
-  if (t.includes('chlorin') || t.includes('salt'))  return '⚗️';
-  if (t.includes('light'))   return '💡';
-  return '⚙️';
-}
 
 // ─────────────────────────────────────────────────────────────────
 // SEASONAL TIPS DATA
 // ─────────────────────────────────────────────────────────────────
 const SEASONAL_TIPS = {
   Autumn: {
-    icon: '🍂',
+    icon: 'leaf',
     intro: 'As temperatures drop your pool needs less chlorine but more protection. Stay ahead of algae and prepare for winter.',
     tips: [
       { title: 'Reduce chlorine dosage', body: 'Cooler water consumes chlorine more slowly. Cut your dose by 20–30% and let your readings guide you.' },
@@ -258,7 +273,7 @@ const SEASONAL_TIPS = {
     ],
   },
   Winter: {
-    icon: '❄️',
+    icon: 'snowflake',
     intro: "Minimal chemicals, minimal effort — but don't ignore it completely. A well-maintained pool in winter opens cleanly in spring.",
     tips: [
       { title: 'Test fortnightly', body: "Water chemistry moves slowly in winter. Fortnightly testing is enough unless you've had heavy rain or high winds." },
@@ -269,7 +284,7 @@ const SEASONAL_TIPS = {
     ],
   },
   Spring: {
-    icon: '🌿',
+    icon: 'sprout',
     intro: 'Time to wake your pool up. A thorough test and a good shock now means a clean opening before summer arrives.',
     tips: [
       { title: 'Full water test first', body: 'Test all parameters — chlorine, pH, alkalinity, CYA, and calcium. Winter drift compounds, so start with a complete picture.' },
@@ -280,7 +295,7 @@ const SEASONAL_TIPS = {
     ],
   },
   Summer: {
-    icon: '☀️',
+    icon: 'sun',
     intro: 'High temperatures and heavy use challenge water chemistry fast. Test twice weekly and stay on top of chlorine.',
     tips: [
       { title: 'Test twice a week', body: 'In summer, chlorine can drop to zero within 48 hours of heavy use. Test Monday and Thursday as a minimum.' },
@@ -295,7 +310,7 @@ const SEASONAL_TIPS = {
 // ─────────────────────────────────────────────────────────────────
 // SIDEBAR
 // ─────────────────────────────────────────────────────────────────
-function Sidebar({ activeView, onNav, pendingActions }) {
+function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-section">
@@ -303,6 +318,7 @@ function Sidebar({ activeView, onNav, pendingActions }) {
         <div
           className={`sidebar-item ${activeView === 'health' ? 'active' : ''}`}
           onClick={() => onNav('health')}
+          data-tour="health"
         >
           <span className="sidebar-icon">{Icon.waves}</span>
           Health Score
@@ -310,6 +326,7 @@ function Sidebar({ activeView, onNav, pendingActions }) {
         <div
           className={`sidebar-item ${activeView === 'tests' ? 'active' : ''}`}
           onClick={() => onNav('tests')}
+          data-tour="tests"
         >
           <span className="sidebar-icon">{Icon.flask}</span>
           Water Tests
@@ -320,6 +337,7 @@ function Sidebar({ activeView, onNav, pendingActions }) {
         <div
           className={`sidebar-item ${activeView === 'history' ? 'active' : ''}`}
           onClick={() => onNav('history')}
+          data-tour="history"
         >
           <span className="sidebar-icon">{Icon.droplet}</span>
           Chemistry log
@@ -331,6 +349,7 @@ function Sidebar({ activeView, onNav, pendingActions }) {
         <div
           className={`sidebar-item ${activeView === 'setup' ? 'active' : ''}`}
           onClick={() => onNav('setup')}
+          data-tour="setup"
         >
           <span className="sidebar-icon">{Icon.settings}</span>
           Setup
@@ -338,6 +357,7 @@ function Sidebar({ activeView, onNav, pendingActions }) {
         <div
           className={`sidebar-item ${activeView === 'equipment' ? 'active' : ''}`}
           onClick={() => onNav('equipment')}
+          data-tour="equipment"
         >
           <span className="sidebar-icon">{Icon.equipment}</span>
           Equipment
@@ -360,6 +380,12 @@ function Sidebar({ activeView, onNav, pendingActions }) {
           <span className="sidebar-icon">{Icon.user}</span>
           Profile
         </div>
+        {/* Help is an action, not a view — it opens the help sheet, which is
+            also where the walkthrough can be replayed. */}
+        <div className="sidebar-item" onClick={onHelp}>
+          <span className="sidebar-icon">{Icon.help}</span>
+          Help
+        </div>
       </div>
     </aside>
   );
@@ -378,6 +404,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
       <button
         className={`mobile-nav-item ${activeView === 'health' ? 'active' : ''}`}
         onClick={() => onNav('health')}
+        data-tour="health"
       >
         <span className="mobile-nav-icon">{Icon.waves}</span>
         <span className="mobile-nav-label">Health</span>
@@ -387,24 +414,26 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
       <button
         className={`mobile-nav-item ${activeView === 'tests' ? 'active' : ''}`}
         onClick={() => onNav('tests')}
+        data-tour="tests"
       >
         <span className="mobile-nav-icon">{Icon.flask}</span>
-        <span className="mobile-nav-label">Tests</span>
+        <span className="mobile-nav-label">Recent</span>
         {pendingActions > 0 && (
           <span className="mobile-nav-badge">{pendingActions}</span>
         )}
       </button>
 
-      {/* Centre CTA — Log test */}
+      {/* Centre CTA — Test Water */}
       <button className="mobile-nav-item mobile-nav-cta" onClick={onLogTest}>
         <span className="mobile-nav-cta-icon">+</span>
-        <span className="mobile-nav-label">Log</span>
+        <span className="mobile-nav-label">Test</span>
       </button>
 
       {/* History */}
       <button
         className={`mobile-nav-item ${activeView === 'history' ? 'active' : ''}`}
         onClick={() => onNav('history')}
+        data-tour="history"
       >
         <span className="mobile-nav-icon">{Icon.droplet}</span>
         <span className="mobile-nav-label">History</span>
@@ -414,6 +443,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
       <button
         className={`mobile-nav-item ${moreActive ? 'active' : ''}`}
         onClick={onMore}
+        data-tour="more"
       >
         <span className="mobile-nav-icon">{Icon.menu}</span>
         <span className="mobile-nav-label">More</span>
@@ -425,7 +455,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
 // ─────────────────────────────────────────────────────────────────
 // MOBILE MORE DRAWER (slide-up sheet)
 // ─────────────────────────────────────────────────────────────────
-function MobileMoreDrawer({ activeView, onNav, onClose }) {
+function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
   const items = [
     { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
     { view: 'equipment', icon: Icon.equipment,  label: 'Equipment' },
@@ -443,11 +473,19 @@ function MobileMoreDrawer({ activeView, onNav, onClose }) {
             key={item.view}
             className={`mobile-drawer-item ${activeView === item.view ? 'active' : ''}`}
             onClick={() => { onNav(item.view); onClose(); }}
+            data-tour={`drawer-${item.view}`}
           >
             <span className="mobile-drawer-icon">{item.icon}</span>
             <span>{item.label}</span>
           </button>
         ))}
+        <button
+          className="mobile-drawer-item"
+          onClick={() => { onClose(); onHelp?.(); }}
+        >
+          <span className="mobile-drawer-icon">{Icon.help}</span>
+          <span>Help</span>
+        </button>
       </div>
     </>
   );
@@ -475,7 +513,7 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst }) {
             <div className="empty-state-body">
               Add your first water test and your Health Score will appear here within seconds.
             </div>
-            <button className="btn btn-primary btn-sm" onClick={onLogFirst}>Log first water test</button>
+            <button className="btn btn-primary btn-sm" onClick={onLogFirst}>Enter first test results</button>
           </div>
         </div>
       </div>
@@ -819,7 +857,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, saltRang
       {/* Actions row */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-          Log water test
+          Enter Test Results
         </button>
         <button className="btn btn-ghost" onClick={onScanTest}>
           <span style={{ display: 'inline-flex' }}>{Icon.camera}</span>
@@ -1116,9 +1154,9 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
                       className="btn btn-ghost btn-sm"
                       aria-label="Delete event"
                       onClick={() => onDeleteEvent?.(e.id)}
-                      style={{ minWidth: 44, minHeight: 44, padding: 0 }}
+                      style={{ minWidth: 44, minHeight: 44, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                     >
-                      ✕
+                      <PoolIcon name="close" size={16} />
                     </button>
                   )}
                 </div>
@@ -1429,7 +1467,12 @@ function SeasonalTipsPage({ season }) {
   const data = SEASONAL_TIPS[season] || SEASONAL_TIPS.Autumn;
   return (
     <div>
-      <h1 className="page-title">{data.icon} {season} Tips</h1>
+      <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ color: 'var(--blue)', display: 'inline-flex' }}>
+          <PoolIcon name={data.icon} size={26} />
+        </span>
+        {season} Tips
+      </h1>
       <p className="page-subtitle">{data.intro}</p>
 
       <div className="card-section" style={{ marginBottom: 16 }}>
@@ -1636,7 +1679,7 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
 // ─────────────────────────────────────────────────────────────────
 // EQUIPMENT PAGE
 // ─────────────────────────────────────────────────────────────────
-function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
+function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAutoOpened }) {
   const EMPTY_FORM = { type: 'Pump', brand: '', model: '', notes: '', installed_at: '' };
   const [mode, setMode] = useState('list'); // 'list' | 'new' | item-id string
   const [form, setForm] = useState(EMPTY_FORM);
@@ -1644,6 +1687,22 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
   const [error, setError] = useState('');
 
   const startNew = () => { setForm(EMPTY_FORM); setError(''); setMode('new'); };
+  // Opening the form from a checklist row pre-fills the type, so the owner
+  // never picks it twice.
+  const startNewOfType = (type) => { setForm({ ...EMPTY_FORM, type }); setError(''); setMode('new'); };
+
+  // Types still missing — these are the rows the checklist offers.
+  const addedTypes = new Set((equipment || []).map(e => e.type));
+  const remaining = EQUIPMENT_PROMPTS.filter(pr => !addedTypes.has(pr.type));
+
+  // The walkthrough finishes on "Add my equipment" and lands here. The
+  // checklist is now the add UI, so make sure it is what they see.
+  useEffect(() => {
+    if (autoOpenAdd) {
+      setMode('list');
+      onAutoOpened?.();
+    }
+  }, [autoOpenAdd, onAutoOpened]);
   const startEdit = (item) => {
     setForm({
       // Normalise the pre-July-2026 type label so the select matches an option.
@@ -1681,7 +1740,7 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
         <h1 className="page-title" style={{ margin: 0 }}>Equipment</h1>
         {mode === 'list' && equipment.length > 0 && (
-          <button className="btn btn-primary btn-sm" onClick={startNew}>+ Add</button>
+          <button className="btn btn-ghost btn-sm" onClick={startNew}>+ Add</button>
         )}
       </div>
       <p className="page-subtitle" style={{ marginBottom: 20 }}>Pump, filter, heater, and pool hardware</p>
@@ -1712,7 +1771,9 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
                   padding: '12px 0',
                   borderBottom: i < equipment.length - 1 ? 'var(--border)' : 'none',
                 }}>
-                  <span style={{ fontSize: 22, flexShrink: 0 }}>{equipmentEmoji(item.type)}</span>
+                  <span style={{ flexShrink: 0, color: 'var(--blue)', display: 'inline-flex' }}>
+                    <PoolIcon name={equipmentIconName(item.type)} size={22} />
+                  </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--black)' }}>{item.type}</div>
                     <div style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 2 }}>
@@ -1753,7 +1814,9 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
       {/* Add new inline form */}
       {mode === 'new' && (
         <div className="card-section" style={{ marginBottom: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 12 }}>Add equipment</div>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>
+            Add {form.type && form.type !== 'Other' ? form.type.toLowerCase() : 'equipment'}
+          </div>
           <EquipmentForm
             form={form}
             setForm={setForm}
@@ -1766,31 +1829,71 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
         </div>
       )}
 
-      {/* Empty state */}
-      {equipment.length === 0 && mode === 'list' && (
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-state-icon">{Icon.equipment}</div>
-            <div className="empty-state-title">No equipment added</div>
-            <div className="empty-state-body">
-              Add your pump, filter, and heater details. Your Pool Mate uses this to tailor maintenance schedules for your setup.
+      {/* Checklist — one row per equipment type not yet added. A row leaves
+          the list the moment that type has an entry, so what's left on screen
+          is exactly what's still missing. */}
+      {mode === 'list' && remaining.length > 0 && (
+        <div className="card-section">
+          <div className="eyebrow" style={{ marginBottom: 4 }}>
+            {equipment.length === 0 ? 'Add your equipment' : 'Still to add'}
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--gray-mid)', lineHeight: 1.5, marginBottom: 12 }}>
+            {equipment.length === 0
+              ? "Add whatever you have — skip anything you don't. Each one sharpens your reminders."
+              : "Anything else on your pool? Skip what you don't have."}
+          </p>
+
+          {remaining.map((pr, i) => (
+            <div
+              key={pr.type}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '12px 0',
+                borderBottom: i < remaining.length - 1 ? 'var(--border)' : 'none',
+              }}
+            >
+              <span style={{ flexShrink: 0, color: 'var(--blue)', display: 'inline-flex' }}>
+                <PoolIcon name={equipmentIconName(pr.type)} size={22} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--black)' }}>{pr.type}</div>
+                <div style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 2 }}>{pr.why}</div>
+              </div>
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ flexShrink: 0 }}
+                onClick={() => startNewOfType(pr.type)}
+              >
+                Add
+              </button>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={startNew}>Add first item</button>
+          ))}
+
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ marginTop: 12 }}
+            onClick={() => startNewOfType('Other')}
+          >
+            Something else? Add it manually
+          </button>
+        </div>
+      )}
+
+      {/* Every prompted type is covered. */}
+      {mode === 'list' && remaining.length === 0 && equipment.length > 0 && (
+        <div className="callout callout-success" style={{ marginBottom: 8 }}>
+          <span className="callout-icon" style={{ color: 'var(--green)', display: 'inline-flex' }}>
+            {Icon.check}
+          </span>
+          <div className="callout-body">
+            That's your whole setup logged. Use <strong>+ Add</strong> if you add another
+            piece of gear later.
           </div>
         </div>
       )}
 
-      {/* Tip callout when items exist */}
-      {equipment.length > 0 && mode === 'list' && (
-        <div className="callout callout-info" style={{ marginTop: 8 }}>
-          <span className="callout-icon" style={{ color: 'var(--blue)', display: 'inline-flex' }}>
-            {Icon.info}
-          </span>
-          <div className="callout-body">
-            Accurate equipment details improve maintenance reminders and service interval tracking.
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1799,6 +1902,52 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete }) {
 // TRIAL EXPIRED BLOCK SCREEN
 // ─────────────────────────────────────────────────────────────────
 function TrialExpiredScreen() {
+  // Price + plan are decided server-side from the user's founding_member flag
+  // (first 300 signups → $79 lifetime; everyone after → $49/year). We fetch it
+  // so the screen shows the right offer, then hand off to Stripe Checkout.
+  const [pricing, setPricing] = useState(null);   // { plan, price_aud, interval, founding }
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+          body: { action: 'get_pricing' },
+        });
+        if (error) throw error;
+        if (alive) setPricing(data);
+      } catch {
+        // Display fallback only — the server still decides the real price at checkout.
+        if (alive) setPricing({ plan: 'founding_lifetime', price_aud: 79, interval: null, founding: true });
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const startCheckout = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+        body: { action: 'create_session', successUrl: window.location.origin, cancelUrl: window.location.origin },
+      });
+      if (error || !data?.url) throw error || new Error('No checkout URL');
+      window.location.href = data.url; // hand off to Stripe-hosted Checkout
+    } catch {
+      setError('Could not start checkout. Please try again, or email hello@yourpoolmate.com.au');
+      setBusy(false);
+    }
+  };
+
+  const founding = pricing?.founding ?? true;
+  const price = pricing?.price_aud ?? 79;
+  const annual = pricing?.interval === 'year';
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -1809,26 +1958,38 @@ function TrialExpiredScreen() {
       padding: 24,
     }}>
       <div className="card-elevated" style={{ maxWidth: 440, width: '100%', padding: '48px 40px', textAlign: 'center' }}>
-        <div style={{ fontSize: 40, marginBottom: 16 }}>🏊</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, color: 'var(--blue)' }}>
+          <PoolIcon name="swimmer" size={44} />
+        </div>
         <h2 style={{ fontFamily: 'var(--font-read)', fontSize: 24, fontWeight: 400, color: 'var(--black)', marginBottom: 12 }}>
           Your free trial has ended
         </h2>
         <p style={{ fontSize: 14, color: 'var(--gray-mid)', lineHeight: 'var(--lh-body)', marginBottom: 28 }}>
-          You've had 30 days to see what Your Pool Mate can do. Keep going — become a founding member at the lowest price we'll ever offer.
+          {founding
+            ? "You've had 30 days to see what Your Pool Mate can do. Keep going — you're one of our founding members, at the lowest price we'll ever offer."
+            : "You've had 30 days to see what Your Pool Mate can do. Keep full access with a simple annual plan."}
         </p>
-        <div style={{ background: 'var(--water-pale)', borderRadius: 'var(--r-sm)', padding: '16px 20px', marginBottom: 24 }}>
-          <div style={{ fontFamily: 'var(--font-read)', fontSize: 36, fontWeight: 400, color: 'var(--black)' }}>$79</div>
-          <div style={{ fontSize: 13, color: 'var(--gray-mid)' }}>AUD · one-time · yours forever</div>
+        <div style={{ background: 'var(--water-pale)', borderRadius: 'var(--r-sm)', padding: '16px 20px', marginBottom: 24, opacity: loading ? 0.5 : 1 }}>
+          <div style={{ fontFamily: 'var(--font-read)', fontSize: 36, fontWeight: 400, color: 'var(--black)' }}>
+            ${price}{annual && <span style={{ fontSize: 18 }}> /yr</span>}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--gray-mid)' }}>
+            {founding ? 'AUD · one-time · yours forever' : 'AUD per year · cancel anytime'}
+          </div>
         </div>
         <button
           className="btn btn-primary"
-          style={{ width: '100%', marginBottom: 10 }}
-          onClick={() => { window.location.href = 'https://yourpoolmate.com.au/#checkout'; }}
+          style={{ width: '100%', marginBottom: 10, minHeight: 44 }}
+          onClick={startCheckout}
+          disabled={busy || loading}
         >
-          Claim founding access
+          {busy ? 'Opening secure checkout…' : (founding ? 'Claim founding access' : 'Continue with annual plan')}
         </button>
+        {error && (
+          <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 8 }}>{error}</div>
+        )}
         <div style={{ fontSize: 12, color: 'var(--gray-light)' }}>
-          Limited to 200 founding members
+          🔒 Secured by Stripe{founding ? ' · Founding rate for our first 300 members' : ''}
         </div>
       </div>
     </div>
@@ -2244,9 +2405,9 @@ function VolumeGateModal({ onCancel, onConfirm }) {
 // ─────────────────────────────────────────────────────────────────
 // HELP SHEET — opened from the top-nav Help button
 // ─────────────────────────────────────────────────────────────────
-function HelpSheet({ onClose }) {
+function HelpSheet({ onClose, onReplayTour }) {
   const steps = [
-    { n: '1', title: 'Log a water test', body: 'Type the readings in, or scan your pool shop\'s printout with your camera — it fills the numbers in for you.' },
+    { n: '1', title: 'Enter your test results', body: 'Type the readings in, or scan your pool shop\'s printout with your camera — it fills the numbers in for you.' },
     { n: '2', title: 'Check your Health Score', body: 'One number out of 100 tells you where your water stands. Green is swim-ready.' },
     { n: '3', title: 'Follow the plan, in order', body: 'The "what to do" list gives exact doses for your pool\'s volume. Re-test a day after dosing.' },
   ];
@@ -2280,6 +2441,11 @@ function HelpSheet({ onClose }) {
           </a>.
         </div>
         <div className="modal-actions">
+          {onReplayTour && (
+            <button className="btn btn-ghost btn-sm" onClick={onReplayTour}>
+              Replay the walkthrough
+            </button>
+          )}
           <button className="btn btn-primary btn-sm" onClick={onClose}>Got it</button>
         </div>
       </div>
@@ -2320,6 +2486,25 @@ export default function App() {
   const [onboardingDismissed, setOnboardingDismissed] = useState(false); // session-scoped
   const [dataReady, setDataReady] = useState(false);
   const [openTestForm, setOpenTestForm] = useState(false); // one-shot: open the log form on the Tests page
+  const [openEquipmentForm, setOpenEquipmentForm] = useState(false); // one-shot: open the add-equipment form
+  const [tourActive, setTourActive] = useState(false); // post-onboarding walkthrough
+
+  // Walkthrough drives the view so each popup describes the page in front of
+  // the user. Stable identity so AppTour's effects don't re-fire every render.
+  const handleTourNavigate = useCallback((view) => {
+    setActiveView(view);
+    setMobileDrawerOpen(false);
+  }, []);
+
+  // Seen once, never again — the walkthrough is a first-run thing.
+  const endTour = useCallback(({ addEquipment = false } = {}) => {
+    setTourActive(false);
+    try { localStorage.setItem('ypm_tour_seen', '1'); } catch { /* private mode */ }
+    if (addEquipment) {
+      setActiveView('equipment');
+      setOpenEquipmentForm(true);
+    }
+  }, []);
 
   // Shared action for every "Log test" entry point: go to Tests and open the form.
   const goLogTest = () => {
@@ -2469,7 +2654,7 @@ export default function App() {
           )}
           <button className="btn btn-ghost btn-sm" onClick={() => setShowHelp(true)}>Help</button>
           <button className="btn btn-nav" onClick={goLogTest}>
-            Log test
+            Test Water
           </button>
         </div>
       </nav>
@@ -2480,6 +2665,7 @@ export default function App() {
           activeView={activeView}
           onNav={setActiveView}
           pendingActions={pendingActions}
+          onHelp={() => setShowHelp(true)}
         />
 
         <main className="main-content">
@@ -2517,6 +2703,8 @@ export default function App() {
               onAdd={handleAddEquipment}
               onUpdate={handleUpdateEquipment}
               onDelete={handleDeleteEquipment}
+              autoOpenAdd={openEquipmentForm}
+              onAutoOpened={() => setOpenEquipmentForm(false)}
             />
           )}
           {activeView === 'schedule' && (
@@ -2570,7 +2758,17 @@ export default function App() {
 
       {/* Scan modal — real OCR via the ocr-water-test Edge Function */}
       {/* Help sheet */}
-      {showHelp && <HelpSheet onClose={() => setShowHelp(false)} />}
+      {showHelp && (
+        <HelpSheet
+          onClose={() => setShowHelp(false)}
+          onReplayTour={() => {
+            setShowHelp(false);
+            setMobileDrawerOpen(false);
+            setActiveView('health');
+            setTourActive(true);
+          }}
+        />
+      )}
 
       {showScan && (
         <WaterTestScanner
@@ -2602,6 +2800,7 @@ export default function App() {
           activeView={activeView}
           onNav={setActiveView}
           onClose={() => setMobileDrawerOpen(false)}
+          onHelp={() => setShowHelp(true)}
         />
       )}
 
@@ -2612,8 +2811,27 @@ export default function App() {
           next app launch until a pool profile exists. */}
       {hasPoolProfile === false && !onboardingDismissed && (
         <GuestOnboarding
-          onComplete={() => loadAll(user.id)}
+          onComplete={() => {
+            loadAll(user.id);
+            // Straight into the walkthrough — unless they've already had it.
+            let seen = false;
+            try { seen = localStorage.getItem('ypm_tour_seen') === '1'; } catch { /* private mode */ }
+            if (!seen) {
+              setActiveView('health');
+              setTourActive(true);
+            }
+          }}
           onDismiss={() => setOnboardingDismissed(true)}
+        />
+      )}
+
+      {/* Post-onboarding walkthrough — anchored popups over the real nav.
+          Finishes on Equipment and hands off into the add-equipment form. */}
+      {tourActive && (
+        <AppTour
+          onNavigate={handleTourNavigate}
+          onFinish={() => endTour({ addEquipment: true })}
+          onDismiss={() => endTour()}
         />
       )}
 

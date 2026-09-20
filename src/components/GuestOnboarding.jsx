@@ -315,10 +315,51 @@ export default GuestOnboarding
 
 // ── Step components ─────────────────────────────────────────
 
+// Brand mark — the Your Pool Mate app icon (public/logo.svg), inlined so it
+// renders at any size without a network round-trip.
+function BrandMark({ size = 64 }) {
+  return (
+    <svg
+      className={styles.brandMark}
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      role="img"
+      aria-label="Your Pool Mate"
+    >
+      <defs>
+        <linearGradient id="ypmOnboardWater" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#0B7799" />
+          <stop offset="100%" stopColor="#085E78" />
+        </linearGradient>
+      </defs>
+      <rect width="100" height="100" rx="22" fill="url(#ypmOnboardWater)" />
+      <circle cx="50" cy="50" r="30" fill="none" stroke="#FFFFFF" strokeWidth="6" />
+      <path d="M20.6 56 Q 35.3 50 50 56 T 79.4 56 A 30 30 0 0 1 20.6 56 Z" fill="#FFFFFF" />
+    </svg>
+  )
+}
+
+// Tick used on the feature lists. Replaces the emoji bullets — emoji render
+// inconsistently across Android/iOS and read as clip-art next to Albert Sans.
+function TickIcon() {
+  return (
+    <span className={styles.featureTick} aria-hidden="true">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth="3"
+           strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+    </span>
+  )
+}
+
 function StepWelcome() {
   return (
     <div className={styles.stepWrap}>
-      <div className={styles.stepIcon} aria-hidden="true">💧</div>
+      <div className={styles.stepIcon} aria-hidden="true">
+        <BrandMark size={64} />
+      </div>
       <h2 className={styles.stepHeading}>Welcome to Your Pool Mate</h2>
       <p className={styles.stepBody}>
         Let's get your pool set up. It takes about 2 minutes, and you'll see your
@@ -326,15 +367,15 @@ function StepWelcome() {
       </p>
       <div className={styles.featureList}>
         <div className={styles.feature}>
-          <span aria-hidden="true">🎯</span>
+          <TickIcon />
           Know exactly what chemicals to add — no guessing
         </div>
         <div className={styles.feature}>
-          <span aria-hidden="true">📋</span>
+          <TickIcon />
           Every test is saved to protect your pool warranty
         </div>
         <div className={styles.feature}>
-          <span aria-hidden="true">📸</span>
+          <TickIcon />
           Scan your pool shop test in seconds
         </div>
       </div>
@@ -414,7 +455,7 @@ function StepSanitiser({ form, set }) {
             type="button"
           >
             {s.label}
-            {form.sanitiser_type === s.value && <span aria-hidden="true"> ✓</span>}
+            {form.sanitiser_type === s.value && <TickIcon />}
           </button>
         ))}
       </div>
@@ -503,23 +544,25 @@ function StepFirstTest({ form, set }) {
 function StepComplete() {
   return (
     <div className={styles.stepWrap}>
-      <div className={styles.stepIcon} aria-hidden="true">🎉</div>
+      <div className={styles.stepIcon} aria-hidden="true">
+        <BrandMark size={56} />
+      </div>
       <h2 className={styles.stepHeading}>You're all set</h2>
       <p className={styles.stepBody}>
-        Your pool's Health Score is ready. Every test from now on is automatically
-        saved to your warranty record.
+        Your pool's Health Score is ready. Next we'll show you around — it takes
+        about 30 seconds.
       </p>
       <div className={styles.featureList}>
         <div className={styles.feature}>
-          <span aria-hidden="true">✓</span>
+          <TickIcon />
           Pool profile saved
         </div>
         <div className={styles.feature}>
-          <span aria-hidden="true">✓</span>
+          <TickIcon />
           Warranty record started
         </div>
         <div className={styles.feature}>
-          <span aria-hidden="true">✓</span>
+          <TickIcon />
           Health Score ready
         </div>
       </div>

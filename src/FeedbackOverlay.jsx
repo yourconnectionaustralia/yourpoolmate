@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase.js';
+import { PoolIcon } from './components/PoolIcon.jsx';
 
 // ─────────────────────────────────────────────────────────────────
 // Page label map — must match the activeView keys in App.jsx
@@ -282,7 +283,7 @@ export default function FeedbackOverlay({ activeView }) {
                       borderRadius: 'var(--r-sm)', padding: '7px 10px', marginBottom: 8,
                       fontSize: 12, fontWeight: 500,
                     }}>
-                      <span aria-hidden="true">📍</span>
+                      <PoolIcon name="pin" size={14} />
                       <span style={{ flex: 1 }}>
                         Pinned at {pendingPin.x}, {pendingPin.y} — add your note below
                       </span>
@@ -348,8 +349,10 @@ export default function FeedbackOverlay({ activeView }) {
                               {n.x != null && (
                                 <span
                                   title={`Pinned at ${n.x}, ${n.y}`}
-                                  style={{ color: 'var(--water-mid)', fontWeight: 600, marginRight: 4 }}
-                                >📍</span>
+                                  style={{ color: 'var(--water-mid)', marginRight: 4, display: 'inline-flex', verticalAlign: '-2px' }}
+                                >
+                                  <PoolIcon name="pin" size={13} />
+                                </span>
                               )}
                               {n.note}
                             </span>
