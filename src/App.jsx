@@ -1932,7 +1932,7 @@ function TrialExpiredScreen() {
           Claim founding access
         </button>
         <div style={{ fontSize: 12, color: 'var(--gray-light)' }}>
-          Limited to 200 founding members
+          First 300 members: $79 AUD lifetime · then $49/year AUD
         </div>
       </div>
     </div>
@@ -2678,7 +2678,7 @@ export default function App() {
                       {Icon.info}
                     </span>
                     <div className="callout-body">
-                      You're on a <strong>30-day free trial</strong> with {trialDaysLeft ?? '—'} days remaining. Become a founding member to keep full access permanently.
+                      You're on a <strong>30-day free trial</strong> with {trialDaysLeft ?? '—'} days remaining. First 300 members get founding access for $79 AUD lifetime; after that it's $49/year AUD.
                     </div>
                   </div>
                 )}
