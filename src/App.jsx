@@ -639,7 +639,7 @@ function writeActionsDone(testKey, keys) {
 }
 
 // When the checklist is fully ticked we stamp the completion time — that
-// starts the "re-test in 2–3 hours to confirm the new balance" clock.
+// marks the point the re-test prompt ("within the next week or so") appears.
 const ACTIONS_DONE_AT_STORE = 'ypm.actionsDoneAt.v1';
 
 function readCompletedAt(testKey) {
@@ -655,8 +655,6 @@ function writeCompletedAt(testKey, iso) {
     localStorage.setItem(ACTIONS_DONE_AT_STORE, JSON.stringify(all));
   } catch { /* non-fatal */ }
 }
-
-const fmtClock = (d) => d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' });
 
 function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
   const testKey = test.id || test.createdAt;
@@ -693,7 +691,7 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
             {Icon.check}
           </span>
           <div className="callout-body">
-            <strong>All balanced — nothing to add.</strong> Your water's on target. Re-test in a few days.
+            <strong>All balanced — nothing to add.</strong> Your water's on target. Test again within the next week or so.
           </div>
         </div>
       </div>
@@ -771,11 +769,7 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
           </span>
           <div className="callout-body">
             <strong>Chemicals added.</strong> Give them time to circulate, then log a new
-            test in <strong>2–3 hours</strong> to confirm the new balance
-            {completedAt && (() => {
-              const base = new Date(completedAt).getTime();
-              return <> — from about {fmtClock(new Date(base + 2 * 3600000))} to {fmtClock(new Date(base + 3 * 3600000))}</>;
-            })()}.
+            test <strong>within the next week or so</strong> to confirm the new balance.
             {onLogRetest && (
               <div style={{ marginTop: 10 }}>
                 <button className="btn btn-primary btn-sm" onClick={onLogRetest}>
@@ -2209,7 +2203,7 @@ function getRecommendations(test, pool, saltRange) {
   if (!steps.length) {
     return [{
       type: 'success', iconColor: 'var(--green)', icon: Icon.check,
-      text: <><strong>All readings on target.</strong> No action needed — your next test is due in three days.</>,
+      text: <><strong>All readings on target.</strong> No action needed — test again within the next week or so.</>,
     }];
   }
   const multi = steps.length > 1;
