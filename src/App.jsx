@@ -125,8 +125,10 @@ function HealthScoreRing({ score, size = 88 }) {
         />
       </svg>
       <div className="score-ring-label">
-        <span className="score-number score-number-lg" style={{ fontSize: Math.round(size * 0.46) }}>{score}</span>
-        <span className="score-of">/ 100</span>
+        {/* Scale the number by digit count so "100" sits inside the ring
+            instead of running into the stroke (inner diameter ≈ 0.7 × size). */}
+        <span className="score-number score-number-lg" style={{ fontSize: Math.round(size * (String(score).length >= 3 ? 0.32 : 0.4)) }}>{score}</span>
+        <span className="score-of" style={{ fontSize: Math.max(10, Math.round(size * 0.08)), marginTop: Math.round(size * 0.02) }}>/ 100</span>
       </div>
     </div>
   );
