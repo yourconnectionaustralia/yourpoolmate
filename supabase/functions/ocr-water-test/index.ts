@@ -11,12 +11,13 @@
 //     service-role only — users can't reset their own counter)
 //   - Image capped at 4MB base64 (~3MB binary)
 //
-// Required secrets (Supabase dashboard → Edge Functions → Secrets):
-//   ANTHROPIC_API_KEY        — Anthropic API key
+// Required secrets (Supabase dashboard → Edge Functions → Secrets,
+// or GitHub Actions secret ANTHROPIC_API_KEY synced by Deploy Supabase):
+//   ANTHROPIC_API_KEY         — Anthropic API key (sk-ant-…)
 //   SUPABASE_SERVICE_ROLE_KEY — auto-provided by Supabase
 //   SUPABASE_URL              — auto-provided by Supabase
 // Optional:
-//   OCR_MODEL — defaults to claude-haiku-4-5-20251001 (fast + cheap; fine for OCR)
+//   OCR_MODEL — defaults to claude-haiku-4-5 (alias → current Haiku 4.5 snapshot)
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
@@ -35,6 +36,12 @@ const RATE_WINDOW_MINUTES = 60
 const ALLOWED_MEDIA_TYPES = new Set([
   "image/jpeg", "image/png", "image/webp", "image/gif",
 ])
+
+// Prefer the alias; fall back to the pinned snapshot if the alias fails.
+const DEFAULT_MODELS = [
+  "claude-haiku-4-5",
+  "claude-haiku-4-5-20251001",
+]
 
 // The readings we ask Claude to extract. Keys match the water_tests columns.
 const EXTRACTION_PROMPT = `You are reading a photo of a swimming pool water test result — either a pool shop printout or a test strip chart. Extract the chemical readings.
@@ -63,6 +70,90 @@ Rules:
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS })
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function modelCandidates(): string[] {
+  const preferred = (Deno.env.get("OCR_MODEL") ?? "").trim()
+  const list = preferred ? [preferred, ...DEFAULT_MODELS] : [...DEFAULT_MODELS]
+  // de-dupe, keep order
+  return [...new Set(list.filter(Boolean))]
+}
+
+async function callAnthropic(opts: {
+  apiKey: string
+  model: string
+  mediaType: string
+  base64Data: string
+}): Promise<{ ok: true; rawText: string } | { ok: false; status: number; errText: string }> {
+  const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": opts.apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: opts.model,
+      max_tokens: 1024,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: opts.mediaType, data: opts.base64Data } },
+          { type: "text", text: EXTRACTION_PROMPT },
+        ],
+      }],
+    }),
+  })
+
+  if (!anthropicRes.ok) {
+    const errText = await anthropicRes.text()
+    return { ok: false, status: anthropicRes.status, errText }
+  }
+
+  const anthropicData = await anthropicRes.json()
+  const rawText: string = anthropicData?.content?.[0]?.text ?? ""
+  return { ok: true, rawText }
+}
+
+function providerErrorResponse(status: number, errText: string): Response {
+  const snippet = errText.slice(0, 300)
+  console.error("Anthropic API error:", status, snippet)
+
+  if (status === 401 || status === 403) {
+    return jsonResponse({
+      error: "Scanning isn't available right now — you can still type the readings in.",
+      code: "OCR_PROVIDER_AUTH",
+      detail: "Anthropic rejected the API key (check GitHub Actions secret ANTHROPIC_API_KEY and Supabase secrets).",
+    }, 503)
+  }
+  if (status === 404) {
+    return jsonResponse({
+      error: "Scanning isn't available right now — you can still type the readings in.",
+      code: "OCR_MODEL_NOT_FOUND",
+      detail: "Anthropic model not found — set OCR_MODEL or update DEFAULT_MODELS.",
+    }, 503)
+  }
+  if (status === 429) {
+    return jsonResponse({
+      error: "Scan limit reached — try again in a little while.",
+      code: "OCR_PROVIDER_RATE",
+    }, 429)
+  }
+  if (status === 400) {
+    return jsonResponse({
+      error: "Couldn't read that photo — try a flatter, well-lit shot.",
+      code: "OCR_BAD_IMAGE",
+      detail: snippet,
+    }, 400)
+  }
+  return jsonResponse({
+    error: "Couldn't read the image right now — please try again",
+    code: "OCR_UPSTREAM_ERROR",
+  }, 502)
 }
 
 serve(async (req) => {
@@ -133,49 +224,72 @@ serve(async (req) => {
     if (!ALLOWED_MEDIA_TYPES.has(mediaType)) {
       return jsonResponse({ error: "Unsupported image type", code: "BAD_MEDIA_TYPE" }, 400)
     }
-    // Strip a data-URL prefix if the client sent one
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "")
+    // Strip a data-URL prefix and any whitespace the client may have left in
+    const base64Data = imageBase64
+      .replace(/^data:image\/\w+;base64,/, "")
+      .replace(/\s+/g, "")
+
+    if (!base64Data) {
+      return jsonResponse({ error: "image_base64 is required", code: "BAD_REQUEST" }, 400)
+    }
 
     // ── 4. Call Claude Vision ─────────────────────────────────
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY")
+    const apiKey = (Deno.env.get("ANTHROPIC_API_KEY") ?? "").trim()
     if (!apiKey) {
       console.error("ANTHROPIC_API_KEY secret is not set")
       return jsonResponse({ error: "OCR not configured", code: "NOT_CONFIGURED" }, 503)
     }
-    const model = Deno.env.get("OCR_MODEL") ?? "claude-haiku-4-5-20251001"
-
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1024,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
-            { type: "text", text: EXTRACTION_PROMPT },
-          ],
-        }],
-      }),
-    })
-
-    if (!anthropicRes.ok) {
-      const errText = await anthropicRes.text()
-      console.error("Anthropic API error:", anthropicRes.status, errText)
-      await admin.from("ocr_calls").insert({ user_id: user.id, status: "error" })
+    if (!apiKey.startsWith("sk-ant-")) {
+      console.error("ANTHROPIC_API_KEY does not look like an Anthropic key (expected sk-ant-…)")
       return jsonResponse({
-        error: "Couldn't read the image right now — please try again",
-        code: "OCR_UPSTREAM_ERROR",
-      }, 502)
+        error: "Scanning isn't available right now — you can still type the readings in.",
+        code: "OCR_PROVIDER_AUTH",
+        detail: "ANTHROPIC_API_KEY format looks wrong — replace the GitHub Actions / Supabase secret.",
+      }, 503)
     }
 
-    const anthropicData = await anthropicRes.json()
-    const rawText: string = anthropicData?.content?.[0]?.text ?? ""
+    const models = modelCandidates()
+    let lastFail: { status: number; errText: string } | null = null
+    let rawText = ""
+
+    for (const model of models) {
+      // One retry on transient overload / rate limit for this model
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const result = await callAnthropic({ apiKey, model, mediaType, base64Data })
+        if (result.ok) {
+          rawText = result.rawText
+          lastFail = null
+          console.log("OCR Anthropic ok model=", model, "attempt=", attempt + 1)
+          break
+        }
+        lastFail = { status: result.status, errText: result.errText }
+        console.error("OCR Anthropic fail model=", model, "attempt=", attempt + 1, "status=", result.status)
+
+        // Bad key / bad model — don't burn retries on the same model
+        if (result.status === 401 || result.status === 403) {
+          await admin.from("ocr_calls").insert({ user_id: user.id, status: "error" })
+          return providerErrorResponse(result.status, result.errText)
+        }
+        if (result.status === 404) {
+          // try next model candidate
+          break
+        }
+        if ((result.status === 429 || result.status === 529) && attempt === 0) {
+          await sleep(600)
+          continue
+        }
+        // Non-retryable for this model
+        break
+      }
+      if (!lastFail) break // success
+      // 401 already returned; 404 tries next model; others stop after exhausting retries
+      if (lastFail.status !== 404) break
+    }
+
+    if (lastFail) {
+      await admin.from("ocr_calls").insert({ user_id: user.id, status: "error" })
+      return providerErrorResponse(lastFail.status, lastFail.errText)
+    }
 
     // ── 5. Parse + sanitise the model's JSON ──────────────────
     let parsed: Record<string, unknown>
