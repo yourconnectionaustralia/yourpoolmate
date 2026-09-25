@@ -422,8 +422,11 @@ img, svg { display: block; max-width: 100%; }
   transition: stroke-dashoffset var(--transition-score);
 }
 
-.score-ring-fill.score-good     { stroke: var(--water-mid); }
-.score-ring-fill.score-warn     { stroke: var(--amber); }
+/* Traffic-light ring: green 80+, amber 50–79, red under 50.
+   The ring amber is brighter than --amber (a text colour) so it reads as a
+   true amber; #D08400 still clears 3:1 against white for non-text graphics. */
+.score-ring-fill.score-good     { stroke: var(--green); }
+.score-ring-fill.score-warn     { stroke: #D08400; }
 .score-ring-fill.score-critical { stroke: var(--red); }
 
 .score-ring-label {
