@@ -56,6 +56,11 @@ jobs:
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          # Catalog Price IDs. Same secret names in test and live; values differ.
+          # While STRIPE_SECRET_KEY is sk_test_…, set the test-mode Price IDs.
+          # Blank keeps the inline price_data fallback inside stripe-checkout.
+          STRIPE_PRICE_FOUNDING: ${{ secrets.STRIPE_PRICE_FOUNDING }}
+          STRIPE_PRICE_ANNUAL: ${{ secrets.STRIPE_PRICE_ANNUAL }}
         run: |
           if [ -n "$STRIPE_SECRET_KEY" ]; then
             supabase secrets set STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" --project-ref "$PROJECT_REF"
@@ -66,4 +71,14 @@ jobs:
             supabase secrets set STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET" --project-ref "$PROJECT_REF"
           else
             echo "::warning::STRIPE_WEBHOOK_SECRET repo secret not set — webhook will reject all events"
+          fi
+          if [ -n "$STRIPE_PRICE_FOUNDING" ]; then
+            supabase secrets set STRIPE_PRICE_FOUNDING="$STRIPE_PRICE_FOUNDING" --project-ref "$PROJECT_REF"
+          else
+            echo "::warning::STRIPE_PRICE_FOUNDING repo secret not set — founding checkout will use inline price_data"
+          fi
+          if [ -n "$STRIPE_PRICE_ANNUAL" ]; then
+            supabase secrets set STRIPE_PRICE_ANNUAL="$STRIPE_PRICE_ANNUAL" --project-ref "$PROJECT_REF"
+          else
+            echo "::warning::STRIPE_PRICE_ANNUAL repo secret not set — annual checkout will use inline price_data"
           fi

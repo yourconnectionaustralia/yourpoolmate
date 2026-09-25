@@ -24,10 +24,19 @@
 //                  successUrl; the stripe-webhook function grants access.
 //
 // Required secrets (Supabase dashboard → Edge Functions → Secrets):
-//   STRIPE_SECRET_KEY          — sk_live_… (or sk_test_… while testing)
+//   STRIPE_SECRET_KEY          — sk_test_… while testing, sk_live_… at go-live.
+//                                The key selects the Stripe account. This
+//                                function does not flip a TEST_MODE flag.
 //   SUPABASE_URL               — auto-provided
 //   SUPABASE_ANON_KEY          — auto-provided
 //   SUPABASE_SERVICE_ROLE_KEY  — auto-provided
+// Optional catalog Price IDs (same names in test and live; values differ):
+//   STRIPE_PRICE_FOUNDING      — price_… for the $79 AUD lifetime payment
+//   STRIPE_PRICE_ANNUAL        — price_… for the $49 AUD / year subscription
+//   While STRIPE_SECRET_KEY is sk_test_…, set the test-mode Price IDs.
+//   At go-live, replace them with the live-mode Price IDs. Do not hardcode IDs.
+//   Unset or blank → inline price_data at the same amounts (deploy still works).
+//   Set but not starting with "price_" → JSON error BAD_PRICE_CONFIG.
 // Optional:
 //   APP_URL                    — default success/cancel return target
 //                                (default https://app.yourpoolmate.com.au)
@@ -50,6 +59,7 @@ const FOUNDING = {
   interval: null as string | null,
   mode: "payment" as const,
   product_name: "Your Pool Mate — Founding Member (Lifetime)",
+  price_env: "STRIPE_PRICE_FOUNDING",
 }
 const STANDARD = {
   plan: "annual",
@@ -58,6 +68,7 @@ const STANDARD = {
   interval: "year" as string | null,
   mode: "subscription" as const,
   product_name: "Your Pool Mate — Annual",
+  price_env: "STRIPE_PRICE_ANNUAL",
 }
 
 const DEFAULT_APP_URL = "https://app.yourpoolmate.com.au"
@@ -73,6 +84,19 @@ function form(params: Record<string, string | number | undefined | null>): strin
     if (v !== undefined && v !== null) p.append(k, String(v))
   }
   return p.toString()
+}
+
+// Catalog Price ID from a Supabase secret.
+// Unset or blank (after trim) → inline price_data fallback (priceId null).
+// Non-empty and starts with "price_" → use that Price on the line item.
+// Non-empty but wrong shape → invalid, so we never send it to Stripe.
+function readCatalogPriceId(envName: string): { ok: true; priceId: string | null } | { ok: false } {
+  const raw = Deno.env.get(envName)
+  if (raw == null) return { ok: true, priceId: null }
+  const priceId = raw.trim()
+  if (priceId === "") return { ok: true, priceId: null }
+  if (!priceId.startsWith("price_")) return { ok: false }
+  return { ok: true, priceId }
 }
 
 serve(async (req) => {
@@ -142,6 +166,15 @@ serve(async (req) => {
       return jsonResponse({ error: "Payments not configured", code: "NOT_CONFIGURED" }, 503)
     }
 
+    const catalog = readCatalogPriceId(tier.price_env)
+    if (!catalog.ok) {
+      console.error(`stripe-checkout: ${tier.price_env} is set but does not start with price_`)
+      return jsonResponse({
+        error: "Stripe price configuration is invalid",
+        code: "BAD_PRICE_CONFIG",
+      }, 500)
+    }
+
     const appUrl = Deno.env.get("APP_URL") ?? DEFAULT_APP_URL
     // Only accept a same-app return URL from the client; otherwise fall back.
     const rawSuccess = typeof body?.successUrl === "string" ? body.successUrl : ""
@@ -159,11 +192,22 @@ serve(async (req) => {
       // Carry the user id on the session so the webhook knows who paid.
       "metadata[user_id]": user.id,
       "metadata[plan]": tier.plan,
-      // Line item — inline price so no Stripe Product/Price setup is required.
       "line_items[0][quantity]": 1,
-      "line_items[0][price_data][currency]": "aud",
-      "line_items[0][price_data][unit_amount]": tier.unit_amount,
-      "line_items[0][price_data][product_data][name]": tier.product_name,
+    }
+
+    if (catalog.priceId) {
+      // Catalog Price already carries currency, amount, and (for annual) interval.
+      // Do not also send price_data — Stripe rejects a line that has both.
+      params["line_items[0][price]"] = catalog.priceId
+    } else {
+      // No catalog Price configured — inline amounts so a deploy without the
+      // new secrets still checks out at $79 once / $49 per year.
+      params["line_items[0][price_data][currency]"] = "aud"
+      params["line_items[0][price_data][unit_amount]"] = tier.unit_amount
+      params["line_items[0][price_data][product_data][name]"] = tier.product_name
+      if (tier.mode === "subscription") {
+        params["line_items[0][price_data][recurring][interval]"] = tier.interval!
+      }
     }
 
     // Reuse an existing Stripe customer if we have one; else create by email.
@@ -174,7 +218,6 @@ serve(async (req) => {
     }
 
     if (tier.mode === "subscription") {
-      params["line_items[0][price_data][recurring][interval]"] = tier.interval!
       // Copy the user id onto the subscription so lifecycle events
       // (renewals, cancellations) can be mapped back to the account.
       params["subscription_data[metadata][user_id]"] = user.id
