@@ -52,7 +52,7 @@ Open <http://localhost:5174>. This is the `yourpoolmate.pages.dev` landing page 
 
 ```bash
 npm run build              # builds the app to dist/
-npm run build:marketing    # copies the marketing page to marketing-dist/
+npm run build:marketing    # copies marketing HTML and image assets to marketing-dist/
 ```
 
 ---
