@@ -49,7 +49,7 @@ export async function saveTest(userId, poolId, test, healthScore) {
     phosphates:     test.phosphates ?? null,
     tds:            test.tds ?? null,
     health_score:   Number.isFinite(healthScore) ? Math.round(healthScore) : null,
-    source:         test.source || 'manual',
+    source:         test.source || 'manual', // manual | ocr | voice | shop_import
     tested_at:      test.createdAt || new Date().toISOString(),
   };
   const { data, error } = await supabase

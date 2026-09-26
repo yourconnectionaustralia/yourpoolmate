@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import FeedbackOverlay from './FeedbackOverlay.jsx';
 import WaterTestScanner from './components/WaterTestScanner.jsx';
+import VoiceTestEntry from './components/VoiceTestEntry.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
 import GuestOnboarding from './components/GuestOnboarding.jsx';
 import AppTour from './components/AppTour.jsx';
@@ -69,6 +70,14 @@ const Icon = {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
       <circle cx="12" cy="13" r="4"/>
+    </svg>
+  ),
+  mic: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+      <line x1="8" y1="23" x2="16" y2="23"/>
     </svg>
   ),
   tip: (
@@ -792,7 +801,7 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
   );
 }
 
-function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, saltRange, autoOpenForm, onAutoOpened }) {
+function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProfile, saltRange, autoOpenForm, onAutoOpened }) {
   const [showForm, setShowForm] = useState(false);
   const EMPTY_FORM = {
     freeChlor: '', pH: '', alkalinity: '', cyanuricAcid: '', calciumHardness: '',
@@ -849,16 +858,20 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, poolProfile, saltRang
   return (
     <div>
       <h1 className="page-title">Water Tests</h1>
-      <p className="page-subtitle">Log a reading or scan your pool shop test results</p>
+      <p className="page-subtitle">Enter a test, scan a printout, or speak the readings</p>
 
       {/* Actions row */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
           Enter Test Results
         </button>
         <button className="btn btn-ghost" onClick={onScanTest}>
           <span style={{ display: 'inline-flex' }}>{Icon.camera}</span>
           Scan test results
+        </button>
+        <button className="btn btn-ghost" onClick={onSpeakTest}>
+          <span style={{ display: 'inline-flex' }}>{Icon.mic}</span>
+          Speak results
         </button>
       </div>
 
@@ -2512,6 +2525,7 @@ export default function App() {
   const [testHistory, setTestHistory] = useState([]);   // all tests
   const [poolProfile, setPoolProfile] = useState(DEFAULT_POOL);
   const [showScan, setShowScan] = useState(false);
+  const [showVoice, setShowVoice] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [pendingTest, setPendingTest] = useState(null); // test awaiting a pool volume
   const [trialDaysLeft, setTrialDaysLeft] = useState(null);
@@ -2654,6 +2668,7 @@ export default function App() {
 
   const handleLogTest = (data) => guardAndSave(data);
   const handleScanComplete = (data) => guardAndSave({ ...data, source: 'ocr' });
+  const handleVoiceComplete = (data) => guardAndSave({ ...data, source: 'voice' });
 
   // Volume captured in the gate → save to profile, then commit the held test.
   const handleVolumeConfirmed = (volumeL) => {
@@ -2754,6 +2769,7 @@ export default function App() {
               testData={testData}
               onLogTest={handleLogTest}
               onScanTest={() => setShowScan(true)}
+              onSpeakTest={() => setShowVoice(true)}
               poolProfile={poolProfile}
               saltRange={saltRange}
               autoOpenForm={openTestForm}
@@ -2858,6 +2874,13 @@ export default function App() {
         <WaterTestScanner
           onClose={() => setShowScan(false)}
           onComplete={handleScanComplete}
+        />
+      )}
+
+      {showVoice && (
+        <VoiceTestEntry
+          onClose={() => setShowVoice(false)}
+          onComplete={handleVoiceComplete}
         />
       )}
 
