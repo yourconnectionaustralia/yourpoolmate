@@ -5,6 +5,7 @@
 // function is the reference implementation; if the scoring model changes,
 // change it there first and copy the constants here. Keys here are the app's
 // camelCase test-state keys (the edge function uses the water_tests column names).
+// Pass the pool surface so a vinyl liner does not score low calcium as a fault.
 //
 // Behaviour notes:
 //   - A parameter that wasn't tested (null / undefined / '') is SKIPPED and the
@@ -33,7 +34,8 @@ const WEIGHTS_SALTWATER = {
 };
 
 // Target ranges (AU residential). Salt matches the 3000–4500 target shown
-// throughout the UI.
+// throughout the UI. Calcium 200–400 is the hard-surface band (pebblecrete,
+// concrete, tile, painted concrete). Vinyl is handled separately below.
 export const SCORE_RANGES = {
   freeChlor:       { min: 1.0,  max: 3.0  },
   pH:              { min: 7.2,  max: 7.6  },
@@ -42,6 +44,27 @@ export const SCORE_RANGES = {
   calciumHardness: { min: 200,  max: 400  },
   salt:            { min: 3000, max: 4500 },
 };
+
+// Setup lists each surface on its own. Fibreglass is not grouped with vinyl,
+// so only an actual vinyl liner gets the soft calcium band.
+export function isVinylLiner(surface) {
+  return /^vinyl(\s+liner)?$/i.test(String(surface || '').trim());
+}
+
+// Hard surfaces keep 200–400. Vinyl has no low floor: low calcium does not
+// etch a liner, so it stays in range. The high side stays 400 because scale
+// still matters on every surface.
+export function calciumBand(surface) {
+  if (isVinylLiner(surface)) return { lo: 0, hi: 400, target: 'up to 400' };
+  return { lo: 200, hi: 400, target: '200–400' };
+}
+
+// Low calcium on vinyl is not a dosing action. High calcium still is.
+export function includeCalciumInActions(state, surface) {
+  if (state !== 'low' && state !== 'high') return false;
+  if (state === 'low' && isVinylLiner(surface)) return false;
+  return true;
+}
 
 // Plausible physical bounds — anything outside is treated as bad input,
 // not a catastrophic reading.
@@ -78,9 +101,19 @@ function scoreParam(value, min, max) {
   return Math.round(Math.max(0, 100 * (1 - penalty)));
 }
 
+// Vinyl: anything up to the shared high cap scores full marks, so a low
+// reading cannot drag the Health Score. Above that cap, use the same
+// high-side penalty as pebblecrete and concrete.
+function scoreCalcium(value, surface) {
+  const { min, max } = SCORE_RANGES.calciumHardness;
+  if (isVinylLiner(surface) && value <= max) return 100;
+  return scoreParam(value, min, max);
+}
+
 // `saltRange` ({ lo, hi }, optional) overrides the default salt band — it
 // comes from the owner's chlorinator via saltRangeForEquipment() below.
-export function calculateScore(test, sanitiserType, saltRange) {
+// `surface` is the pool profile surface. Omitted = hard-surface calcium band.
+export function calculateScore(test, sanitiserType, saltRange, surface) {
   if (!test) return 0;
   const weights = isSaltPool(sanitiserType) ? WEIGHTS_SALTWATER : WEIGHTS_DEFAULT;
 
@@ -90,10 +123,16 @@ export function calculateScore(test, sanitiserType, saltRange) {
   for (const [param, weight] of Object.entries(weights)) {
     const value = sanitise(param, test[param]);
     if (value !== null) {
-      const { min, max } = param === 'salt' && saltRange
-        ? { min: saltRange.lo, max: saltRange.hi }
-        : SCORE_RANGES[param];
-      total += scoreParam(value, min, max) * weight;
+      let scored;
+      if (param === 'calciumHardness') {
+        scored = scoreCalcium(value, surface);
+      } else {
+        const { min, max } = param === 'salt' && saltRange
+          ? { min: saltRange.lo, max: saltRange.hi }
+          : SCORE_RANGES[param];
+        scored = scoreParam(value, min, max);
+      }
+      total += scored * weight;
       weightSum += weight;
     }
   }

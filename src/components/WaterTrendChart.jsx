@@ -69,12 +69,16 @@ const valOf = (h, s) => {
   return Number.isFinite(v) ? v : null;
 };
 
-export function WaterTrendChart({ history = [], events = [], gaps = [], saltRange = null }) {
-  // The salt "ideal" band follows the owner's chlorinator when known, so the
-  // chart matches the Health Score and readings table.
-  const seriesList = saltRange
-    ? SERIES.map(s => s.key === 'salt' ? { ...s, lo: saltRange.lo, hi: saltRange.hi } : s)
-    : SERIES;
+export function WaterTrendChart({ history = [], events = [], gaps = [], saltRange = null, calciumBand = null }) {
+  // Salt follows the owner's chlorinator. Calcium follows the surface band
+  // (vinyl has no low floor; hard surfaces stay 200–400).
+  const seriesList = SERIES.map(s => {
+    if (s.key === 'salt' && saltRange) return { ...s, lo: saltRange.lo, hi: saltRange.hi };
+    if (s.key === 'calciumHardness' && calciumBand) {
+      return { ...s, lo: calciumBand.lo, hi: calciumBand.hi, idealLabel: calciumBand.target };
+    }
+    return s;
+  });
   // Which series can actually be shown (has at least one data point).
   const hasSalt = history.some(h => Number.isFinite(h.salt) && h.salt > 0);
   const available = seriesList.filter(s => {
@@ -209,7 +213,7 @@ export function WaterTrendChart({ history = [], events = [], gaps = [], saltRang
           </span>
         ) : (
           <span className={styles.readoutHint}>
-            Ideal {series.label}: {fmtValFor(series, series.lo)}–{fmtValFor(series, series.hi)}{series.unit ? ` ${series.unit}` : ''} · tap a point for details
+            Ideal {series.label}: {series.idealLabel || `${fmtValFor(series, series.lo)}–${fmtValFor(series, series.hi)}`}{series.unit ? ` ${series.unit}` : ''} · tap a point for details
           </span>
         )}
       </div>

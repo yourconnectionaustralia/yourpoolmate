@@ -10,7 +10,8 @@ import LoadingScreen from './components/LoadingScreen.jsx';
 import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
-import { calculateScore, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
+import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, isVinylLiner, saltRangeForEquipment } from './lib/healthScore.js';
+import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
 import { createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
 
@@ -506,8 +507,21 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
 // ─────────────────────────────────────────────────────────────────
 // HEALTH SCORE PAGE
 // ─────────────────────────────────────────────────────────────────
-function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst }) {
-  const score = testData ? scoreFor(testData, poolProfile?.sanitiser, saltRange) : null;
+// Melbourne civil time, refreshed each minute so a page left open crosses
+// midday and 6pm without a reload.
+function useHomeGreeting(displayName) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return homeGreeting(now, displayName);
+}
+
+function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, displayName }) {
+  const greeting = useHomeGreeting(displayName);
+  const surface = poolProfile?.surface;
+  const score = testData ? scoreFor(testData, poolProfile?.sanitiser, saltRange, surface) : null;
   const lastTest = testData?.createdAt;
   const poolLabel = poolProfile
     ? `${poolProfile.name} · ${(poolProfile.volumeL ?? (poolProfile.volumeKl || 0) * 1000).toLocaleString('en-AU')} L`
@@ -516,7 +530,7 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst }) {
   if (!testData) {
     return (
       <div>
-        <h1 className="page-title">Health Score</h1>
+        <h1 className="page-title">{greeting}</h1>
         <p className="page-subtitle">No test logged yet</p>
         <div className="card">
           <div className="empty-state">
@@ -532,7 +546,7 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst }) {
     );
   }
 
-  const params = buildParams(testData, saltRange);
+  const params = buildParams(testData, saltRange, surface);
   const scoreClass = score >= 80 ? 'score-good' : score >= 50 ? 'score-warn' : 'score-critical';
   const headline = scoreHeadline(score, params);
   const primaryAction = getPrimaryAction(testData, poolProfile, saltRange);
@@ -540,7 +554,7 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst }) {
 
   return (
     <div>
-      <h1 className="page-title">Health Score</h1>
+      <h1 className="page-title">{greeting}</h1>
       {poolLabel && (
         <p className="page-subtitle">
           Last test logged {formatRelative(lastTest)} · {poolLabel}
@@ -925,7 +939,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProf
                 </tr>
               </thead>
               <tbody>
-                {buildParams(testData, saltRange).map(p => (
+                {buildParams(testData, saltRange, poolProfile?.surface).map(p => (
                   <tr key={p.key}>
                     <td>{p.name}</td>
                     <td style={{ fontWeight: 500, color: 'var(--black)' }}>{p.reading}</td>
@@ -1064,7 +1078,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
     );
   }
 
-  const scored = history.map(t => ({ ...t, score: scoreFor(t, poolProfile?.sanitiser, saltRange) }));
+  const scored = history.map(t => ({ ...t, score: scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface) }));
   const equipEvents = deriveEquipmentEvents(equipment);
   const allEvents = [...events, ...equipEvents].sort((a, b) => +new Date(a.date) - +new Date(b.date));
   const gaps = deriveGaps(history);
@@ -1082,7 +1096,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
             One test logged. Log another and the line graph will chart your trend.
           </p>
         ) : null}
-        <WaterTrendChart history={scored} events={allEvents} gaps={gaps} saltRange={saltRange} />
+        <WaterTrendChart history={scored} events={allEvents} gaps={gaps} saltRange={saltRange} calciumBand={calciumBand(poolProfile?.surface)} />
       </div>
 
       {/* Events */}
@@ -1191,7 +1205,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
           </thead>
           <tbody>
             {history.slice().reverse().map((t, i) => {
-              const score = scoreFor(t, poolProfile?.sanitiser, saltRange);
+              const score = scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface);
               const scoreClass = score >= 80 ? 'tag-good' : score >= 50 ? 'tag-warn' : 'tag-bad';
               return (
                 <tr key={i}>
@@ -2049,12 +2063,15 @@ function TrialExpiredScreen({ pricing, checkoutReturn }) {
 // CHEMISTRY LOGIC HELPERS
 // ─────────────────────────────────────────────────────────────────
 // Health Score lives in src/lib/healthScore.js (mirrors the
-// calculate-health-score edge function). A test's stored score is
-// preferred over recomputing so history stays stable if the model
-// ever changes: use scoreFor(test, sanitiser, saltRange) everywhere.
+// calculate-health-score edge function). Use
+// scoreFor(test, sanitiser, saltRange, surface) everywhere.
 // saltRange (from the owner's chlorinator) overrides the default salt band.
-const scoreFor = (test, sanitiser, saltRange) =>
-  test?.healthScore ?? calculateScore(test, sanitiser, saltRange);
+// Hard-surface history keeps its stored score. A vinyl liner is rescored
+// live so low calcium does not keep dragging an older saved number.
+const scoreFor = (test, sanitiser, saltRange, surface) => {
+  if (isVinylLiner(surface)) return calculateScore(test, sanitiser, saltRange, surface);
+  return test?.healthScore ?? calculateScore(test, sanitiser, saltRange, surface);
+};
 
 // Acceptable ranges (Australian residential pool standards).
 const PARAM_RANGES = {
@@ -2076,18 +2093,23 @@ function fmtReading(v, unit) {
 
 // Resolve the active range for a parameter — salt is overridden by the
 // owner's chlorinator band (saltRange) when one is known.
-function rangeFor(key, saltRange) {
+function rangeFor(key, saltRange, surface) {
   if (key === 'salt' && saltRange) return { lo: saltRange.lo, hi: saltRange.hi };
+  if (key === 'calciumHardness') {
+    const band = calciumBand(surface);
+    return { lo: band.lo, hi: band.hi };
+  }
   return PARAM_RANGES[key];
 }
 
-function buildParams(test, saltRange) {
+function buildParams(test, saltRange, surface) {
+  const calcium = calciumBand(surface);
   const params = [
     { key: 'freeChlor',       name: 'Free Chlorine',    reading: fmtReading(test.freeChlor, 'ppm'),       target: '1.0–3.0', ...statusForParam('freeChlor', test.freeChlor) },
     { key: 'pH',              name: 'pH',               reading: fmtReading(test.pH, ''),                 target: '7.2–7.6', ...statusForParam('pH', test.pH) },
     { key: 'alkalinity',      name: 'Total Alkalinity', reading: fmtReading(test.alkalinity, 'ppm'),      target: '80–120',  ...statusForParam('alkalinity', test.alkalinity) },
     { key: 'cyanuricAcid',    name: 'Cyanuric Acid',    reading: fmtReading(test.cyanuricAcid, 'ppm'),    target: '30–50',   ...statusForParam('cyanuricAcid', test.cyanuricAcid) },
-    { key: 'calciumHardness', name: 'Calcium Hardness', reading: fmtReading(test.calciumHardness, 'ppm'), target: '200–400', ...statusForParam('calciumHardness', test.calciumHardness) },
+    { key: 'calciumHardness', name: 'Calcium Hardness', reading: fmtReading(test.calciumHardness, 'ppm'), target: calcium.target, ...statusForParam('calciumHardness', test.calciumHardness, saltRange, surface) },
   ];
   if (test.salt != null && test.salt !== '') {
     const sr = rangeFor('salt', saltRange);
@@ -2104,8 +2126,8 @@ function buildParams(test, saltRange) {
   return params;
 }
 
-function statusForParam(key, val, saltRange) {
-  const r = rangeFor(key, saltRange);
+function statusForParam(key, val, saltRange, surface) {
+  const r = rangeFor(key, saltRange, surface);
   if (val === null || val === undefined || val === '' || !r) {
     return { tagClass: 'tag-neutral', status: '— No data', label: `? ${key}`, state: 'none' };
   }
@@ -2280,10 +2302,12 @@ function buildSteps(test, pool, saltRange) {
   // Dose salt toward the middle of the owner's chlorinator band when known.
   const saltMid = saltRange ? (saltRange.lo + saltRange.hi) / 2 : null;
   const statuses = {};
-  BALANCE_ORDER.forEach(key => { statuses[key] = statusForParam(key, test[key], saltRange).state; });
+  BALANCE_ORDER.forEach(key => { statuses[key] = statusForParam(key, test[key], saltRange, pool?.surface).state; });
 
   return BALANCE_ORDER
-    .filter(key => statuses[key] === 'low' || statuses[key] === 'high')
+    .filter(key => key === 'calciumHardness'
+      ? includeCalciumInActions(statuses[key], pool?.surface)
+      : (statuses[key] === 'low' || statuses[key] === 'high'))
     .map(key => {
       const state = statuses[key];
       const note = planNote(key, state, statuses);
@@ -2640,11 +2664,11 @@ export default function App() {
   // Untested parameters (state 'none') are not actions — only real
   // low/high readings count.
   const pendingActions = testData
-    ? buildParams(testData, saltRange).filter(p => p.state === 'low' || p.state === 'high').length
+    ? buildParams(testData, saltRange, poolProfile?.surface).filter(p => p.state === 'low' || p.state === 'high').length
     : 0;
 
   const persistTest = (data) => {
-    db.saveTest(user.id, poolProfile.id, data, calculateScore(data, poolProfile?.sanitiser, saltRange))
+    db.saveTest(user.id, poolProfile.id, data, calculateScore(data, poolProfile?.sanitiser, saltRange, poolProfile?.surface))
       .catch(err => console.error('Failed to save test:', err));
   };
 
@@ -2762,7 +2786,7 @@ export default function App() {
 
         <main className="main-content">
           {activeView === 'health' && (
-            <HealthScorePage testData={testData} poolProfile={poolProfile} saltRange={saltRange} onLogFirst={goLogTest} />
+            <HealthScorePage testData={testData} poolProfile={poolProfile} saltRange={saltRange} onLogFirst={goLogTest} displayName={displayNameFromUser(user)} />
           )}
           {activeView === 'tests' && (
             <WaterTestsPage
