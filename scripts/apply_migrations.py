@@ -120,6 +120,8 @@ def preflight():
         "equipment": ["user_id", "type", "brand", "model"],
         "pool_events": ["user_id", "event_type", "title", "occurred_at"],
         "user_profiles": ["id", "is_premium", "trial_ends_at"],
+        # Written by the lifecycle edge function (migration 016), not the PWA.
+        "email_sends": ["user_id", "template_key", "status", "to_email"],
     }
 
     missing = []

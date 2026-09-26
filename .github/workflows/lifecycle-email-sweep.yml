@@ -1,0 +1,55 @@
+# Sweeps L1–L7 lifecycle mail. Does not apply migrations and does not
+# deploy functions. A push to main does not run this file.
+#
+# Schedule runs on the default branch only, after this workflow is on main.
+# Until LIFECYCLE_CRON_SECRET is set, the job exits without calling Resend.
+#
+# Required repo secret (same value synced to Supabase by Deploy Supabase):
+#   LIFECYCLE_CRON_SECRET
+# The edge function also needs RESEND_API_KEY. EMAIL_ALLOWLIST is optional.
+
+name: Lifecycle email sweep
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub may start a run a few minutes late.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: lifecycle-email-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sweep lifecycle emails
+        env:
+          LIFECYCLE_CRON_SECRET: ${{ secrets.LIFECYCLE_CRON_SECRET }}
+        run: |
+          if [ -z "$LIFECYCLE_CRON_SECRET" ]; then
+            echo "::warning::LIFECYCLE_CRON_SECRET not set — skipping sweep. No email is sent."
+            exit 0
+          fi
+          http_code=$(curl --max-time 90 -sS -o /tmp/lifecycle-sweep.json -w "%{http_code}" \
+            -X POST "https://chmjvbuesynicrmtkrqp.supabase.co/functions/v1/send-lifecycle-email" \
+            -H "Authorization: Bearer ${LIFECYCLE_CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{"action":"sweep"}')
+          echo "HTTP ${http_code}"
+          cat /tmp/lifecycle-sweep.json
+          echo
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Lifecycle sweep returned HTTP ${http_code}"
+            exit 1
+          fi
+          if grep -q '"MIGRATION_PENDING"' /tmp/lifecycle-sweep.json; then
+            echo "::warning::email_sends is not applied yet. Run Deploy Supabase with workflow_dispatch. No live send was attempted."
+          fi
+          if grep -q '"NOT_CONFIGURED"' /tmp/lifecycle-sweep.json; then
+            echo "::warning::RESEND_API_KEY is not set on the Edge Function. Allowlisted recipients were not sent."
+          fi
+          if grep -q '"failed":[1-9]' /tmp/lifecycle-sweep.json; then
+            echo "::warning::One or more lifecycle sends failed. They can be retried on the next sweep. Check email_sends."
+          fi
