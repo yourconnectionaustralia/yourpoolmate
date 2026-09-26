@@ -6,6 +6,11 @@
 # Required repo secrets (Settings → Secrets and variables → Actions):
 #   SUPABASE_ACCESS_TOKEN — personal access token (supabase.com/dashboard/account/tokens)
 #   ANTHROPIC_API_KEY     — for the ocr-water-test function (set as a Supabase secret)
+#   RESEND_API_KEY        — Resend API key for L1–L7 (set as a Supabase secret)
+#   EMAIL_ALLOWLIST       — optional comma-separated extra recipients. Blank keeps
+#                           the code default (yourconnectionaustralia@gmail.com only).
+#                           Set the value to * only when live sends are approved.
+#   LIFECYCLE_CRON_SECRET — shared bearer for the sweep workflow and manual test sends
 name: Deploy Supabase
 
 on:
@@ -41,6 +46,8 @@ jobs:
           supabase functions deploy stripe-checkout --project-ref "$PROJECT_REF" --use-api
           # stripe-webhook is called by Stripe (no Supabase JWT) → verify by signature instead.
           supabase functions deploy stripe-webhook --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
+          # send-lifecycle-email is called by the sweep workflow (no user JWT).
+          supabase functions deploy send-lifecycle-email --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
 
       - name: Set OCR secret (skipped if not configured)
         env:
@@ -81,4 +88,26 @@ jobs:
             supabase secrets set STRIPE_PRICE_ANNUAL="$STRIPE_PRICE_ANNUAL" --project-ref "$PROJECT_REF"
           else
             echo "::warning::STRIPE_PRICE_ANNUAL repo secret not set — annual checkout will use inline price_data"
+          fi
+
+      - name: Set lifecycle email secrets (skipped if not configured)
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_ALLOWLIST: ${{ secrets.EMAIL_ALLOWLIST }}
+          LIFECYCLE_CRON_SECRET: ${{ secrets.LIFECYCLE_CRON_SECRET }}
+        run: |
+          if [ -n "$RESEND_API_KEY" ]; then
+            supabase secrets set RESEND_API_KEY="$RESEND_API_KEY" --project-ref "$PROJECT_REF"
+          else
+            echo "::warning::RESEND_API_KEY repo secret not set — lifecycle mail will not call Resend"
+          fi
+          if [ -n "$EMAIL_ALLOWLIST" ]; then
+            supabase secrets set EMAIL_ALLOWLIST="$EMAIL_ALLOWLIST" --project-ref "$PROJECT_REF"
+          else
+            echo "::warning::EMAIL_ALLOWLIST repo secret not set — edge function keeps the default inbox only (yourconnectionaustralia@gmail.com)"
+          fi
+          if [ -n "$LIFECYCLE_CRON_SECRET" ]; then
+            supabase secrets set LIFECYCLE_CRON_SECRET="$LIFECYCLE_CRON_SECRET" --project-ref "$PROJECT_REF"
+          else
+            echo "::warning::LIFECYCLE_CRON_SECRET repo secret not set — sweep and manual sends will return 503"
           fi
