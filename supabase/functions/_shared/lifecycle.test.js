@@ -75,7 +75,7 @@ test("sender source gates the Resend fetch", () => {
 test("from and reply-to are the locked addresses", () => {
   const rendered = renderTemplate("L1", { firstName: "James", foundingMember: true })
   const payload = resendPayload(DEFAULT_ALLOWLIST_EMAIL, rendered)
-  assert.equal(payload.from, "Your Pool Mate <hello@email.yourpoolmate.com.au>")
+  assert.equal(payload.from, "Your Pool Mate <hello@mail.yourpoolmate.com.au>")
   assert.equal(payload.reply_to, "hello@yourpoolmate.com.au")
   assert.equal(FROM_ADDRESS, payload.from)
   assert.equal(REPLY_TO, payload.reply_to)

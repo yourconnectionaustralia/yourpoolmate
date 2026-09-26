@@ -4,7 +4,7 @@
 **Preview:** Open the app to see your score and next actions.
 **Trigger:** First water test
 **Timing:** From 15 minutes after that test, until it is 7 days old. Once only.
-**From (API):** Your Pool Mate `<hello@email.yourpoolmate.com.au>`
+**From (API):** Your Pool Mate `<hello@mail.yourpoolmate.com.au>`
 **Reply-to:** `hello@yourpoolmate.com.au`
 **CTA:** Open your Health Score → https://app.yourpoolmate.com.au
 

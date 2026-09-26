@@ -2,7 +2,7 @@
 
 **Subject:** Welcome - let's get your pool sorted
 **Preview:** Add your first water test and see where you stand.
-**From (API):** Your Pool Mate `<hello@email.yourpoolmate.com.au>`
+**From (API):** Your Pool Mate `<hello@mail.yourpoolmate.com.au>`
 **Reply-to:** `hello@yourpoolmate.com.au`
 **CTA:** Add your first test → https://app.yourpoolmate.com.au
 

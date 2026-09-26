@@ -7,7 +7,7 @@ export const TEMPLATE_KEYS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7"]
 
 export const DEFAULT_ALLOWLIST_EMAIL = "yourconnectionaustralia@gmail.com"
 
-export const FROM_ADDRESS = "Your Pool Mate <hello@email.yourpoolmate.com.au>"
+export const FROM_ADDRESS = "Your Pool Mate <hello@mail.yourpoolmate.com.au>"
 export const REPLY_TO = "hello@yourpoolmate.com.au"
 
 // Lookbacks are wide enough that a missed sweep still sends, and narrow

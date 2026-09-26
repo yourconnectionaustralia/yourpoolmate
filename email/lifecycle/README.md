@@ -2,7 +2,7 @@
 
 Automated mail for Your Pool Mate. Seasonal emails S1-S3 stay manual. Nothing in this folder sends them.
 
-**From:** Your Pool Mate `<hello@email.yourpoolmate.com.au>`
+**From:** Your Pool Mate `<hello@mail.yourpoolmate.com.au>`
 **Reply-To:** `hello@yourpoolmate.com.au`
 
 Pricing in the copy: 30-day free trial, first 300 members `$79` lifetime, then `$49/year`.

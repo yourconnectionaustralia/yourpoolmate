@@ -4,7 +4,7 @@
 **Preview:** Enter a shop printout or your strip readings.
 **Trigger:** Signed up, trial still open, no water test yet, and L1 was recorded at least a day earlier
 **Timing:** About 48 hours after signup, through day 7
-**From (API):** Your Pool Mate `<hello@email.yourpoolmate.com.au>`
+**From (API):** Your Pool Mate `<hello@mail.yourpoolmate.com.au>`
 **Reply-to:** `hello@yourpoolmate.com.au`
 **CTA:** Add your first test → https://app.yourpoolmate.com.au
 

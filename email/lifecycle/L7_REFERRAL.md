@@ -4,7 +4,7 @@
 **Preview:** If Your Pool Mate has been useful, one mate with a pool might appreciate the link.
 **Trigger:** 3 or more water tests, or a paid checkout
 **Timing:** Once only. At least one day after the third test, or two days after payment, and at least two days after any L6 row.
-**From (API):** Your Pool Mate `<hello@email.yourpoolmate.com.au>`
+**From (API):** Your Pool Mate `<hello@mail.yourpoolmate.com.au>`
 **Reply-to:** `hello@yourpoolmate.com.au`
 **CTA:** Share Your Pool Mate → https://yourpoolmate.com.au
 

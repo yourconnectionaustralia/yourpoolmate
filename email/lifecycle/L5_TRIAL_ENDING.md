@@ -4,7 +4,7 @@
 **Preview (founding member):** First 300 keep $79 lifetime. After that it's $49/year.
 **Preview (not founding):** After the trial, access is $49/year.
 **Trigger:** About day 27, still unpaid, and the trial length is about 30 days
-**From (API):** Your Pool Mate `<hello@email.yourpoolmate.com.au>`
+**From (API):** Your Pool Mate `<hello@mail.yourpoolmate.com.au>`
 **Reply-to:** `hello@yourpoolmate.com.au`
 **CTA:** Lock in access → https://app.yourpoolmate.com.au
 

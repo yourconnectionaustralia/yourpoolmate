@@ -4,7 +4,7 @@
 **Preview (founding member):** Keep testing. Founding access is still available while spots last.
 **Preview (not founding):** Keep testing through the rest of your trial.
 **Trigger:** About day 14, still unpaid, and the trial length is about 30 days
-**From (API):** Your Pool Mate `<hello@email.yourpoolmate.com.au>`
+**From (API):** Your Pool Mate `<hello@mail.yourpoolmate.com.au>`
 **Reply-to:** `hello@yourpoolmate.com.au`
 **CTA:** Open the app → https://app.yourpoolmate.com.au
 

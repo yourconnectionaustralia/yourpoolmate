@@ -1,6 +1,6 @@
 # Your Pool Mate - lifecycle email plan
 
-**From (API / auto):** Your Pool Mate `<hello@email.yourpoolmate.com.au>`
+**From (API / auto):** Your Pool Mate `<hello@mail.yourpoolmate.com.au>`
 **From (manual Gmail):** `hello@yourpoolmate.com.au`
 **Reply-to:** `hello@yourpoolmate.com.au`
 **Tone:** clear Australian mate - calm, practical, no hype, no unbuilt features

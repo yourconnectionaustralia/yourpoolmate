@@ -3,7 +3,7 @@
 **Subject:** Welcome aboard - here's what happens next
 **Preview:** Access is active. A quick note on what to do from here.
 **Trigger:** Paid checkout only. Not trial start. Not a renewal.
-**From (API):** Your Pool Mate `<hello@email.yourpoolmate.com.au>`
+**From (API):** Your Pool Mate `<hello@mail.yourpoolmate.com.au>`
 **Reply-to:** `hello@yourpoolmate.com.au`
 **CTA:** Open the app → https://app.yourpoolmate.com.au
 
