@@ -10,6 +10,8 @@ import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
 import { calculateScore, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
+import { supabase } from './lib/supabase.js';
+import { createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM ICONS — inline SVG only, no library dependency
@@ -1894,9 +1896,102 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
 }
 
 // ─────────────────────────────────────────────────────────────────
+// IN-APP CHECKOUT
+// Signed-in users pay here. stripe-checkout decides founding ($79 once)
+// vs annual ($49/year) from founding_member. We never send a plan or
+// Price ID, and we never send the user to the marketing site.
+// ─────────────────────────────────────────────────────────────────
+const CHECKOUT_RETURN_KEY = 'ypm_checkout_return';
+
+// Read ?checkout=success|cancelled once. The value is stashed so a
+// StrictMode remount (dev) still shows the note after the query is stripped.
+function captureCheckoutReturn() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get('checkout');
+    if (fromUrl === 'success' || fromUrl === 'cancelled') {
+      sessionStorage.setItem(CHECKOUT_RETURN_KEY, fromUrl);
+      params.delete('checkout');
+      params.delete('session_id');
+      const qs = params.toString();
+      window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);
+      return fromUrl;
+    }
+    const stored = sessionStorage.getItem(CHECKOUT_RETURN_KEY);
+    if (stored === 'success' || stored === 'cancelled') return stored;
+  } catch {
+    /* private mode */
+  }
+  return null;
+}
+
+function CheckoutReturnNote({ status }) {
+  if (status !== 'success' && status !== 'cancelled') return null;
+  const success = status === 'success';
+  return (
+    <div
+      className={`callout ${success ? 'callout-success' : 'callout-info'}`}
+      role="status"
+      style={{ marginBottom: 16, textAlign: 'left' }}
+    >
+      <div className="callout-body">
+        {success
+          ? 'Payment received. Access updates as soon as it clears — refresh if this screen stays up.'
+          : 'Checkout cancelled. Nothing was charged.'}
+      </div>
+    </div>
+  );
+}
+
+function CheckoutButton({ label, className, style, block }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const startCheckout = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const origin = window.location.origin;
+      const url = await createCheckoutSession(supabase, {
+        successUrl: origin,
+        cancelUrl: origin,
+      });
+      window.location.assign(url);
+    } catch (err) {
+      console.error('stripe-checkout create_session failed:', err);
+      setError(err?.message || "Couldn't open checkout. Check your connection and try again.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ width: block ? '100%' : undefined }}>
+      <button
+        type="button"
+        className={className}
+        style={style}
+        onClick={startCheckout}
+        disabled={busy}
+        aria-busy={busy}
+      >
+        {busy ? 'Opening checkout…' : label}
+      </button>
+      {error && (
+        <div role="alert" style={{ fontSize: 13, color: 'var(--red)', marginTop: 8, lineHeight: 1.4, textAlign: 'left' }}>
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
 // TRIAL EXPIRED BLOCK SCREEN
 // ─────────────────────────────────────────────────────────────────
-function TrialExpiredScreen() {
+function TrialExpiredScreen({ pricing, checkoutReturn }) {
+  const copy = offerCopy(pricing);
   return (
     <div style={{
       minHeight: '100vh',
@@ -1907,6 +2002,7 @@ function TrialExpiredScreen() {
       padding: 24,
     }}>
       <div className="card-elevated" style={{ maxWidth: 440, width: '100%', padding: '48px 40px', textAlign: 'center' }}>
+        <CheckoutReturnNote status={checkoutReturn} />
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16, color: 'var(--blue)' }}>
           <PoolIcon name="swimmer" size={44} />
         </div>
@@ -1914,21 +2010,22 @@ function TrialExpiredScreen() {
           Your free trial has ended
         </h2>
         <p style={{ fontSize: 14, color: 'var(--gray-mid)', lineHeight: 'var(--lh-body)', marginBottom: 28 }}>
-          You've had 30 days to see what Your Pool Mate can do. Keep going — become a founding member at the lowest price we'll ever offer.
+          {copy.expiredBody}
         </p>
         <div style={{ background: 'var(--water-pale)', borderRadius: 'var(--r-sm)', padding: '16px 20px', marginBottom: 24 }}>
-          <div style={{ fontFamily: 'var(--font-read)', fontSize: 36, fontWeight: 400, color: 'var(--black)' }}>$79</div>
-          <div style={{ fontSize: 13, color: 'var(--gray-mid)' }}>AUD · one-time · yours forever</div>
+          <div style={{ fontFamily: 'var(--font-read)', fontSize: 36, fontWeight: 400, color: 'var(--black)' }}>
+            {copy.priceLabel || '—'}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--gray-mid)' }}>{copy.priceNote}</div>
         </div>
-        <button
+        <CheckoutButton
+          block
+          label={copy.claimLabel}
           className="btn btn-primary"
           style={{ width: '100%', marginBottom: 10 }}
-          onClick={() => { window.location.href = 'https://yourpoolmate.com.au/#checkout'; }}
-        >
-          Claim founding access
-        </button>
-        <div style={{ fontSize: 12, color: 'var(--gray-light)' }}>
-          First 300 members: $79 AUD lifetime · then $49/year AUD
+        />
+        <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 10 }}>
+          {copy.footnote}
         </div>
       </div>
     </div>
@@ -2419,6 +2516,9 @@ export default function App() {
   const [pendingTest, setPendingTest] = useState(null); // test awaiting a pool volume
   const [trialDaysLeft, setTrialDaysLeft] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
+  const [pricing, setPricing] = useState(null);
+  // Captured once from ?checkout= so a StrictMode remount still shows the note.
+  const [checkoutReturn] = useState(captureCheckoutReturn);
   const [equipment, setEquipment] = useState([]);
   const [events, setEvents] = useState([]);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -2484,6 +2584,40 @@ export default function App() {
     if (user?.id) loadAll(user.id);
     else setDataReady(false);
   }, [user?.id]);
+
+  // Server-authoritative price for the paywall and profile CTA.
+  // Failure leaves the button price-neutral; create_session still works.
+  useEffect(() => {
+    if (!user?.id || isPremium) return undefined;
+    let cancelled = false;
+    fetchCheckoutPricing(supabase)
+      .then((data) => { if (!cancelled && data) setPricing(data); })
+      .catch((err) => console.error('stripe-checkout get_pricing failed:', err));
+    return () => { cancelled = true; };
+  }, [user?.id, isPremium]);
+
+  // Drop the stashed return flag after commit. The timeout is cancelled on
+  // the discarded StrictMode mount so the real mount can still read it.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try { sessionStorage.removeItem(CHECKOUT_RETURN_KEY); } catch { /* private mode */ }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Webhook grants premium after Stripe redirects back. The first load can
+  // beat that write, so retry briefly before asking the user to refresh.
+  useEffect(() => {
+    if (checkoutReturn !== 'success' || !user?.id) return undefined;
+    let cancelled = false;
+    const timers = [1500, 4000].map((ms) => setTimeout(() => {
+      if (!cancelled) loadAll(user.id);
+    }, ms));
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, [checkoutReturn, user?.id]);
 
   // Salt/mineral target band from the owner's chlorinator (null = app default).
   const saltRange = saltRangeForEquipment(equipment);
@@ -2569,13 +2703,17 @@ export default function App() {
     db.deleteEvent(id).catch(err => console.error('Failed to delete event:', err));
   };
 
+  const membershipCopy = offerCopy(pricing);
+
   // ── Auth / trial gates ──────────────────────────────────────
   if (loading) return <LoadingScreen />;
   // Password recovery: the reset link creates a session, so gate on recoveryMode
   // BEFORE the session check to show the "set a new password" screen.
   if (recoveryMode) return <AuthScreen />;
   if (!session) return <AuthScreen />;
-  if (trialExpired && !isPremium) return <TrialExpiredScreen />;
+  if (trialExpired && !isPremium) {
+    return <TrialExpiredScreen pricing={pricing} checkoutReturn={checkoutReturn} />;
+  }
   if (!dataReady) return <LoadingScreen />;
 
   return (
@@ -2674,18 +2812,25 @@ export default function App() {
                       {Icon.info}
                     </span>
                     <div className="callout-body">
-                      You're on a <strong>30-day free trial</strong> with {trialDaysLeft ?? '—'} days remaining. First 300 members get founding access for $79 AUD lifetime; after that it's $49/year AUD.
+                      You're on a <strong>30-day free trial</strong> with {trialDaysLeft ?? '—'} days remaining.
+                      {' '}
+                      {membershipCopy.known
+                        ? membershipCopy.profileDetail
+                        : "First 300 members get founding access for $79 AUD lifetime; after that it's $49/year AUD."}
                     </div>
                   </div>
                 )}
-                <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+                {checkoutReturn && (
+                  <div style={{ marginTop: 12 }}>
+                    <CheckoutReturnNote status={checkoutReturn} />
+                  </div>
+                )}
+                <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   {!isPremium && (
-                    <button
+                    <CheckoutButton
+                      label={membershipCopy.profileLabel}
                       className="btn btn-primary btn-sm"
-                      onClick={() => { window.location.href = 'https://yourpoolmate.com.au/#checkout'; }}
-                    >
-                      Claim founding access — $79
-                    </button>
+                    />
                   )}
                   <button className="btn btn-ghost btn-sm" onClick={signOut}>Sign out</button>
                 </div>
