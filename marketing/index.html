@@ -174,10 +174,6 @@
     @keyframes pulseDot {
       0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
     }
-    @keyframes scoreFill {
-      from { stroke-dashoffset: 220; }
-      to   { stroke-dashoffset: 43; }
-    }
     @keyframes ripple { to { transform: scale(4); opacity: 0; } }
 
     /* ── NAV ─────────────────────────────────────── */
@@ -268,101 +264,11 @@
     .btn-ghost:hover { border-color: var(--gray-dark); color: var(--black); }
 
     /* ── APP PREVIEW ─────────────────────────────── */
+    /* Screenshot already includes browser chrome, URL bar, and shadow. */
     .preview-wrap { padding: 0 24px 72px; animation: fadeUp 0.8s 0.45s ease both; }
-    .preview-inner {
-      max-width: 960px; margin: 0 auto;
-      background: var(--gray-bg);
-      border: 1px solid var(--gray-line); border-radius: 12px; overflow: hidden;
-      box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 4px 8px rgba(0,0,0,0.04), 0 16px 40px rgba(0,0,0,0.08);
+    .preview-shot {
+      display: block; width: 100%; max-width: 960px; height: auto; margin: 0 auto;
     }
-    .preview-chrome {
-      height: 40px; background: #EFEFEE;
-      border-bottom: 1px solid var(--gray-line);
-      display: flex; align-items: center; padding: 0 16px; gap: 12px;
-    }
-    .chrome-dots { display: flex; gap: 6px; }
-    .chrome-dot { width: 11px; height: 11px; border-radius: 50%; }
-    .chrome-dot:nth-child(1) { background: #FF5F57; }
-    .chrome-dot:nth-child(2) { background: #FEBC2E; }
-    .chrome-dot:nth-child(3) { background: #28C840; }
-    .chrome-bar {
-      flex: 1; max-width: 280px; height: 22px; background: var(--white);
-      border-radius: 4px; border: 1px solid var(--gray-line); margin: 0 auto;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; color: var(--gray-light);
-    }
-    .preview-content { display: grid; grid-template-columns: 220px 1fr; min-height: 420px; }
-
-    /* Sidebar */
-    .app-sidebar { background: #FAFAF9; border-right: 1px solid var(--gray-line); padding: 16px 8px; }
-    .sidebar-section { margin-bottom: 20px; }
-    .sidebar-label {
-      font-size: 11px; font-weight: 500; color: var(--gray-light);
-      text-transform: uppercase; letter-spacing: 0.8px; padding: 4px 12px; margin-bottom: 4px;
-    }
-    .sidebar-item {
-      display: flex; align-items: center; gap: 8px; padding: 5px 12px;
-      border-radius: 4px; font-size: 13px; color: var(--gray-mid); cursor: pointer; transition: background 0.1s;
-    }
-    .sidebar-item:hover, .sidebar-item.active { background: var(--gray-line); color: var(--black); }
-    .sidebar-item.active { font-weight: 500; }
-    .sidebar-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
-    .sidebar-badge {
-      margin-left: auto; background: var(--amber-bg); color: var(--amber);
-      font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 100px;
-    }
-
-    /* App main */
-    .app-main { padding: 28px 32px; background: var(--white); }
-    .app-page-title {
-      font-family: var(--font-read); font-size: 28px; font-weight: 400;
-      color: var(--black); margin-bottom: 4px;
-    }
-    .app-page-sub { font-size: 13px; color: var(--gray-light); margin-bottom: 24px; }
-
-    .score-row {
-      display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center;
-      background: var(--gray-bg); border: 1px solid var(--gray-line);
-      border-radius: 8px; padding: 20px 24px; margin-bottom: 16px;
-    }
-    .score-ring-wrap { position: relative; }
-    .score-ring-wrap svg { display: block; }
-    .score-ring-track { fill: none; stroke: var(--gray-line); stroke-width: 8; }
-    .score-ring-fill {
-      fill: none; stroke: var(--water-mid); stroke-width: 8; stroke-linecap: round;
-      stroke-dasharray: 220; stroke-dashoffset: 220;
-      transform-origin: center; transform: rotate(-90deg);
-      animation: scoreFill 1.8s 0.8s cubic-bezier(0.16,1,0.3,1) forwards;
-    }
-    .score-label {
-      position: absolute; inset: 0;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-    }
-    .score-num { font-family: var(--font-read); font-size: 28px; font-weight: 400; color: var(--black); line-height: 1; }
-    .score-of { font-size: 10px; color: var(--gray-light); }
-    .score-detail h4 { font-size: 15px; font-weight: 500; color: var(--black); margin-bottom: 4px; }
-    .score-detail p { font-size: 13px; color: var(--gray-mid); line-height: 1.5; margin-bottom: 12px; }
-    .score-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-    .tag { font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 4px; }
-    .tag-good { background: var(--green-bg); color: var(--green); }
-    .tag-warn { background: var(--amber-bg); color: var(--amber); }
-
-    .callout {
-      display: flex; align-items: flex-start; gap: 10px;
-      background: var(--amber-bg); border-radius: 4px; padding: 12px 14px; margin-bottom: 12px;
-    }
-    .callout-icon { font-size: 16px; flex-shrink: 0; line-height: 1.4; }
-    .callout p { font-size: 13px; color: var(--gray-dark); line-height: 1.55; }
-    .callout p strong { font-weight: 600; }
-
-    .readings-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .readings-table th {
-      text-align: left; font-size: 11px; font-weight: 500; color: var(--gray-light);
-      text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 12px; border-bottom: 1px solid var(--gray-line);
-    }
-    .readings-table td { padding: 8px 12px; border-bottom: 1px solid var(--gray-bg); color: var(--gray-dark); }
-    .readings-table tr:last-child td { border-bottom: none; }
-    .r-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 3px; }
 
     /* ── DIVIDER ─────────────────────────────────── */
     .divider { max-width: 1100px; margin: 0 auto; padding: 0 24px; height: 1px; background: var(--gray-line); }
@@ -624,8 +530,6 @@
 
     /* ── RESPONSIVE ──────────────────────────────── */
     @media (max-width: 860px) {
-      .preview-content { grid-template-columns: 1fr; }
-      .app-sidebar { display: none; }
       .problem { grid-template-columns: 1fr; gap: 40px; padding: 60px 24px; }
       .pricing-inner { grid-template-columns: 1fr; }
       .price-card { position: static; }
@@ -635,7 +539,6 @@
     @media (max-width: 600px) {
       .hero { padding: 96px 20px 56px; }
       .nav-link { display: none; }
-      .score-row { grid-template-columns: 1fr; }
     }
     /* ── Crystal Clear (Concept 3) overrides ─────── */
     /* One font (Albert Sans) → headings need real weight, not Newsreader-light */
@@ -643,7 +546,7 @@
     .pricing-left h2, .faq h2, .answers-header h2, .success-modal h2 {
       font-weight: 800; letter-spacing: -1px;
     }
-    .price-amount, .stat-num, .score-num { font-weight: 800; letter-spacing: -1px; }
+    .price-amount, .stat-num { font-weight: 800; letter-spacing: -1px; }
     /* Accent word: depth → ocean, no italic (Concept 3 has no serif/italic) */
     .hero h1 em, .problem-left h2 em, .features-intro h2 em, .how-header h2 em,
     .pricing-left h2 em, .answers-header h2 em {
@@ -655,35 +558,6 @@
     /* Logo tile uses the gradient */
     .logo-mark { background: var(--grad-water); }
 
-    /* ── Concept 3 Health Score mock (big number + gauge) ── */
-    .score-card-mk {
-      background: var(--water-pale);
-      border: 1px solid var(--gray-line);
-      border-radius: var(--r-lg);
-      padding: var(--space-6);
-      margin-bottom: var(--space-4);
-    }
-    .score-headline { display: flex; align-items: center; gap: 24px; }
-    .score-big-mk {
-      font-weight: 800; font-size: 64px; line-height: 0.95;
-      letter-spacing: -2px; color: var(--water-deep); flex-shrink: 0;
-    }
-    .score-of-mk { font-size: 18px; font-weight: 600; color: var(--gray-light); letter-spacing: 0; }
-    .score-card-mk .score-detail h4 { font-size: 16px; font-weight: 700; color: var(--black); margin-bottom: 4px; }
-    .score-card-mk .score-detail p { font-size: 13.5px; line-height: 1.5; color: var(--gray-mid); }
-    .score-gauge {
-      position: relative; height: 10px; border-radius: 999px; margin: 20px 0 16px;
-      background: linear-gradient(90deg, #C0392B 0%, #E0A93C 38%, #2EA56A 70%, #0E7D5B 100%);
-    }
-    .gauge-marker {
-      position: absolute; top: -5px; width: 20px; height: 20px; border-radius: 50%;
-      background: #fff; border: 4px solid var(--water-deep); transform: translateX(-50%);
-      box-shadow: 0 2px 6px rgba(8,94,120,.25);
-    }
-    @media (max-width: 600px) {
-      .score-headline { flex-direction: column; align-items: flex-start; gap: 8px; }
-      .score-big-mk { font-size: 52px; }
-    }
     /* Crystal Clear: motion respects reduced-motion preference */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -736,66 +610,13 @@
 
 <!-- APP PREVIEW -->
 <div class="preview-wrap">
-  <div class="preview-inner">
-    <div class="preview-chrome">
-      <div class="chrome-dots">
-        <div class="chrome-dot"></div><div class="chrome-dot"></div><div class="chrome-dot"></div>
-      </div>
-      <div class="chrome-bar">app.yourpoolmate.com.au</div>
-    </div>
-    <div class="preview-content">
-      <div class="app-sidebar">
-        <div class="sidebar-section">
-          <div class="sidebar-label">My Pool</div>
-          <div class="sidebar-item active"><span class="sidebar-icon">🏊</span> Health Score</div>
-          <div class="sidebar-item"><span class="sidebar-icon">🧪</span> Water Tests <span class="sidebar-badge">1 action</span></div>
-          <div class="sidebar-item"><span class="sidebar-icon">📸</span> Scan Results</div>
-          <div class="sidebar-item"><span class="sidebar-icon">📈</span> History</div>
-        </div>
-        <div class="sidebar-section">
-          <div class="sidebar-label">Manage</div>
-          <div class="sidebar-item"><span class="sidebar-icon">⚙️</span> Equipment</div>
-          <div class="sidebar-item"><span class="sidebar-icon">💊</span> Chemical Log</div>
-          <div class="sidebar-item"><span class="sidebar-icon">📋</span> Seasonal Tasks</div>
-        </div>
-      </div>
-      <div class="app-main">
-        <div class="app-page-title">🏊 Health Score</div>
-        <div class="app-page-sub">Last tested 2 days ago · Backyard pool, 50,000L</div>
-        <div class="score-card-mk">
-          <div class="score-headline">
-            <div class="score-big-mk">87<span class="score-of-mk">/100</span></div>
-            <div class="score-detail">
-              <h4>Good condition</h4>
-              <p>One parameter needs attention. No urgent action required, but address alkalinity before the weekend.</p>
-            </div>
-          </div>
-          <div class="score-gauge" aria-hidden="true"><span class="gauge-marker" style="left:87%"></span></div>
-          <div class="score-tags">
-            <span class="tag tag-good">✓ Chlorine</span>
-            <span class="tag tag-good">✓ pH</span>
-            <span class="tag tag-warn">↑ Alkalinity low</span>
-            <span class="tag tag-good">✓ Stabiliser</span>
-          </div>
-        </div>
-        <div class="callout">
-          <span class="callout-icon">💡</span>
-          <p><strong>Add 450g of sodium bicarbonate</strong> to raise total alkalinity from 68 to target range (80–120 ppm). Broadcast evenly across the surface with pump running.</p>
-        </div>
-        <table class="readings-table">
-          <thead>
-            <tr><th>Parameter</th><th>Reading</th><th>Target</th><th>Status</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>Free Chlorine</td><td>2.1 ppm</td><td>1.0–3.0</td><td><span class="r-status tag tag-good">✓ Good</span></td></tr>
-            <tr><td>pH</td><td>7.4</td><td>7.2–7.6</td><td><span class="r-status tag tag-good">✓ Good</span></td></tr>
-            <tr><td>Total Alkalinity</td><td>68 ppm</td><td>80–120</td><td><span class="r-status tag tag-warn">↑ Low</span></td></tr>
-            <tr><td>Stabiliser (CYA)</td><td>42 ppm</td><td>30–50</td><td><span class="r-status tag tag-good">✓ Good</span></td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+  <img
+    class="preview-shot"
+    src="app-health-score.webp"
+    width="1256"
+    height="1158"
+    alt="Your Pool Mate Health Score in the browser: 88 out of 100. Alkalinity is low at 68 ppm — add about 2.2 kg of buffer. Chlorine, pH, cyanuric acid and calcium hardness are in range."
+  >
 </div>
 
 <div class="divider"></div>
