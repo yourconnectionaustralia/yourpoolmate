@@ -73,13 +73,23 @@ test('display name comes from profile metadata, not email', () => {
   assert.equal(displayNameFromUser({
     email: 'james@example.com',
     identities: [{ identity_data: { full_name: 'James Smith' } }],
-  }), 'James Smith');
+  }), '');
+  assert.equal(displayNameFromUser({
+    email: 'james@example.com',
+    user_metadata: { first_name: 'Mary Jane', full_name: 'Mary Jane Watson' },
+  }), 'Mary Jane');
   assert.equal(
     homeGreeting(AEST.morning, displayNameFromUser({
       email: 'james@example.com',
       user_metadata: { full_name: 'James Smith' },
     })),
     'Good morning, James',
+  );
+  assert.equal(
+    homeGreeting(AEST.morning, displayNameFromUser({
+      user_metadata: { first_name: 'Mary Jane' },
+    })),
+    'Good morning, Mary',
   );
   assert.equal(
     homeGreeting(AEST.morning, displayNameFromUser({ email: 'james@example.com' })),

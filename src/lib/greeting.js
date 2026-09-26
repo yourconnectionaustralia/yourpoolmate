@@ -8,7 +8,8 @@
 
 export const MELBOURNE_TZ = 'Australia/Melbourne';
 
-const DISPLAY_NAME_KEYS = ['display_name', 'full_name', 'name', 'first_name', 'given_name'];
+// user_profiles has no name column. These are the auth metadata fields only.
+const DISPLAY_NAME_KEYS = ['display_name', 'first_name', 'full_name'];
 
 export function melbourneHour(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-AU', {
@@ -52,19 +53,9 @@ function nameFromRecord(meta) {
   return '';
 }
 
-// Auth display / profile name. Supabase keeps this on user_metadata (and
-// sometimes only on the OAuth identity). Pool name is not a person's name,
-// and the email address is never used.
+// First available display name on user_metadata. Email and pool name are ignored.
 export function displayNameFromUser(user) {
-  const fromMeta = nameFromRecord(user?.user_metadata);
-  if (fromMeta) return fromMeta;
-  if (Array.isArray(user?.identities)) {
-    for (const identity of user.identities) {
-      const fromIdentity = nameFromRecord(identity?.identity_data);
-      if (fromIdentity) return fromIdentity;
-    }
-  }
-  return '';
+  return nameFromRecord(user?.user_metadata);
 }
 
 export function homeGreeting(date = new Date(), displayName = '') {

@@ -68,15 +68,18 @@ test('live app greets only on the Health Score header and softens vinyl calcium'
   const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
   const chart = readFileSync(new URL('../components/WaterTrendChart.jsx', import.meta.url), 'utf8');
 
-  assert.equal((app.match(/\{greeting\}/g) || []).length, 2);
+  const headers = app.match(/<p className="page-title">\{greeting\}<\/p>\s*<h1 className="page-title">Health Score<\/h1>/g);
+  assert.equal(headers?.length, 2);
+  assert.match(app, /function formatRelative[\s\S]*?function melbourneGreeting/);
   assert.match(app, /<h1 className="page-title">Water Tests<\/h1>/);
   assert.match(app, /<h1 className="page-title">Chemistry log<\/h1>/);
   assert.match(app, /<h1 className="page-title">Pool setup<\/h1>/);
   assert.match(app, /<h1 className="page-title">Profile<\/h1>/);
-  assert.match(app, /displayName=\{displayNameFromUser\(user\)\}/);
+  assert.match(app, /<HealthScorePage[\s\S]*?user=\{user\}/);
+  assert.match(app, /test\?\.healthScore \?\? calculateScore\(test, sanitiser, saltRange, surface\)/);
+  assert.doesNotMatch(app, /isVinylLiner\(surface\)\) return calculateScore/);
   assert.match(app, /includeCalciumInActions\(statuses\[key\], pool\?\.surface\)/);
   assert.match(app, /calculateScore\(data, poolProfile\?\.sanitiser, saltRange, poolProfile\?\.surface\)/);
-  assert.match(app, /if \(isVinylLiner\(surface\)\) return calculateScore\(test, sanitiser, saltRange, surface\)/);
   assert.match(app, /Enter Test Results/);
   assert.match(app, /Scan test results/);
   assert.match(app, /Speak results/);

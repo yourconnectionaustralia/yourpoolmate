@@ -102,8 +102,9 @@ function scoreParam(value, min, max) {
 }
 
 // Vinyl: anything up to the shared high cap scores full marks, so a low
-// reading cannot drag the Health Score. Above that cap, use the same
-// high-side penalty as pebblecrete and concrete.
+// reading cannot drag the Health Score. The calcium weight stays put, so a
+// high reading still counts as much as it does on pebblecrete. Above the cap,
+// use that same high-side penalty.
 function scoreCalcium(value, surface) {
   const { min, max } = SCORE_RANGES.calciumHardness;
   if (isVinylLiner(surface) && value <= max) return 100;

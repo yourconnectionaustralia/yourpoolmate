@@ -10,7 +10,7 @@ import LoadingScreen from './components/LoadingScreen.jsx';
 import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
-import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, isVinylLiner, saltRangeForEquipment } from './lib/healthScore.js';
+import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
 import { createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
@@ -509,17 +509,17 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
 // ─────────────────────────────────────────────────────────────────
 // Melbourne civil time, refreshed each minute so a page left open crosses
 // midday and 6pm without a reload.
-function useHomeGreeting(displayName) {
+function useHomeGreeting(user) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
-  return homeGreeting(now, displayName);
+  return melbourneGreeting(user, now);
 }
 
-function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, displayName }) {
-  const greeting = useHomeGreeting(displayName);
+function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, user }) {
+  const greeting = useHomeGreeting(user);
   const surface = poolProfile?.surface;
   const score = testData ? scoreFor(testData, poolProfile?.sanitiser, saltRange, surface) : null;
   const lastTest = testData?.createdAt;
@@ -530,7 +530,8 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, display
   if (!testData) {
     return (
       <div>
-        <h1 className="page-title">{greeting}</h1>
+        <p className="page-title">{greeting}</p>
+        <h1 className="page-title">Health Score</h1>
         <p className="page-subtitle">No test logged yet</p>
         <div className="card">
           <div className="empty-state">
@@ -554,7 +555,8 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, display
 
   return (
     <div>
-      <h1 className="page-title">{greeting}</h1>
+      <p className="page-title">{greeting}</p>
+      <h1 className="page-title">Health Score</h1>
       {poolLabel && (
         <p className="page-subtitle">
           Last test logged {formatRelative(lastTest)} · {poolLabel}
@@ -2063,15 +2065,12 @@ function TrialExpiredScreen({ pricing, checkoutReturn }) {
 // CHEMISTRY LOGIC HELPERS
 // ─────────────────────────────────────────────────────────────────
 // Health Score lives in src/lib/healthScore.js (mirrors the
-// calculate-health-score edge function). Use
-// scoreFor(test, sanitiser, saltRange, surface) everywhere.
+// calculate-health-score edge function). A stored score is preferred so
+// history stays as recorded. Surface is used only when a score is calculated
+// fresh: a new test, or a row with no stored score. No history rewrite.
 // saltRange (from the owner's chlorinator) overrides the default salt band.
-// Hard-surface history keeps its stored score. A vinyl liner is rescored
-// live so low calcium does not keep dragging an older saved number.
-const scoreFor = (test, sanitiser, saltRange, surface) => {
-  if (isVinylLiner(surface)) return calculateScore(test, sanitiser, saltRange, surface);
-  return test?.healthScore ?? calculateScore(test, sanitiser, saltRange, surface);
-};
+const scoreFor = (test, sanitiser, saltRange, surface) =>
+  test?.healthScore ?? calculateScore(test, sanitiser, saltRange, surface);
 
 // Acceptable ranges (Australian residential pool standards).
 const PARAM_RANGES = {
@@ -2376,6 +2375,12 @@ function formatRelative(iso) {
   if (diff < 60) return `${Math.round(diff)} min ago`;
   if (diff < 1440) return `${Math.round(diff / 60)} hr ago`;
   return `${Math.round(diff / 1440)} day${Math.round(diff / 1440) > 1 ? 's' : ''} ago`;
+}
+
+// Health Score header. Australia/Melbourne civil time from the device clock.
+// First word of display_name, first_name, or full_name. No name: the phrase alone.
+function melbourneGreeting(user, date = new Date()) {
+  return homeGreeting(date, displayNameFromUser(user));
 }
 
 function formatDate(iso) {
@@ -2786,7 +2791,7 @@ export default function App() {
 
         <main className="main-content">
           {activeView === 'health' && (
-            <HealthScorePage testData={testData} poolProfile={poolProfile} saltRange={saltRange} onLogFirst={goLogTest} displayName={displayNameFromUser(user)} />
+            <HealthScorePage testData={testData} poolProfile={poolProfile} saltRange={saltRange} onLogFirst={goLogTest} user={user} />
           )}
           {activeView === 'tests' && (
             <WaterTestsPage
