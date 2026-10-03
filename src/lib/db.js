@@ -2,7 +2,7 @@
 // Data layer: maps between App.jsx state shapes and Supabase rows.
 // All functions are user-scoped; RLS enforces isolation server-side.
 
-import { memberProfilePayload, validateMemberProfile } from './memberProfile.js';
+import { isMissingMemberColumnError, saveMemberDetails } from './memberProfile.js';
 import { supabase } from './supabase';
 
 // ── Water tests ──────────────────────────────────────────────
@@ -209,9 +209,10 @@ export async function loadUserProfile(userId) {
     .select(USER_PROFILE_COLUMNS)
     .eq('id', userId)
     .maybeSingle();
-  // Migration 017 adds the location columns. Until it is applied, keep the
-  // membership read working so the rest of the app still loads.
-  if (error?.code === '42703') {
+  // Migration 017 adds the location columns. Until it is applied, PostgREST
+  // reports 42703 or PGRST204. Keep the membership read working so the
+  // rest of the app still loads.
+  if (isMissingMemberColumnError(error)) {
     const base = await supabase
       .from('user_profiles')
       .select('is_premium, trial_ends_at')
@@ -224,25 +225,8 @@ export async function loadUserProfile(userId) {
   return data;
 }
 
-// Location details on the same user_profiles row. Premium and Stripe
-// columns are not in this payload — the database rejects those writes.
-export async function saveUserProfile(userId, fields) {
-  const problem = validateMemberProfile(fields);
-  if (problem) {
-    const err = new Error(problem.message);
-    err.field = problem.field;
-    throw err;
-  }
-  const row = memberProfilePayload(fields);
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .update(row)
-    .eq('id', userId)
-    .select('first_name, last_name, address, suburb, postcode')
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) {
-    throw new Error("Couldn't save your details. Try again.");
-  }
-  return data;
+// Location details for the signed-in member. Premium and Stripe columns
+// are not in this payload. The database rejects those writes.
+export function saveUserProfile(userId, fields) {
+  return saveMemberDetails(supabase, userId, fields);
 }
