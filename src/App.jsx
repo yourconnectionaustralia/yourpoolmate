@@ -10,6 +10,8 @@ import LoadingScreen from './components/LoadingScreen.jsx';
 import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
+import { memberFormFromRow } from './lib/memberProfile.js';
+import MemberProfileForm from './components/MemberProfileForm.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
@@ -2559,6 +2561,7 @@ export default function App() {
   const [pendingTest, setPendingTest] = useState(null); // test awaiting a pool volume
   const [trialDaysLeft, setTrialDaysLeft] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
+  const [memberDetails, setMemberDetails] = useState(() => memberFormFromRow(null));
   const [pricing, setPricing] = useState(null);
   // Captured once from ?checkout= so a StrictMode remount still shows the note.
   const [checkoutReturn] = useState(captureCheckoutReturn);
@@ -2611,6 +2614,7 @@ export default function App() {
           setTrialDaysLeft(Math.max(0, days));
         }
       }
+      setMemberDetails(memberFormFromRow(profile));
       if (pool) setPoolProfile(pool);
       setTestHistory(tests);
       setTestData(tests.length ? tests[tests.length - 1] : null);
@@ -2705,6 +2709,12 @@ export default function App() {
     const held = pendingTest;
     setPendingTest(null);
     if (held) finalizeTest(held);
+  };
+
+  const handleSaveMember = async (fields) => {
+    const saved = await db.saveUserProfile(user.id, fields);
+    setMemberDetails(memberFormFromRow(saved));
+    return saved;
   };
 
   const handleSavePool = (profile) => {
@@ -2879,6 +2889,12 @@ export default function App() {
                   )}
                   <button className="btn btn-ghost btn-sm" onClick={signOut}>Sign out</button>
                 </div>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <MemberProfileForm
+                  initial={memberDetails}
+                  onSave={handleSaveMember}
+                />
               </div>
             </div>
           )}

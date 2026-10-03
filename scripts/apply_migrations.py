@@ -119,7 +119,8 @@ def preflight():
                           "sanitiser_type", "filter_type", "has_heater", "has_spa"],
         "equipment": ["user_id", "type", "brand", "model"],
         "pool_events": ["user_id", "event_type", "title", "occurred_at"],
-        "user_profiles": ["id", "is_premium", "trial_ends_at"],
+        "user_profiles": ["id", "is_premium", "trial_ends_at",
+                          "first_name", "last_name", "address", "suburb", "postcode"],
         # Written by the lifecycle edge function (migration 016), not the PWA.
         "email_sends": ["user_id", "template_key", "status", "to_email"],
     }
