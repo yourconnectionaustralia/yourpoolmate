@@ -311,6 +311,7 @@ img, svg { display: block; max-width: 100%; }
   align-items: center;
   gap: 8px;
   padding: 5px 12px;
+  min-height: 44px;
   border-radius: var(--r-xs);
   font-size: 13px;
   color: var(--gray-mid);
@@ -1092,6 +1093,22 @@ img, svg { display: block; max-width: 100%; }
   color: var(--white);
 }
 
+.mobile-drawer-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--amber);
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
@@ -1105,54 +1122,9 @@ img, svg { display: block; max-width: 100%; }
 
 /* ════════════════════════════════════════════════════════════════
    FEEDBACK OVERLAY
-   Floating panel for beta feedback rounds.
-   Notes accumulate across pages (localStorage) until submitted.
+   Panel opened from the app menu. Notes accumulate across pages
+   (localStorage) until submitted.
    ════════════════════════════════════════════════════════════════ */
-
-/* ── FAB (floating action button) ── */
-.feedback-fab {
-  position: fixed;
-  bottom: calc(var(--mobile-nav-h) + 14px);
-  right: 16px;
-  z-index: 310;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--r-full);
-  background: var(--water-deep);
-  color: var(--white);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-float);
-  transition: transform var(--transition-fast), background var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.feedback-fab:hover {
-  background: var(--water-mid);
-  transform: scale(1.06);
-}
-
-.feedback-fab-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 18px;
-  height: 18px;
-  border-radius: var(--r-full);
-  background: var(--amber);
-  color: var(--white);
-  font-size: 11px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-  border: 2px solid var(--white);
-  line-height: 1;
-}
 
 /* ── Backdrop (closes panel on click) ── */
 .feedback-backdrop {
@@ -1164,11 +1136,11 @@ img, svg { display: block; max-width: 100%; }
 /* ── Panel ── */
 .feedback-panel {
   position: fixed;
-  bottom: calc(var(--mobile-nav-h) + 68px);
+  bottom: calc(var(--mobile-nav-h) + 16px);
   right: 16px;
   z-index: 309;
   width: 320px;
-  max-height: calc(100vh - var(--topnav-h) - var(--mobile-nav-h) - 88px);
+  max-height: calc(100vh - var(--topnav-h) - var(--mobile-nav-h) - 32px);
   background: var(--white);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-modal);
@@ -1193,16 +1165,13 @@ img, svg { display: block; max-width: 100%; }
   }
 }
 
-/* On desktop (no mobile nav), drop the FAB and panel lower */
-@media (min-width: 768px) {
-  .feedback-fab {
+/* Sidebar layout (no mobile tab bar) starts above 860px. Keep the panel
+   clear of the tab bar until then. */
+@media (min-width: 861px) {
+  .feedback-panel {
     bottom: 24px;
     right: 24px;
-  }
-  .feedback-panel {
-    bottom: 80px;
-    right: 24px;
-    max-height: calc(100vh - var(--topnav-h) - 100px);
+    max-height: calc(100vh - var(--topnav-h) - 48px);
   }
 }
 
