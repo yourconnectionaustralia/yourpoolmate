@@ -2,6 +2,7 @@
 // Data layer: maps between App.jsx state shapes and Supabase rows.
 // All functions are user-scoped; RLS enforces isolation server-side.
 
+import { memberProfilePayload, validateMemberProfile } from './memberProfile.js';
 import { supabase } from './supabase';
 
 // ── Water tests ──────────────────────────────────────────────
@@ -200,12 +201,48 @@ export async function deleteEvent(id) {
 
 // ── User profile (trial / premium) ───────────────────────────
 
+const USER_PROFILE_COLUMNS = 'is_premium, trial_ends_at, first_name, last_name, address, suburb, postcode';
+
 export async function loadUserProfile(userId) {
   const { data, error } = await supabase
     .from('user_profiles')
-    .select('is_premium, trial_ends_at')
+    .select(USER_PROFILE_COLUMNS)
     .eq('id', userId)
     .maybeSingle();
+  // Migration 017 adds the location columns. Until it is applied, keep the
+  // membership read working so the rest of the app still loads.
+  if (error?.code === '42703') {
+    const base = await supabase
+      .from('user_profiles')
+      .select('is_premium, trial_ends_at')
+      .eq('id', userId)
+      .maybeSingle();
+    if (base.error) throw base.error;
+    return base.data;
+  }
   if (error) throw error;
+  return data;
+}
+
+// Location details on the same user_profiles row. Premium and Stripe
+// columns are not in this payload — the database rejects those writes.
+export async function saveUserProfile(userId, fields) {
+  const problem = validateMemberProfile(fields);
+  if (problem) {
+    const err = new Error(problem.message);
+    err.field = problem.field;
+    throw err;
+  }
+  const row = memberProfilePayload(fields);
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .update(row)
+    .eq('id', userId)
+    .select('first_name, last_name, address, suburb, postcode')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    throw new Error("Couldn't save your details. Try again.");
+  }
   return data;
 }
