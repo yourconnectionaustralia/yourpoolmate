@@ -70,6 +70,11 @@ const Icon = {
       <path d="M12 17.2h.01"/>
     </svg>
   ),
+  feedback: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  ),
   camera: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -326,7 +331,7 @@ const SEASONAL_TIPS = {
 // ─────────────────────────────────────────────────────────────────
 // SIDEBAR
 // ─────────────────────────────────────────────────────────────────
-function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
+function Sidebar({ activeView, onNav, pendingActions, onHelp, onFeedback, feedbackNoteCount = 0 }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-section">
@@ -402,6 +407,25 @@ function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
           <span className="sidebar-icon">{Icon.help}</span>
           Help
         </div>
+        {/* Same feedback panel as before. The menu is the only way in. */}
+        <div
+          className="sidebar-item"
+          onClick={onFeedback}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onFeedback?.();
+            }
+          }}
+        >
+          <span className="sidebar-icon">{Icon.feedback}</span>
+          Feedback
+          {feedbackNoteCount > 0 && (
+            <span className="sidebar-badge">{feedbackNoteCount}</span>
+          )}
+        </div>
       </div>
     </aside>
   );
@@ -471,7 +495,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
 // ─────────────────────────────────────────────────────────────────
 // MOBILE MORE DRAWER (slide-up sheet)
 // ─────────────────────────────────────────────────────────────────
-function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
+function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feedbackNoteCount = 0 }) {
   const items = [
     { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
     { view: 'equipment', icon: Icon.equipment,  label: 'Equipment' },
@@ -501,6 +525,17 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
         >
           <span className="mobile-drawer-icon">{Icon.help}</span>
           <span>Help</span>
+        </button>
+        <button
+          type="button"
+          className="mobile-drawer-item"
+          onClick={() => { onClose(); onFeedback?.(); }}
+        >
+          <span className="mobile-drawer-icon">{Icon.feedback}</span>
+          <span>Feedback</span>
+          {feedbackNoteCount > 0 && (
+            <span className="mobile-drawer-badge">{feedbackNoteCount}</span>
+          )}
         </button>
       </div>
     </>
@@ -2488,7 +2523,7 @@ function VolumeGateModal({ onCancel, onConfirm }) {
 // ─────────────────────────────────────────────────────────────────
 function HelpSheet({ onClose, onReplayTour }) {
   const steps = [
-    { n: '1', title: 'Enter your test results', body: 'Type the readings in, or scan your pool shop\'s printout with your camera — it fills the numbers in for you.' },
+    { n: '1', title: 'Enter your test results', body: 'Type the readings in, or scan your pool shop\'s printout with your camera. It fills the numbers in for you.' },
     { n: '2', title: 'Check your Health Score', body: 'One number out of 100 tells you where your water stands. Green is swim-ready.' },
     { n: '3', title: 'Follow the plan, in order', body: 'The "what to do" list gives exact doses for your pool\'s volume. Re-test a day after dosing.' },
   ];
@@ -2515,11 +2550,10 @@ function HelpSheet({ onClose, onReplayTour }) {
           ))}
         </div>
         <div style={{ fontSize: 13, color: 'var(--gray-mid)', lineHeight: 1.5, marginBottom: 16 }}>
-          Every test is saved to your history automatically — that's your warranty
-          record. Stuck, or spotted something off? Use the feedback button, or email{' '}
-          <a href="mailto:yourconnectionaustralia@gmail.com" style={{ color: 'var(--blue)' }}>
-            yourconnectionaustralia@gmail.com
-          </a>.
+          Every test is saved to your history automatically. That's your warranty record. Stuck, or spotted something off? Use the feedback button, or email{' '}
+          <a href="mailto:hello@yourpoolmate.com.au" style={{ color: 'var(--blue)' }}>
+            hello@yourpoolmate.com.au
+          </a>
         </div>
         <div className="modal-actions">
           {onReplayTour && (
@@ -2559,6 +2593,8 @@ export default function App() {
   const [showScan, setShowScan] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [feedbackOpenToken, setFeedbackOpenToken] = useState(0);
+  const [feedbackNoteCount, setFeedbackNoteCount] = useState(0);
   const [pendingTest, setPendingTest] = useState(null); // test awaiting a pool volume
   const [trialDaysLeft, setTrialDaysLeft] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
@@ -2613,6 +2649,15 @@ export default function App() {
     setActiveView('tests');
     setOpenTestForm(true);
   };
+
+  // Opens the existing feedback panel. A new token each tap so closing
+  // it and choosing Feedback again opens it a second time.
+  const openFeedback = useCallback(() => {
+    setFeedbackOpenToken((n) => n + 1);
+  }, []);
+  const handleFeedbackNoteCount = useCallback((count) => {
+    setFeedbackNoteCount(count);
+  }, []);
 
   // Load everything from Supabase once signed in (and again after onboarding)
   const loadAll = async (uid) => {
@@ -2814,6 +2859,8 @@ export default function App() {
           onNav={setActiveView}
           pendingActions={pendingActions}
           onHelp={() => setShowHelp(true)}
+          onFeedback={openFeedback}
+          feedbackNoteCount={feedbackNoteCount}
         />
 
         <main className="main-content">
@@ -2970,6 +3017,8 @@ export default function App() {
           onNav={setActiveView}
           onClose={() => setMobileDrawerOpen(false)}
           onHelp={() => setShowHelp(true)}
+          onFeedback={openFeedback}
+          feedbackNoteCount={feedbackNoteCount}
         />
       )}
 
@@ -3004,8 +3053,12 @@ export default function App() {
         />
       )}
 
-      {/* Feedback overlay — accumulate notes per page, submit as a round */}
-      <FeedbackOverlay activeView={activeView} />
+      {/* Feedback panel. Opened from the desktop sidebar and the mobile More menu. */}
+      <FeedbackOverlay
+        activeView={activeView}
+        openToken={feedbackOpenToken}
+        onNoteCount={handleFeedbackNoteCount}
+      />
     </div>
   );
 }
