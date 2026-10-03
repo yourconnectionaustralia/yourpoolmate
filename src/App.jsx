@@ -11,6 +11,7 @@ import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
+import { analyticsScreen, trackPageView } from './lib/analytics.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
 import { createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
@@ -2570,6 +2571,22 @@ export default function App() {
   const [openTestForm, setOpenTestForm] = useState(false); // one-shot: open the log form on the Tests page
   const [openEquipmentForm, setOpenEquipmentForm] = useState(false); // one-shot: open the add-equipment form
   const [tourActive, setTourActive] = useState(false); // post-onboarding walkthrough
+
+  // The shell never changes the URL, so Analytics only sees a new screen
+  // when activeView (or an auth/trial gate) changes. Same measurement id
+  // and linker as index.html; this only sends page_view.
+  const signedIn = Boolean(session);
+  useEffect(() => {
+    trackPageView(analyticsScreen({
+      loading,
+      recoveryMode,
+      signedIn,
+      trialExpired,
+      isPremium,
+      dataReady,
+      activeView,
+    }));
+  }, [loading, recoveryMode, signedIn, trialExpired, isPremium, dataReady, activeView]);
 
   // Walkthrough drives the view so each popup describes the page in front of
   // the user. Stable identity so AppTour's effects don't re-fire every render.
