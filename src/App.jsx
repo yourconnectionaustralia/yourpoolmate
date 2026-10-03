@@ -14,6 +14,7 @@ import { memberFormFromRow } from './lib/memberProfile.js';
 import MemberProfileForm from './components/MemberProfileForm.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { analyticsScreen, trackPageView } from './lib/analytics.js';
+import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
 import { createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
@@ -551,40 +552,43 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, user })
   }
 
   const params = buildParams(testData, saltRange, surface);
-  const scoreClass = score >= 80 ? 'score-good' : score >= 50 ? 'score-warn' : 'score-critical';
   const headline = scoreHeadline(score, params);
   const primaryAction = getPrimaryAction(testData, poolProfile, saltRange);
   const recommendations = getRecommendations(testData, poolProfile, saltRange);
+  // Green ring is 80+. The quiet line only shows when that score has nothing to add.
+  const showQuietLine = waterLooksGood(score, Boolean(primaryAction));
 
   return (
     <div>
-      <p className="page-title">{greeting}</p>
-      <h1 className="page-title">Health Score</h1>
-      {poolLabel && (
-        <p className="page-subtitle">
-          Last test logged {formatRelative(lastTest)} · {poolLabel}
-        </p>
-      )}
+      <div className="score-home-header">
+        <p className="page-title">{greeting}</p>
+        <h1 className="page-title">Health Score</h1>
+        {poolLabel && (
+          <p className="page-subtitle">
+            Last test logged {formatRelative(lastTest)} · {poolLabel}
+          </p>
+        )}
+      </div>
 
-      {/* Score card */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="score-card-row">
-          <HealthScoreRing score={score} size={160} />
-          <div className="score-summary">
-            <div className="score-eyebrow">Health Score · updated {formatRelative(lastTest)}</div>
-            <div className="score-headline">{headline}</div>
-            <div className="param-tag-row" style={{ marginTop: 8 }}>
-              {params.map(p => (
-                <span key={p.key} className={`tag ${p.tagClass}`}>
-                  {p.label}
-                </span>
-              ))}
-            </div>
-          </div>
+      {/* Score card. The number is centred and is the focus of the screen.
+          Local conditions are not shown here. A saved postcode is not a
+          rainfall observation, and this app does not store weather. The
+          Bureau's api.weather.bom.gov.au forbids unauthorised use, and
+          Open-Meteo's free API is non-commercial only. Do not invent rain. */}
+      <div className="card score-hero-card">
+        <HealthScoreRing score={score} size={240} />
+        {showQuietLine && <p className="score-quiet">{goodWaterLine(lastTest)}</p>}
+        {!showQuietLine && <div className="score-headline">{headline}</div>}
+        <div className="param-tag-row score-hero-tags">
+          {params.map(p => (
+            <span key={p.key} className={`tag ${p.tagClass}`}>
+              {p.label}
+            </span>
+          ))}
         </div>
 
         {primaryAction && (
-          <div style={{ padding: '0 24px 20px' }}>
+          <div className="score-hero-action">
             <div className="callout callout-action">
               <span className="callout-icon" style={{ color: 'var(--amber)', display: 'inline-flex' }}>
                 {Icon.tip}
@@ -622,8 +626,9 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, user })
         </table>
       </div>
 
-      {/* Secondary recommendations */}
-      {recommendations.length > 0 && (
+      {/* Secondary recommendations. A good result already has its one quiet
+          line under the score, so the green success callout stays off. */}
+      {!showQuietLine && recommendations.length > 0 && (
         <div className="card-section" style={{ marginTop: 16 }}>
           <div className="eyebrow" style={{ marginBottom: 12 }}>What to do — in order</div>
           <div className="stack">
