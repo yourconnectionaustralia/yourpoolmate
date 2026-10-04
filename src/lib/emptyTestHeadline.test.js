@@ -71,5 +71,5 @@ test('the home screen asks for a test only when nothing is scorable', () => {
   assert.match(app, /const headline = emptyHeadline \?\? scoreHeadline\(score, params\)/);
   assert.match(app, /const showQuietLine = !emptyHeadline && waterLooksGood\(score, Boolean\(primaryAction\)\)/);
   assert.match(app, /\{!showQuietLine && !emptyHeadline && recommendations\.length > 0 && \(/);
-  assert.match(app, /return 'Chemistry needs urgent correction — hold off swimming for now\.'/);
+  assert.match(app, /return 'Chemistry needs urgent correction\. Hold off swimming for now\.'/);
 });

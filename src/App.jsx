@@ -2341,7 +2341,7 @@ function scoreHeadline(score, params) {
       : `Your pool is in great shape — ${issues.length === 1 ? 'one minor tweak' : `${issues.length} minor tweaks`}.`;
   }
   if (score >= 50) return 'A few readings need attention before your next swim.';
-  return 'Chemistry needs urgent correction — hold off swimming for now.';
+  return 'Chemistry needs urgent correction. Hold off swimming for now.';
 }
 
 // Resolve pool volume in kilolitres (kL) for dosing maths.
