@@ -64,6 +64,9 @@ export async function fetchCheckoutPricing(client) {
     price_aud: data.price_aud,
     interval: data.interval ?? null,
     founding: data.founding === true || data.plan === 'founding_lifetime',
+    // Absent until the edge function that returns test_mode is deployed.
+    // Only an explicit true tags the purchase as internal traffic.
+    test_mode: data.test_mode === true,
   }
 }
 

@@ -15,8 +15,10 @@
 //
 // Actions (POST JSON body):
 //   { "action": "get_pricing" }
-//     → { plan, price_aud, interval, founding, is_premium, trial_ends_at }
+//     → { plan, price_aud, interval, founding, is_premium, trial_ends_at, test_mode }
 //       Drives the paywall screen copy before the user commits.
+//       test_mode is true only when STRIPE_SECRET_KEY starts with "sk_test_".
+//       The key itself and any Price ID are never returned.
 //
 //   { "action": "create_session", "successUrl"?, "cancelUrl"? }
 //     → { url }  — Stripe-hosted Checkout URL. The app redirects the browser
@@ -75,6 +77,14 @@ const DEFAULT_APP_URL = "https://app.yourpoolmate.com.au"
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS })
+}
+
+// Reporting only. True while the secret is a Stripe test key, so the app
+// can tag checkout events as internal traffic and leave the value off.
+// Never log or return the key.
+function stripeSecretIsTestMode(): boolean {
+  const key = Deno.env.get("STRIPE_SECRET_KEY") ?? ""
+  return key.startsWith("sk_test_")
 }
 
 // Stripe wants application/x-www-form-urlencoded with bracketed nested keys.
@@ -148,6 +158,7 @@ serve(async (req) => {
         founding: profile.founding_member,
         is_premium: profile.is_premium,
         trial_ends_at: profile.trial_ends_at,
+        test_mode: stripeSecretIsTestMode(),
       })
     }
 
