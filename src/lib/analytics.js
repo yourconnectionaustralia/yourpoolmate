@@ -55,6 +55,10 @@ export const TRIAL_START_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const CHECKOUT_OFFER_KEY = 'ypm_checkout_offer';
 export const CHECKOUT_COMPLETED_KEY = 'ypm_ga_checkout_completed';
+export const CHECKOUT_PENDING_KEY = 'ypm_checkout_pending';
+// The return flag is cleared on mount. This marker outlives that, and a
+// refresh, until premium is observed or a day has passed.
+export const CHECKOUT_PENDING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const shared = { last: null, attributionSent: false };
 const trialStartAttempted = new Set();
@@ -131,6 +135,15 @@ function defaultSessionStorage() {
   try {
     if (typeof sessionStorage === 'undefined') return null;
     return sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+function defaultLocalStorage() {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    return localStorage;
   } catch {
     return null;
   }
@@ -382,6 +395,108 @@ function mergeOffer(stored, pricing) {
 
 export function trackCheckoutStarted(pricing, options = {}) {
   return trackEvent('checkout_started', checkoutEventParams('started', pricing), options);
+}
+
+function storageGet(storage, key) {
+  if (!storage) return null;
+  try {
+    return storage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read the pending completion, dropping it once it is older than a day.
+ * Nothing identifying is in the record.
+ */
+export function readCheckoutPending(storage, options = {}) {
+  const store = storage === undefined ? defaultLocalStorage() : storage;
+  if (!store) return null;
+  const now = options.now ?? Date.now();
+  const maxAge = options.maxAge ?? CHECKOUT_PENDING_MAX_AGE_MS;
+  try {
+    const raw = store.getItem(CHECKOUT_PENDING_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object' || typeof data.pendingAt !== 'number' || !Number.isFinite(data.pendingAt)) {
+      store.removeItem(CHECKOUT_PENDING_KEY);
+      return null;
+    }
+    if (now - data.pendingAt > maxAge) {
+      store.removeItem(CHECKOUT_PENDING_KEY);
+      return null;
+    }
+    const offer = offerFromPricing(data);
+    return {
+      ...offer,
+      nonce: typeof data.nonce === 'string' ? data.nonce : '',
+      pendingAt: data.pendingAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function clearCheckoutPending(storage) {
+  const store = storage === undefined ? defaultLocalStorage() : storage;
+  if (!store) return;
+  try {
+    store.removeItem(CHECKOUT_PENDING_KEY);
+  } catch {
+    /* private mode */
+  }
+}
+
+/**
+ * Keep the checkout offer after ?checkout=success is stripped, so a
+ * refresh still has something to complete. Arming the same nonce again
+ * does not move the clock. An already-sent nonce is left alone.
+ */
+export function armCheckoutPending(options = {}) {
+  const pendingStore = options.pendingStorage === undefined ? defaultLocalStorage() : options.pendingStorage;
+  if (!pendingStore) return null;
+  const now = options.now ?? Date.now();
+  const existing = readCheckoutPending(pendingStore, { now, maxAge: options.maxAge });
+  const offer = options.offer !== undefined
+    ? options.offer
+    : readCheckoutOffer(options.offerStorage === undefined ? defaultSessionStorage() : options.offerStorage);
+  const nonce = (offer && offer.nonce) || (existing && existing.nonce) || '';
+  if (nonce && storageGet(pendingStore, CHECKOUT_COMPLETED_KEY) === nonce) return existing;
+  if (existing && nonce && existing.nonce === nonce) return existing;
+  const priced = offerFromPricing(offer);
+  const record = {
+    plan: priced.plan,
+    price_aud: priced.price_aud,
+    test_mode: priced.test_mode,
+    nonce: nonce || newNonce(),
+    pendingAt: now,
+  };
+  try {
+    pendingStore.setItem(CHECKOUT_PENDING_KEY, JSON.stringify(record));
+  } catch {
+    return record;
+  }
+  return record;
+}
+
+/**
+ * Send checkout_completed for a pending success, once. Clears the marker
+ * after the hit or when the nonce was already sent. Leaves the marker
+ * when gtag is missing, so a later load can still send it.
+ */
+export function consumeCheckoutPending(pricing, options = {}) {
+  const pendingStore = options.pendingStorage === undefined ? defaultLocalStorage() : options.pendingStorage;
+  const now = options.now ?? Date.now();
+  const pending = pendingStore
+    ? readCheckoutPending(pendingStore, { now, maxAge: options.maxAge })
+    : null;
+  if (!pending) return false;
+  const storage = options.storage === undefined ? pendingStore : options.storage;
+  const sent = trackCheckoutCompleted(pricing, { ...options, offer: pending, storage });
+  const already = pending.nonce && storageGet(storage, CHECKOUT_COMPLETED_KEY) === pending.nonce;
+  if (sent || already) clearCheckoutPending(pendingStore);
+  return sent;
 }
 
 /**

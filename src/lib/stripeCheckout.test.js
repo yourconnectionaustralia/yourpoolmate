@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
+  CHECKOUT_PRICING_WAIT_MS,
+  awaitWithTimeout,
   checkoutErrorMessage,
   createCheckoutSession,
   fetchCheckoutPricing,
@@ -157,6 +159,20 @@ test('pricing failure stays price-neutral so checkout can still start', async ()
   assert.equal(copy.known, false)
   assert.equal(copy.priceLabel, null)
   assert.equal(copy.claimLabel, 'Continue to checkout')
+})
+
+test('a pricing lookup that stalls resolves empty so checkout can move on', async () => {
+  assert.equal(CHECKOUT_PRICING_WAIT_MS, 1500)
+  const hung = awaitWithTimeout(new Promise(() => {}), 40, null)
+  const started = Date.now()
+  assert.equal(await hung, null)
+  assert.equal(Date.now() - started < 400, true)
+
+  const fast = await awaitWithTimeout(Promise.resolve({ plan: 'annual', price_aud: 49 }), 1000, null)
+  assert.equal(fast.plan, 'annual')
+
+  const failed = await awaitWithTimeout(Promise.reject(new Error('offline')), 1000, null)
+  assert.equal(failed, null)
 })
 
 test('live App.jsx founding CTAs call create_session, not the marketing hash', () => {

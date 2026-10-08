@@ -4,15 +4,20 @@ import test from 'node:test';
 import {
   CHECKOUT_COMPLETED_KEY,
   CHECKOUT_OFFER_KEY,
+  CHECKOUT_PENDING_KEY,
+  CHECKOUT_PENDING_MAX_AGE_MS,
   TRIAL_START_MAX_AGE_MS,
   TRIAL_START_META_KEY,
   analyticsScreen,
+  armCheckoutPending,
   attributionQuery,
   checkoutEventParams,
+  consumeCheckoutPending,
   createTestSaveTracker,
   pageViewParams,
   publicEventParams,
   readCheckoutOffer,
+  readCheckoutPending,
   rememberCheckoutOffer,
   shouldTrackTrialStart,
   testEntry,
@@ -142,6 +147,9 @@ function memoryStorage(initial = {}) {
     },
     setItem(key, value) {
       data[key] = String(value);
+    },
+    removeItem(key) {
+      delete data[key];
     },
     dump: data,
   };
@@ -466,13 +474,17 @@ test('the live shell wires each event without sending a Stripe session id', () =
   assert.equal(app.includes('trackTrialStartOnce'), true);
   assert.equal(app.includes('supabase.auth.updateUser'), true);
   assert.equal(app.includes('trackCheckoutStarted'), true);
-  assert.equal(app.includes('trackCheckoutCompleted'), true);
-  assert.equal(app.includes("checkoutReturn !== 'success' || !isPremium || !screenNow"), true);
+  assert.equal(app.includes('consumeCheckoutPending'), true);
+  assert.equal(app.includes("checkoutReturn === 'success') armCheckoutPending()"), true);
   assert.equal(app.includes('rememberCheckoutOffer'), true);
+  assert.equal(app.includes('sessionStorage.removeItem(CHECKOUT_RETURN_KEY)'), true);
+  assert.equal(app.includes('awaitWithTimeout'), true);
+  assert.equal(app.includes('CHECKOUT_PRICING_WAIT_MS'), true);
 
   const start = app.indexOf('const startCheckout = async');
   const startFn = app.slice(start, app.indexOf('return (', start));
-  assert.equal(startFn.indexOf('createCheckoutSession') < startFn.indexOf('trackCheckoutStarted'), true);
+  assert.equal(startFn.indexOf('createCheckoutSession') < startFn.indexOf('awaitWithTimeout'), true);
+  assert.equal(startFn.indexOf('awaitWithTimeout') < startFn.indexOf('trackCheckoutStarted'), true);
   assert.equal(startFn.indexOf('trackCheckoutStarted') < startFn.indexOf('window.location.assign'), true);
 
   const persist = app.slice(app.indexOf('const persistTest'), app.indexOf('const finalizeTest'));
@@ -487,4 +499,144 @@ test('the live shell wires each event without sending a Stripe session id', () =
   assert.equal(saved > 0 && callback > saved, true);
   assert.equal(/track(Event|CheckoutStarted|CheckoutCompleted|TrialStartOnce)\([\s\S]{0,180}session_id/.test(app), false);
   assert.equal(app.includes("params.delete('session_id')"), true);
+});
+
+test('a slow webhook still completes once on a later load, then not again', () => {
+  const { calls, gtag } = gtagRecorder();
+  const session = memoryStorage();
+  const pending = memoryStorage();
+  const memory = new Set();
+  const startedAt = Date.parse('2026-10-08T00:00:00.000Z');
+  const offer = rememberCheckoutOffer(
+    { plan: 'founding_lifetime', price_aud: 79, test_mode: false },
+    session,
+  );
+  const armed = armCheckoutPending({
+    pendingStorage: pending,
+    offer,
+    now: startedAt,
+  });
+  assert.equal(armed.nonce, offer.nonce);
+  assert.equal(armed.pendingAt, startedAt);
+
+  // The return flag is gone and premium is not in yet. The marker stays,
+  // and nothing is sent until the shell asks (it only asks once is_premium).
+  assert.equal(readCheckoutPending(pending, { now: startedAt + 60 * 1000 }).nonce, offer.nonce);
+  assert.equal(readCheckoutPending(pending, { now: startedAt + 60 * 1000 }).plan, 'founding_lifetime');
+  assert.equal(calls.filter((call) => call[1] === 'checkout_completed').length, 0);
+  assert.equal(memory.size, 0);
+
+  const later = startedAt + 2 * 60 * 60 * 1000;
+  assert.equal(consumeCheckoutPending(null, {
+    pendingStorage: pending,
+    storage: pending,
+    gtag,
+    memory: new Set(),
+    now: later,
+    origin: ORIGIN,
+    screen: 'health',
+  }), true);
+  assert.equal(readCheckoutPending(pending, { now: later }), null);
+  assert.equal(pending.dump[CHECKOUT_COMPLETED_KEY], offer.nonce);
+
+  // Same nonce, even if something arms it again, does not send twice.
+  assert.equal(armCheckoutPending({ pendingStorage: pending, offer, now: later + 1000 }), null);
+  assert.equal(consumeCheckoutPending(null, {
+    pendingStorage: pending,
+    storage: pending,
+    gtag,
+    memory: new Set(),
+    now: later + 1000,
+    origin: ORIGIN,
+    screen: 'health',
+  }), false);
+  assert.equal(calls.filter((call) => call[1] === 'checkout_completed').length, 1);
+  assert.deepEqual(calls.find((call) => call[1] === 'checkout_completed')[2], {
+    plan: 'founding_lifetime',
+    value: 79,
+    currency: 'AUD',
+    page_location: `${ORIGIN}/health`,
+    page_path: '/health',
+  });
+  assert.equal(JSON.stringify(pending.dump).includes('session'), false);
+});
+
+test('an expired pending checkout is dropped and does not send', () => {
+  const { calls, gtag } = gtagRecorder();
+  const pending = memoryStorage();
+  const startedAt = Date.parse('2026-10-01T00:00:00.000Z');
+  armCheckoutPending({
+    pendingStorage: pending,
+    offer: { plan: 'annual', price_aud: 49, test_mode: false, nonce: 'nonce-old' },
+    now: startedAt,
+  });
+  const expiredAt = startedAt + CHECKOUT_PENDING_MAX_AGE_MS + 1;
+  assert.equal(readCheckoutPending(pending, { now: expiredAt }), null);
+  assert.equal(CHECKOUT_PENDING_KEY in pending.dump, false);
+  assert.equal(consumeCheckoutPending(null, {
+    pendingStorage: pending,
+    gtag,
+    memory: new Set(),
+    now: expiredAt,
+    origin: ORIGIN,
+    screen: 'health',
+  }), false);
+  assert.equal(calls.length, 0);
+
+  // Re-arming the same nonce inside the window keeps the original clock.
+  const fresh = memoryStorage();
+  const first = armCheckoutPending({
+    pendingStorage: fresh,
+    offer: { plan: 'annual', price_aud: 49, test_mode: true, nonce: 'nonce-new' },
+    now: startedAt,
+  });
+  const second = armCheckoutPending({
+    pendingStorage: fresh,
+    offer: { plan: 'annual', price_aud: 49, test_mode: true, nonce: 'nonce-new' },
+    now: startedAt + 60 * 1000,
+  });
+  assert.equal(second.pendingAt, first.pendingAt);
+});
+
+test('a pending checkout waits for gtag and then sends once', () => {
+  const pending = memoryStorage();
+  const now = Date.parse('2026-10-08T03:00:00.000Z');
+  armCheckoutPending({
+    pendingStorage: pending,
+    offer: { plan: 'annual', price_aud: 49, test_mode: false, nonce: 'nonce-wait' },
+    now,
+  });
+  assert.equal(consumeCheckoutPending(null, {
+    pendingStorage: pending,
+    storage: pending,
+    memory: new Set(),
+    now,
+    origin: ORIGIN,
+    screen: 'health',
+  }), false);
+  assert.equal(readCheckoutPending(pending, { now }).nonce, 'nonce-wait');
+
+  const { calls, gtag } = gtagRecorder();
+  assert.equal(consumeCheckoutPending(null, {
+    pendingStorage: pending,
+    storage: pending,
+    gtag,
+    memory: new Set(),
+    now,
+    origin: ORIGIN,
+    screen: 'health',
+  }), true);
+  assert.equal(consumeCheckoutPending(null, {
+    pendingStorage: pending,
+    storage: pending,
+    gtag,
+    memory: new Set(),
+    now,
+    origin: ORIGIN,
+    screen: 'health',
+  }), false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1], 'checkout_completed');
+  assert.equal(calls[0][2].plan, 'annual');
+  assert.equal(calls[0][2].value, 49);
 });

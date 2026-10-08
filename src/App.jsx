@@ -24,11 +24,12 @@ import RecordExport from './components/RecordExport.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import {
   analyticsScreen,
+  armCheckoutPending,
+  consumeCheckoutPending,
+  readCheckoutPending,
   createTestSaveTracker,
-  readCheckoutOffer,
   rememberCheckoutOffer,
   testEntry,
-  trackCheckoutCompleted,
   trackCheckoutStarted,
   trackEvent,
   trackPageView,
@@ -41,7 +42,7 @@ import { doseEventFor, retestPrompt } from './lib/doseLog.js';
 import { DOSE_PLAN_GUIDANCE, safetyLineFor } from './lib/dosingSafety.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
-import { createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
+import { awaitWithTimeout, CHECKOUT_PRICING_WAIT_MS, createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM ICONS — inline SVG only, no library dependency
@@ -2228,15 +2229,15 @@ function CheckoutButton({ label, className, style, block, pricing }) {
         cancelUrl: origin,
       });
       // Plan comes from get_pricing, never a hardcoded price. Fetch only
-      // when the paywall has not already loaded it. Analytics must not
-      // block the redirect if it throws.
+      // when the paywall has not already loaded it, and only for a
+      // moment — a slow price lookup must not delay Stripe.
       let offer = pricing;
       if (!offer?.plan) {
-        try {
-          offer = await fetchCheckoutPricing(supabase);
-        } catch (pricingErr) {
-          console.error('stripe-checkout get_pricing failed:', pricingErr);
-        }
+        offer = await awaitWithTimeout(
+          fetchCheckoutPricing(supabase),
+          CHECKOUT_PRICING_WAIT_MS,
+          null,
+        );
       }
       try {
         rememberCheckoutOffer(offer);
@@ -2878,23 +2879,28 @@ export default function App() {
     });
   }, [loading, recoveryMode, signedIn, user, dataReady, trialExpired, isPremium, screenNow]);
 
-  // checkout_completed: success return only, and only once the reloaded
-  // profile shows is_premium. Cancelled returns never reach this.
+  // checkout_completed: after a success return, once the profile shows
+  // is_premium. The return flag itself is cleared on mount, so the offer
+  // is copied to a pending marker that survives a refresh until premium
+  // is seen or the marker expires. A cancelled return does not arm it.
   useEffect(() => {
-    if (checkoutReturn !== 'success' || !isPremium || !screenNow) return undefined;
-    const stored = readCheckoutOffer();
-    if (stored || pricing) {
-      trackCheckoutCompleted(pricing, { screen: screenNow });
+    if (checkoutReturn === 'success') armCheckoutPending();
+    else readCheckoutPending();
+    if (!isPremium || !screenNow) return undefined;
+    const pending = readCheckoutPending();
+    if (!pending) return undefined;
+    if (pending.plan || pricing) {
+      consumeCheckoutPending(pricing, { screen: screenNow });
       return undefined;
     }
     let cancelled = false;
     fetchCheckoutPricing(supabase)
       .then((data) => {
-        if (!cancelled) trackCheckoutCompleted(data, { screen: screenNow });
+        if (!cancelled) consumeCheckoutPending(data, { screen: screenNow });
       })
       .catch((err) => {
         console.error('stripe-checkout get_pricing failed:', err);
-        if (!cancelled) trackCheckoutCompleted(null, { screen: screenNow });
+        if (!cancelled) consumeCheckoutPending(null, { screen: screenNow });
       });
     return () => { cancelled = true; };
   }, [checkoutReturn, isPremium, pricing, screenNow]);
