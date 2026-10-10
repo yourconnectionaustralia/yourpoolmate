@@ -1,4 +1,5 @@
-# Sends all seven lifecycle emails (L1–L7) to ONE test account right now,
+# Sends all seven lifecycle emails (L1–L7), plus a sample weekly reminder and
+# monthly report, to ONE test account right now,
 # ignoring the usual timing, so the whole series can be checked in an inbox.
 #
 # Run it by hand: Actions → "Lifecycle test series" → Run workflow → enter
@@ -24,7 +25,7 @@ jobs:
   send:
     runs-on: ubuntu-latest
     steps:
-      - name: Send L1–L7 to the test account
+      - name: Send L1–L7 and the two sample emails to the test account
         env:
           LIFECYCLE_CRON_SECRET: ${{ secrets.LIFECYCLE_CRON_SECRET }}
           TEST_EMAIL: ${{ inputs.email }}

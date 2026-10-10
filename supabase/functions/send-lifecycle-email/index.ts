@@ -12,7 +12,8 @@
 //   GET/POST ?u=<signed token>             one-click unsubscribe, no bearer secret
 //                                          (the signed token is the credential)
 //   POST { "action": "test_series", "email": "<address>" }
-//     Sends L1–L7 to one test account straight away, ignoring timing.
+//     Sends L1–L7, then a sample weekly reminder and monthly report, to one test
+//     account straight away, ignoring timing.
 //     The address must be named in EMAIL_ALLOWLIST ("*" does not count).
 //
 // Allowlist and once-only rules live in _shared/lifecycle-email.ts.
@@ -22,7 +23,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { TEMPLATE_KEYS, isExplicitTestRecipient, isTemplateKey } from "../_shared/lifecycle-rules.js"
 import { deliverLifecycleEmail, sweepLifecycleEmails } from "../_shared/lifecycle-email.ts"
-import { handleUnsubscribe, recurringSweep } from "../_shared/recurring-email.ts"
+import { handleUnsubscribe, recurringSweep, sendRecurringSamples } from "../_shared/recurring-email.ts"
 
 const JSON_HEADERS = { "Content-Type": "application/json" }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -182,6 +183,9 @@ serve(async (req) => {
         // Stay well under Resend's 10 requests a second.
         await new Promise((resolve) => setTimeout(resolve, 600))
       }
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      const samples = await sendRecurringSamples(db, userId)
+      for (const sample of samples) results.push({ template: sample.template, status: sample.status })
       return json({ ok: results.every((r) => r.status === "sent" || r.status === "already"), user_id: userId, results })
     }
 

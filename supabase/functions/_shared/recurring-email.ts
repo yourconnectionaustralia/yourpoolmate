@@ -298,6 +298,52 @@ export async function recurringSweep(db: Db): Promise<RecurringSweepResult> {
   return counts
 }
 
+// ── Test samples ───────────────────────────────────────────
+// For the "test series": send one weekly reminder and one monthly report to a
+// single test account, with made-up figures and "[Test]" on the subject. Each
+// run uses a fresh period key, so it can be repeated. The caller has already
+// checked the address with isExplicitTestRecipient; deliver() checks the
+// allowlist again before any Resend call.
+
+export async function sendRecurringSamples(
+  db: Db,
+  userId: string,
+): Promise<{ template: string; status: string }[]> {
+  const userRes = await db.auth.admin.getUserById(userId)
+  const user = userRes.data?.user
+  const email = String(user?.email ?? "").trim().toLowerCase()
+  if (!user || !email.includes("@")) return [{ template: "weekly_reminder", status: "no_user" }]
+  const allowlistRaw = Deno.env.get("EMAIL_ALLOWLIST")
+  const resendKey = Deno.env.get("RESEND_API_KEY") ?? ""
+  const stamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14)
+  const tag = (r: ReturnType<typeof renderWeeklyReminder>) => ({ ...r, subject: `[Test] ${r.subject}` })
+  const out: { template: string; status: string }[] = []
+
+  out.push({
+    template: "weekly_reminder",
+    status: await deliver(db, {
+      userId, kind: "weekly_reminder", periodKey: `test-${stamp}`, email, allowlistRaw, resendKey, defer: false,
+      render: (unsubUrl) => tag(renderWeeklyReminder({
+        firstName: firstNameFromUser(user), reminderDay: 6, daysSinceTest: 5, lastScore: 78, unsubscribeUrl: unsubUrl,
+      })),
+    }),
+  })
+  await new Promise((resolve) => setTimeout(resolve, 600))
+  out.push({
+    template: "monthly_report",
+    status: await deliver(db, {
+      userId, kind: "monthly_report", periodKey: `test-${stamp}`, email, allowlistRaw, resendKey, defer: false,
+      render: (unsubUrl) => tag(renderMonthlyReport({
+        firstName: firstNameFromUser(user), monthName: "September", tests: 4,
+        firstScore: 64, lastScore: 82, bestScore: 82, lowestScore: 64, doses: 3,
+        lastReadings: { free_chlorine: 2, ph: 7.4, alkalinity: 90, cyanuric_acid: 40, calcium: 280 },
+        unsubscribeUrl: unsubUrl,
+      })),
+    }),
+  })
+  return out
+}
+
 // ── One-click unsubscribe ──────────────────────────────────
 
 const PAGE_STYLE = "font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:48px auto;padding:0 20px;color:#1a1a1a;font-size:18px;line-height:1.5;"
