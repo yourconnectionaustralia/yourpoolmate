@@ -1456,3 +1456,34 @@ img, svg { display: block; max-width: 100%; }
   font-size: 14px;
   font-weight: 500;
 }
+
+/* ── Save problem banner ─────────────────────────────────────
+   A record that didn't reach the database. Sits above the mobile nav so it
+   can't be missed; amber because it needs action but nothing is broken. */
+.save-problem {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 24px;
+  max-width: 560px;
+  margin: 0 auto;
+  z-index: var(--z-modal);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--amber-bg);
+  color: var(--amber);
+  border: 1px solid currentColor;
+  box-shadow: 0 8px 24px rgba(11, 119, 153, 0.18);
+  font-size: 17px;
+  line-height: 1.4;
+}
+.save-problem-text { flex: 1 1 240px; }
+.save-problem-actions { display: flex; gap: 8px; }
+.save-problem-actions .btn { min-height: 44px; }
+@media (max-width: 860px) {
+  .save-problem { bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 12px); }
+}

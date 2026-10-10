@@ -2567,6 +2567,10 @@ export default function App() {
   const [pendingTest, setPendingTest] = useState(null); // test awaiting a pool volume
   const [trialDaysLeft, setTrialDaysLeft] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
+  const [plan, setPlan] = useState(null); // 'founding_lifetime' | 'annual' | null
+  // A failed cloud save must never look like a saved record — the history is
+  // the warranty record. Holds { message, retry } while a save needs attention.
+  const [saveProblem, setSaveProblem] = useState(null);
   const [memberDetails, setMemberDetails] = useState(() => memberFormFromRow(null));
   const [pricing, setPricing] = useState(null);
   // Captured once from ?checkout= so a StrictMode remount still shows the note.
@@ -2631,6 +2635,7 @@ export default function App() {
       ]);
       if (profile) {
         setIsPremium(!!profile.is_premium);
+        setPlan(profile.plan ?? null);
         if (profile.trial_ends_at) {
           const days = Math.ceil((new Date(profile.trial_ends_at) - Date.now()) / 86400000);
           setTrialDaysLeft(Math.max(0, days));
@@ -2698,16 +2703,32 @@ export default function App() {
     ? buildParams(testData, saltRange, poolProfile?.surface).filter(p => p.state === 'low' || p.state === 'high').length
     : 0;
 
-  const persistTest = (data) => {
-    db.saveTest(user.id, poolProfile.id, data, calculateScore(data, poolProfile?.sanitiser, saltRange, poolProfile?.surface))
-      .catch(err => console.error('Failed to save test:', err));
+  // Show the test straight away, then confirm it reached the database. If the
+  // save fails, take it back out of the history and offer a retry — a test
+  // that only exists on screen would vanish on the next launch.
+  const persistTest = (data, pool = poolProfile) => {
+    const score = calculateScore(data, pool?.sanitiser, saltRange, pool?.surface);
+    return db.saveTest(user.id, pool?.id, data, score)
+      .then(() => setSaveProblem(null))
+      .catch(err => {
+        console.error('Failed to save test:', err);
+        setTestHistory(h => {
+          const next = h.filter(t => t !== data);
+          setTestData(next.length ? next[next.length - 1] : null);
+          return next;
+        });
+        setSaveProblem({
+          message: "That water test didn't save, so it isn't in your history yet. Check your connection and try again.",
+          retry: () => finalizeTest(data, pool),
+        });
+      });
   };
 
   // Commit a test once we're sure a pool volume exists.
-  const finalizeTest = (data) => {
+  const finalizeTest = (data, pool = poolProfile) => {
     setTestData(data);
     setTestHistory(h => [...h, data]);
-    persistTest(data);
+    persistTest(data, pool);
     setActiveView('health');
   };
 
@@ -2727,10 +2748,14 @@ export default function App() {
 
   // Volume captured in the gate → save to profile, then commit the held test.
   const handleVolumeConfirmed = (volumeL) => {
-    handleSavePool({ volumeL });
+    const nextPool = { ...poolProfile, volumeL };
     const held = pendingTest;
     setPendingTest(null);
-    if (held) finalizeTest(held);
+    // Save the pool first so the held test is stored against it (and scored
+    // with the new volume), rather than racing the profile write.
+    handleSavePool({ volumeL }).then((id) => {
+      if (held) finalizeTest(held, id ? { ...nextPool, id } : nextPool);
+    });
   };
 
   const handleSaveMember = async (fields) => {
@@ -2744,9 +2769,19 @@ export default function App() {
     // Merge with the current profile before persisting — savePoolProfile
     // writes a full row, so a partial save (e.g. the volume gate passing
     // only { volumeL }) must not null out every other column.
-    db.savePoolProfile(user.id, { ...poolProfile, ...profile })
-      .then(id => setPoolProfile(p => ({ ...p, id })))
-      .catch(err => console.error('Failed to save pool:', err));
+    return db.savePoolProfile(user.id, { ...poolProfile, ...profile })
+      .then(id => {
+        setPoolProfile(p => ({ ...p, id }));
+        return id;
+      })
+      .catch(err => {
+        console.error('Failed to save pool:', err);
+        setSaveProblem({
+          message: "Your pool details didn't save. Check your connection and try again.",
+          retry: () => handleSavePool(profile),
+        });
+        return poolProfile?.id ?? null;
+      });
   };
 
   // Equipment add/update await the DB and rethrow — EquipmentPage keeps the
@@ -2770,9 +2805,15 @@ export default function App() {
   };
 
   const handleAddEvent = (event) => {
-    db.addEvent(user.id, poolProfile.id, event)
+    db.addEvent(user.id, poolProfile?.id, event)
       .then(saved => setEvents(e => [...e, saved]))
-      .catch(err => console.error('Failed to add event:', err));
+      .catch(err => {
+        console.error('Failed to add event:', err);
+        setSaveProblem({
+          message: "That event didn't save. Check your connection and try again.",
+          retry: () => handleAddEvent(event),
+        });
+      });
   };
   const handleDeleteEvent = (id) => {
     setEvents(e => e.filter(x => x.id !== id));
@@ -2880,7 +2921,9 @@ export default function App() {
                       {Icon.check}
                     </span>
                     <div className="callout-body">
-                      You're a <strong>founding member</strong> — lifetime access, all future features included.
+                      {plan === 'annual'
+                        ? <>You're a <strong>member</strong> on the annual plan. Thanks for backing Your Pool Mate.</>
+                        : <>You're a <strong>founding member</strong> — lifetime access, all future features included.</>}
                     </div>
                   </div>
                 ) : (
@@ -3007,6 +3050,24 @@ export default function App() {
           onFinish={() => endTour({ addEquipment: true })}
           onDismiss={() => endTour()}
         />
+      )}
+
+      {/* Save problem — a record that didn't reach the database */}
+      {saveProblem && (
+        <div className="save-problem" role="alert">
+          <span className="save-problem-text">{saveProblem.message}</span>
+          <div className="save-problem-actions">
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => { const retry = saveProblem.retry; setSaveProblem(null); retry(); }}
+            >
+              Try again
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setSaveProblem(null)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Feedback overlay — accumulate notes per page, submit as a round */}
