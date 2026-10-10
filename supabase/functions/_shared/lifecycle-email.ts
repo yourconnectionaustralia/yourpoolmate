@@ -458,3 +458,59 @@ export async function sweepLifecycleEmails(db: Db): Promise<SweepResult> {
   }
   return counts
 }
+
+
+// ── Member-triggered sweep ───────────────────────────────────
+// The scheduled sweep can run hours apart (GitHub throttles quiet repos), so
+// the app asks for the signed-in member's own welcome (L1) and first-test
+// follow-up (L3) as soon as they open it. Same rules, same once-only ledger,
+// same allowlist as the scheduled sweep. It can only ever mail the member
+// themselves, and only these two templates. Everything else stays on the timer.
+const MEMBER_TEMPLATES = ["L1", "L3"]
+
+export async function sweepMemberEmails(db: Db, userId: string): Promise<DeliverResult | { status: "none" }> {
+  const now = new Date()
+  const prof = await db.from("user_profiles")
+    .select("id, created_at, trial_ends_at, is_premium, founding_member, plan, premium_since")
+    .eq("id", userId)
+    .maybeSingle()
+  if (prof.error) {
+    if (isMissingSchema(prof.error)) return { status: "failed", template: "", code: "MIGRATION_PENDING" }
+    throw prof.error
+  }
+  if (!prof.data) return { status: "none" }
+
+  const tests = await db.from("water_tests")
+    .select("created_at", { count: "exact" })
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true })
+    .limit(3)
+  if (tests.error) throw tests.error
+  const rows = tests.data ?? []
+
+  const sends = await db.from("email_sends")
+    .select("template_key, status, created_at")
+    .eq("user_id", userId)
+  if (sends.error) {
+    if (isMissingSchema(sends.error)) return { status: "failed", template: "", code: "MIGRATION_PENDING" }
+    throw sends.error
+  }
+
+  const candidate = normaliseCandidate({
+    user_id: userId,
+    ...prof.data,
+    test_count: tests.count ?? rows.length,
+    first_test_at: rows[0]?.created_at ?? null,
+    third_test_at: rows[2]?.created_at ?? null,
+  })
+  const template = nextTemplate(candidate, sends.data ?? [], now)
+  if (!template || !MEMBER_TEMPLATES.includes(template)) return { status: "none" }
+
+  return await deliverLifecycleEmail(db, {
+    userId,
+    template,
+    source: "member",
+    reclaimSkipped: false,
+    profile: { founding_member: candidate.founding_member, plan: candidate.plan },
+  })
+}
