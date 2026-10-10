@@ -1,0 +1,52 @@
+# Sends all seven lifecycle emails (L1–L7), plus a sample weekly reminder and
+# monthly report, to ONE test account right now,
+# ignoring the usual timing, so the whole series can be checked in an inbox.
+#
+# Run it by hand: Actions → "Lifecycle test series" → Run workflow → enter
+# the test email. The account must already exist (sign up in the app first)
+# and the address must be named in the EMAIL_ALLOWLIST secret. "*" does not
+# count, so this can never mail real members.
+#
+# Each email goes once per account. To run the series again, sign up with a
+# fresh test address (e.g. yourconnectionaustralia+ypmtest2@gmail.com) and
+# add that address to EMAIL_ALLOWLIST.
+
+name: Lifecycle test series
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: "Test account email (must be in EMAIL_ALLOWLIST)"
+        required: true
+        type: string
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send L1–L7 and the two sample emails to the test account
+        env:
+          LIFECYCLE_CRON_SECRET: ${{ secrets.LIFECYCLE_CRON_SECRET }}
+          TEST_EMAIL: ${{ inputs.email }}
+        run: |
+          if [ -z "$LIFECYCLE_CRON_SECRET" ]; then
+            echo "::error::LIFECYCLE_CRON_SECRET is not set."
+            exit 1
+          fi
+          body=$(jq -n --arg email "$TEST_EMAIL" '{action: "test_series", email: $email}')
+          http_code=$(curl --max-time 120 -sS -o /tmp/series.json -w "%{http_code}" \
+            -X POST "https://chmjvbuesynicrmtkrqp.supabase.co/functions/v1/send-lifecycle-email" \
+            -H "Authorization: Bearer ${LIFECYCLE_CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d "$body")
+          echo "HTTP ${http_code}"
+          jq -r '.results[]? | "\(.template): \(.status)\(if .code then " (\(.code))" else "" end)"' /tmp/series.json || cat /tmp/series.json
+          jq -r '.error // empty' /tmp/series.json
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Test series returned HTTP ${http_code}"
+            exit 1
+          fi
+          if ! jq -e '.ok' /tmp/series.json > /dev/null; then
+            echo "::warning::Not every email was sent. See the list above."
+          fi
