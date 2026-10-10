@@ -67,7 +67,7 @@
 
 .step {
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -110,7 +110,7 @@
 
 .body {
   font-family: var(--font-ui);
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.5;
   color: var(--color-text-secondary, #4A6570);
 }
@@ -144,7 +144,7 @@
   border: none;
   background: none;
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: 17px;
   color: var(--color-text-muted, #6B838C);
   cursor: pointer;
   padding: 8px 4px;
@@ -160,7 +160,7 @@
   background: var(--color-ocean, #0B7799);
   color: #fff;
   font-family: var(--font-ui);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;

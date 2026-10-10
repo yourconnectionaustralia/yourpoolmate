@@ -165,7 +165,7 @@
 }
 
 .stepBody {
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   color: var(--color-text-secondary);
   line-height: 1.6;
   margin-top: calc(var(--space-2) * -1);
@@ -182,7 +182,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   color: var(--color-text-primary);
   line-height: 1.45;
 }
@@ -209,13 +209,13 @@
 }
 
 .fieldLabel {
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   font-weight: 500;
   color: var(--color-text-primary);
 }
 
 .fieldHint {
-  font-size: 0.8125rem;
+  font-size: 1.0625rem;
   color: var(--color-text-muted);
   line-height: 1.4;
 }
@@ -225,7 +225,7 @@
   min-height: var(--tap-target);
   padding: var(--space-3) var(--space-4);
   font-family: var(--font-ui);
-  font-size: 1rem;
+  font-size: 1.0625rem;
   color: var(--color-text-primary);
   background: var(--color-bg);
   border: 1.5px solid var(--color-border-strong);
@@ -250,7 +250,7 @@
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-md);
   font-family: var(--font-ui);
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.15s;
@@ -281,7 +281,7 @@
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-md);
   font-family: var(--font-ui);
-  font-size: 1rem;
+  font-size: 1.0625rem;
   color: var(--color-text-primary);
   cursor: pointer;
   text-align: left;
@@ -311,7 +311,7 @@
 }
 
 .readingLabel {
-  font-size: 0.8125rem;
+  font-size: 1.0625rem;
   font-weight: 500;
   color: var(--color-text-secondary);
 }
@@ -348,7 +348,7 @@
 }
 
 .toggleLabel {
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   color: var(--color-text-primary);
 }
 
@@ -395,7 +395,7 @@
 }
 
 .errorText {
-  font-size: 0.875rem;
+  font-size: 1.0625rem;
   line-height: 1.5;
   color: var(--color-danger);
 }
@@ -414,7 +414,7 @@
   padding: 0;
   min-height: var(--tap-target);
   font-family: var(--font-ui);
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -447,7 +447,7 @@
   border: none;
   color: var(--color-text-secondary);
   font-family: var(--font-ui);
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   min-height: var(--tap-target);
   cursor: pointer;
   padding: 0;
@@ -458,7 +458,7 @@
   border: none;
   color: var(--color-text-muted);
   font-family: var(--font-ui);
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   min-height: var(--tap-target);
   cursor: pointer;
   padding: 0;
@@ -470,7 +470,7 @@
   background: var(--color-ocean);
   color: var(--color-text-inverse);
   font-family: var(--font-ui);
-  font-size: 1rem;
+  font-size: 1.0625rem;
   font-weight: 600;
   border-radius: var(--radius-md);
   border: none;
@@ -499,7 +499,7 @@
   min-height: var(--tap-target);
   display: flex;
   align-items: center;
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   font-weight: 600;
   color: var(--color-ocean);
 }
@@ -510,7 +510,7 @@
 
 .calcBody {
   padding: 0 var(--space-4) var(--space-4);
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   color: var(--color-text-secondary);
   line-height: 1.55;
 }

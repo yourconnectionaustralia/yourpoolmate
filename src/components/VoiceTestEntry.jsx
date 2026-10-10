@@ -245,7 +245,7 @@ export default function VoiceTestEntry({ onClose, onComplete }) {
               </button>
               <div aria-live="polite" style={{ minHeight: 28, marginTop: 12 }}>
                 {listening && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--gray-mid)' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 17, color: 'var(--gray-mid)' }}>
                     <span className="dot-loader"><span/><span/><span/></span>
                     Listening…
                   </span>
@@ -267,7 +267,7 @@ export default function VoiceTestEntry({ onClose, onComplete }) {
               />
             </div>
             {error && (
-              <div role="alert" style={{ fontSize: 14, color: 'var(--gray-dark)', marginBottom: 16 }}>
+              <div role="alert" style={{ fontSize: 17, color: 'var(--gray-dark)', marginBottom: 16 }}>
                 {error}
               </div>
             )}
@@ -293,7 +293,7 @@ export default function VoiceTestEntry({ onClose, onComplete }) {
             </div>
             {transcript.trim() && (
               <div style={{
-                fontSize: 13, color: 'var(--gray-mid)', background: 'var(--gray-bg)',
+                fontSize: 17, color: 'var(--gray-mid)', background: 'var(--gray-bg)',
                 borderRadius: 'var(--r-md)', padding: '10px 12px', marginBottom: 16,
               }}>
                 Heard: {transcript.trim()}

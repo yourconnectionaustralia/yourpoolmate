@@ -47,6 +47,8 @@ jobs:
           # stripe-webhook is called by Stripe (no Supabase JWT) → verify by signature instead.
           supabase functions deploy stripe-webhook --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
           # send-lifecycle-email is called by the sweep workflow (no user JWT).
+          # delete-account is called by signed-in app users → keep JWT verification.
+          supabase functions deploy delete-account --project-ref "$PROJECT_REF" --use-api
           supabase functions deploy send-lifecycle-email --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
 
       - name: Set OCR secret (skipped if not configured)

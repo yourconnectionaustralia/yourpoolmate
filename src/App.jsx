@@ -12,9 +12,21 @@ import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
 import { memberFormFromRow } from './lib/memberProfile.js';
 import MemberProfileForm from './components/MemberProfileForm.jsx';
+import TestEditor, { PrintoutViewer } from './components/TestEditor.jsx';
+import InstallGuide from './components/InstallGuide.jsx';
+import { ReminderOffer, ReminderSettings } from './components/ReminderSettings.jsx';
+import AccountData from './components/AccountData.jsx';
+import EquipmentCare from './components/EquipmentCare.jsx';
+import ProblemFixer from './components/ProblemFixer.jsx';
+import { careDueNow, careEventFor, careList, isCareEvent } from './lib/equipmentCare.js';
+import { prefsFromRow, wantsTestForm, withoutTestParam } from './lib/reminderPrefs.js';
+import RecordExport from './components/RecordExport.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { analyticsScreen, trackPageView } from './lib/analytics.js';
 import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
+import { testPrompt } from './lib/testPrompt.js';
+import { doseEventFor, retestPrompt } from './lib/doseLog.js';
+import { DOSE_PLAN_GUIDANCE, safetyLineFor } from './lib/dosingSafety.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
 import { createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
@@ -359,6 +371,13 @@ function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
           <span className="sidebar-icon">{Icon.droplet}</span>
           Chemistry log
         </div>
+        <div
+          className={`sidebar-item ${activeView === 'fixer' ? 'active' : ''}`}
+          onClick={() => onNav('fixer')}
+        >
+          <span className="sidebar-icon">{Icon.tip}</span>
+          Problem fixer
+        </div>
       </div>
 
       <div className="sidebar-section">
@@ -412,7 +431,7 @@ function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
 // MOBILE BOTTOM NAV
 // ─────────────────────────────────────────────────────────────────
 function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
-  const SECONDARY = ['setup', 'equipment', 'schedule', 'profile'];
+  const SECONDARY = ['fixer', 'setup', 'equipment', 'schedule', 'profile'];
   const moreActive = SECONDARY.includes(activeView);
 
   return (
@@ -474,6 +493,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
 // ─────────────────────────────────────────────────────────────────
 function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
   const items = [
+    { view: 'fixer',     icon: Icon.tip,        label: 'Problem fixer' },
     { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
     { view: 'equipment', icon: Icon.equipment,  label: 'Equipment' },
     { view: 'schedule',  icon: Icon.calendar,   label: SEASONAL_TIPS_LABEL },
@@ -522,7 +542,7 @@ function useHomeGreeting(user) {
   return melbourneGreeting(user, now);
 }
 
-function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, user }) {
+function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogFirst, onLogTest, user, reminderOffer = null, careDue = [], onOpenCare, onOpenFixer }) {
   const greeting = useHomeGreeting(user);
   const surface = poolProfile?.surface;
   const score = testData ? scoreFor(testData, poolProfile?.sanitiser, saltRange, surface) : null;
@@ -557,6 +577,11 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, user })
   const recommendations = getRecommendations(testData, poolProfile, saltRange);
   // Green ring is 80+. The quiet line only shows when that score has nothing to add.
   const showQuietLine = waterLooksGood(score, Boolean(primaryAction));
+  // Overdue: a banner with a button. Otherwise a quiet "next test due" line,
+  // unless the good-water line under the score already says it.
+  const prompt = testPrompt(lastTest);
+  // A dose or shock with no test since is a more useful thing to say than "last tested".
+  const retest = retestPrompt(events, lastTest);
 
   return (
     <div>
@@ -570,6 +595,30 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, user })
         )}
       </div>
 
+      {retest && (
+        <div className="callout callout-info test-prompt" role="status">
+          <span className="callout-icon" style={{ color: 'var(--blue)', display: 'inline-flex' }}>{Icon.info}</span>
+          <div className="callout-body">
+            <strong>{retest.title}.</strong> {retest.body}
+            <div style={{ marginTop: 10 }}>
+              <button className="btn btn-primary btn-sm" onClick={onLogTest || onLogFirst}>Test water</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!retest && prompt?.kind === 'stale' && (
+        <div className="callout callout-info test-prompt" role="status">
+          <span className="callout-icon" style={{ color: 'var(--blue)', display: 'inline-flex' }}>{Icon.info}</span>
+          <div className="callout-body">
+            <strong>{prompt.title}.</strong> {prompt.body}
+            <div style={{ marginTop: 10 }}>
+              <button className="btn btn-primary btn-sm" onClick={onLogTest || onLogFirst}>Test water</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Score card. The number is centred and is the focus of the screen.
           Local conditions are not shown here. A saved postcode is not a
           rainfall observation, and this app does not store weather. The
@@ -579,6 +628,7 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, user })
         <HealthScoreRing score={score} size={240} />
         {showQuietLine && <p className="score-quiet">{goodWaterLine(lastTest)}</p>}
         {!showQuietLine && <div className="score-headline">{headline}</div>}
+        {!showQuietLine && !retest && prompt?.kind === 'upcoming' && <p className="score-next-test">{prompt.text}</p>}
         <div className="param-tag-row score-hero-tags">
           {params.map(p => (
             <span key={p.key} className={`tag ${p.tagClass}`}>
@@ -601,10 +651,31 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, user })
         )}
       </div>
 
+      {careDue.length > 0 && (
+        <div className="callout callout-action care-due-callout">
+          <div className="callout-body">
+            <strong>{careDue.length === 1 ? 'A job is due' : `${careDue.length} jobs are due`}.</strong>{' '}
+            {careDue.map(s => s.task.label).join(', ')}.
+            <div style={{ marginTop: 10 }}>
+              <button className="btn btn-primary btn-sm" onClick={onOpenCare}>Open equipment care</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reminderOffer}
+
+      <button className="fixer-link" onClick={onOpenFixer}>
+        <span className="fixer-link-title">Water looking off?</span>
+        <span className="fixer-link-sub">Green, cloudy, stinging eyes, foam or stains: open the problem fixer.</span>
+      </button>
+
+      <InstallGuide />
+
       {/* Readings table */}
       <div className="card-section stack-lg">
         <div className="eyebrow" style={{ marginBottom: 12 }}>Water Readings</div>
-        <table className="data-table">
+        <table className="data-table readings-table">
           <thead>
             <tr>
               <th>Parameter</th>
@@ -643,6 +714,7 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, user })
               </div>
             ))}
           </div>
+          <p className="dose-guidance">{DOSE_PLAN_GUIDANCE}</p>
         </div>
       )}
     </div>
@@ -693,16 +765,34 @@ function writeCompletedAt(testKey, iso) {
   } catch { /* non-fatal */ }
 }
 
-function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
+// Which logged dose belongs to which step, so "Undo" can take it back out.
+const DOSE_IDS_STORE = 'ypm.doseEvents.v1';
+
+function readDoseIds(testKey) {
+  try { return JSON.parse(localStorage.getItem(DOSE_IDS_STORE) || '{}')[testKey] || {}; } catch { return {}; }
+}
+
+function writeDoseIds(testKey, ids) {
+  try {
+    const all = JSON.parse(localStorage.getItem(DOSE_IDS_STORE) || '{}');
+    all[testKey] = ids;
+    localStorage.setItem(DOSE_IDS_STORE, JSON.stringify(all));
+  } catch { /* non-fatal */ }
+}
+
+function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest, onRecordDose, onUndoDose }) {
   const testKey = test.id || test.createdAt;
   const steps = buildSteps(test, poolProfile, saltRange);
   const [done, setDone] = useState(() => readActionsDone(testKey));
   const [completedAt, setCompletedAt] = useState(() => readCompletedAt(testKey));
+  const [doseIds, setDoseIds] = useState(() => readDoseIds(testKey));
+  const [choosing, setChoosing] = useState(null); // step key waiting for "which one did you add?"
+  const [doseNote, setDoseNote] = useState('');
 
-  const toggle = (k) => {
+  const setStepDone = (k, on) => {
     setDone(prev => {
       const next = new Set(prev);
-      if (next.has(k)) next.delete(k); else next.add(k);
+      if (on) next.add(k); else next.delete(k);
       writeActionsDone(testKey, next);
       // Stamp/clear the completion time as the checklist crosses fully-done.
       // Ticking actions never changes the Health Score — it only starts the
@@ -716,6 +806,39 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
       }
       return next;
     });
+  };
+
+  // "I added it": mark the step and write the chemical and amount to the history.
+  const added = async (step, option) => {
+    setChoosing(null);
+    setDoseNote('');
+    setStepDone(step.key, true);
+    if (!onRecordDose) return;
+    try {
+      const id = await onRecordDose(step, option);
+      if (id) {
+        const next = { ...readDoseIds(testKey), [step.key]: id };
+        writeDoseIds(testKey, next); setDoseIds(next);
+      }
+    } catch {
+      setDoseNote("Ticked off, but that dose didn't save to your history. You can add it as an event in the Chemistry log.");
+    }
+  };
+
+  const undo = (step) => {
+    setChoosing(null);
+    setStepDone(step.key, false);
+    const id = doseIds[step.key];
+    if (id) {
+      onUndoDose?.(id);
+      const next = { ...doseIds }; delete next[step.key];
+      writeDoseIds(testKey, next); setDoseIds(next);
+    }
+  };
+
+  const tap = (step) => {
+    if (step.options.length > 1) setChoosing(step.key);
+    else added(step, step.options[0]);
   };
 
   // Nothing to correct — celebrate the win.
@@ -754,29 +877,16 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
         {steps.map((s, i) => {
           const isDone = done.has(s.key);
           return (
-            <label
+            <div
               key={s.key}
-              style={{
-                display: 'flex', alignItems: 'flex-start', gap: 12,
-                padding: '12px 0', cursor: 'pointer',
-                borderBottom: i < steps.length - 1 ? 'var(--border)' : 'none',
-                minHeight: 44,
-              }}
+              className="dose-step"
+              style={{ borderBottom: i < steps.length - 1 ? 'var(--border)' : 'none' }}
             >
-              <input
-                type="checkbox"
-                checked={isDone}
-                onChange={() => toggle(s.key)}
-                style={{ width: 22, height: 22, marginTop: 1, flexShrink: 0, accentColor: 'var(--water-deep)', cursor: 'pointer' }}
-              />
-              <div style={{ flex: 1, minWidth: 0, opacity: isDone ? 0.55 : 1 }}>
-                <div style={{
-                  fontSize: 14, fontWeight: 600, color: 'var(--black)',
-                  textDecoration: isDone ? 'line-through' : 'none',
-                }}>
+              <div style={{ opacity: isDone ? 0.65 : 1 }}>
+                <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--black)' }}>
                   {steps.length > 1 ? `${i + 1}. ` : ''}{s.action}
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--gray-mid)', marginTop: 3 }}>
+                <div style={{ fontSize: 17, color: 'var(--gray-mid)', marginTop: 3 }}>
                   {s.options.map((opt, j) => (
                     <span key={j}>
                       {j > 0 ? <span style={{ color: 'var(--gray-light)' }}> — or — </span> : null}
@@ -785,18 +895,42 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
                   ))}
                 </div>
                 {!s.volumeKnown && (
-                  <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 3 }}>
+                  <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 3 }}>
                     Set your pool volume in Setup to see exact quantities.
                   </div>
                 )}
                 {s.notes[0] && (
-                  <div style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 3 }}>{s.notes[0]}</div>
+                  <div style={{ fontSize: 17, color: 'var(--gray-mid)', marginTop: 3 }}>{s.notes[0]}</div>
+                )}
+                <div className="dose-safety">{s.safety}</div>
+              </div>
+
+              <div className="dose-step-actions">
+                {isDone ? (
+                  <>
+                    <span className="tag tag-good">{Icon.check} Added</span>
+                    <button className="btn btn-ghost btn-sm" onClick={() => undo(s)}>Undo</button>
+                  </>
+                ) : choosing === s.key ? (
+                  <div className="dose-choice">
+                    <div className="dose-choice-label">Which one did you add?</div>
+                    {s.options.map((opt, j) => (
+                      <button key={j} className="btn btn-primary btn-sm dose-choice-btn" onClick={() => added(s, opt)}>
+                        {opt.amount ? `${opt.amount} ${opt.name}` : opt.name}
+                      </button>
+                    ))}
+                    <button className="btn btn-ghost btn-sm" onClick={() => setChoosing(null)}>Cancel</button>
+                  </div>
+                ) : (
+                  <button className="btn btn-primary btn-sm" onClick={() => tap(s)}>I added it</button>
                 )}
               </div>
-            </label>
+            </div>
           );
         })}
       </div>
+
+      {doseNote && <p role="alert" className="test-editor-problem">{doseNote}</p>}
 
       {/* Re-test prompt — chemicals are in, the balance needs time to settle. */}
       {allDone && (
@@ -805,8 +939,8 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
             {Icon.info}
           </span>
           <div className="callout-body">
-            <strong>Chemicals added.</strong> Give them time to circulate, then log a new
-            test <strong>within the next week or so</strong> to confirm the new balance.
+            <strong>Chemicals added.</strong> Give them time to circulate, then test again{' '}
+            <strong>in about 24 hours</strong> to confirm the new balance.
             {onLogRetest && (
               <div style={{ marginTop: 10 }}>
                 <button className="btn btn-primary btn-sm" onClick={onLogRetest}>
@@ -818,14 +952,15 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
         </div>
       )}
 
-      <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 12 }}>
-        Tick each step as you add it. Your Health Score updates when you log the confirming test.
+      <p className="dose-guidance">{DOSE_PLAN_GUIDANCE}</p>
+      <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 12 }}>
+        Tap "I added it" after each step. It goes in your history with the amount. Your Health Score updates when you log the confirming test.
       </div>
     </div>
   );
 }
 
-function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProfile, saltRange, autoOpenForm, onAutoOpened }) {
+function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, onRecordDose, onUndoDose, poolProfile, saltRange, autoOpenForm, onAutoOpened }) {
   const [showForm, setShowForm] = useState(false);
   const EMPTY_FORM = {
     freeChlor: '', pH: '', alkalinity: '', cyanuricAcid: '', calciumHardness: '',
@@ -939,7 +1074,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProf
         <>
           <div className="card-section">
             <div className="eyebrow" style={{ marginBottom: 12 }}>Latest reading</div>
-            <table className="data-table">
+            <table className="data-table readings-table">
               <thead>
                 <tr>
                   <th>Parameter</th>
@@ -959,7 +1094,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProf
                 ))}
               </tbody>
             </table>
-            <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 12 }}>
+            <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 12 }}>
               Logged {formatDate(testData.createdAt)}
             </div>
           </div>
@@ -971,6 +1106,8 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProf
             poolProfile={poolProfile}
             saltRange={saltRange}
             onLogRetest={() => setShowForm(true)}
+            onRecordDose={onRecordDose}
+            onUndoDose={onUndoDose}
           />
         </>
       ) : (
@@ -1004,9 +1141,11 @@ const EVENT_TYPE_OPTIONS = [
 ];
 
 function eventMeta(type) {
+  if (isCareEvent(type)) return { color: 'var(--color-sky)', label: 'Equipment care' };
   return {
     green_treatment: { color: 'var(--green)',     label: 'Green-pool treatment' },
     shock:           { color: 'var(--blue)',      label: 'Shock dose' },
+    dose:            { color: 'var(--amber)',     label: 'Dose added' },
     new_equipment:   { color: 'var(--color-sky)', label: 'New equipment' },
     drain_refill:    { color: 'var(--blue)',      label: 'Drain / refill' },
     treatment:       { color: 'var(--green)',     label: 'Treatment' },
@@ -1051,7 +1190,7 @@ function deriveEquipmentEvents(equipment) {
 // ─────────────────────────────────────────────────────────────────
 // CHEMISTRY LOG PAGE  (trend graph + events + history table)
 // ─────────────────────────────────────────────────────────────────
-function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, saltRange, onAddEvent, onDeleteEvent }) {
+function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, saltRange, onAddEvent, onDeleteEvent, onEditTest, onAddPastTest, onViewPrintout, owner, getPhotoUrl }) {
   const today = new Date().toISOString().slice(0, 10);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ type: 'green_treatment', title: '', date: today, notes: '' });
@@ -1082,6 +1221,9 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
             <div className="empty-state-body">
               Log two or more water tests and your chemistry trends will appear here.
             </div>
+            {onAddPastTest && (
+              <button className="btn btn-ghost btn-sm" onClick={onAddPastTest}>+ Add a past result</button>
+            )}
           </div>
         </div>
       </div>
@@ -1102,7 +1244,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
       <div className="card-section">
         <div className="eyebrow" style={{ marginBottom: 12 }}>Trends over time</div>
         {history.length < 2 ? (
-          <p style={{ fontSize: 14, color: 'var(--gray-mid)', marginBottom: 12 }}>
+          <p style={{ fontSize: 17, color: 'var(--gray-mid)', marginBottom: 12 }}>
             One test logged. Log another and the line graph will chart your trend.
           </p>
         ) : null}
@@ -1150,7 +1292,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
         )}
 
         {allEvents.length === 0 && gaps.length === 0 ? (
-          <p style={{ fontSize: 14, color: 'var(--gray-mid)' }}>
+          <p style={{ fontSize: 17, color: 'var(--gray-mid)' }}>
             No events yet. Add green-pool treatments, shock doses or equipment changes to see them on your timeline.
           </p>
         ) : (
@@ -1159,10 +1301,10 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
               <div key={`gap-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--gray-line)' }}>
                 <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--amber)', flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-dark)' }}>
+                  <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--gray-dark)' }}>
                     Untested for {g.days} days{g.ongoing ? ' (ongoing)' : ''}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--gray-mid)' }}>
+                  <div style={{ fontSize: 17, color: 'var(--gray-mid)' }}>
                     {formatDate(g.start)} → {g.ongoing ? 'now' : formatDate(g.end)} · auto-detected
                   </div>
                 </div>
@@ -1176,8 +1318,8 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
                 <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--gray-line)' }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-dark)' }}>{e.title}</div>
-                    <div style={{ fontSize: 12, color: 'var(--gray-mid)' }}>
+                    <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--gray-dark)' }}>{e.title}</div>
+                    <div style={{ fontSize: 17, color: 'var(--gray-mid)' }}>
                       {m.label} · {formatDate(e.date)}{e.notes ? ` · ${e.notes}` : ''}
                     </div>
                   </div>
@@ -1200,38 +1342,71 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
         )}
       </div>
 
-      {/* History table */}
+      <RecordExport
+        owner={owner}
+        pool={poolProfile}
+        equipment={equipment}
+        tests={history}
+        events={events}
+        scoreFn={(t) => scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface)}
+        getPhotoUrl={getPhotoUrl}
+      />
+
+      {/* All tests: each can be edited or deleted from here */}
       <div className="card-section">
-        <div className="eyebrow" style={{ marginBottom: 12 }}>All tests</div>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Score</th>
-              <th>Chlorine</th>
-              <th>pH</th>
-              <th>Alkalinity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.slice().reverse().map((t, i) => {
-              const score = scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface);
-              const scoreClass = score >= 80 ? 'tag-good' : score >= 50 ? 'tag-warn' : 'tag-bad';
-              return (
-                <tr key={i}>
-                  <td className="col-muted">{formatDate(t.createdAt)}</td>
-                  <td><span className={`tag ${scoreClass}`}>{score}</span></td>
-                  <td>{fmtReading(t.freeChlor, 'ppm')}</td>
-                  <td>{fmtReading(t.pH, '')}</td>
-                  <td>{fmtReading(t.alkalinity, 'ppm')}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+          <div className="eyebrow" style={{ margin: 0 }}>All tests</div>
+          {onAddPastTest && (
+            <button className="btn btn-ghost btn-sm" onClick={onAddPastTest}>+ Add a past result</button>
+          )}
+        </div>
+        <div className="test-list">
+          {history.slice().sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).map((t) => {
+            const score = scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface);
+            const scoreClass = score >= 80 ? 'tag-good' : score >= 50 ? 'tag-warn' : 'tag-bad';
+            return (
+              <div className="test-row" key={t.id || t.createdAt}>
+                <div className="test-row-date">
+                  {formatDate(t.createdAt)} <span className={`tag ${scoreClass}`}>{score}</span>
+                  {t.source === 'shop_import' && <span className="tag tag-neutral" style={{ marginLeft: 6 }}>Past result</span>}
+                </div>
+                <div className="test-row-readings">
+                  Chlorine {fmtReading(t.freeChlor, 'ppm')} · pH {fmtReading(t.pH, '')} · Alkalinity {fmtReading(t.alkalinity, 'ppm')}
+                </div>
+                {t.editedAt && (
+                  <div className="test-row-edited">
+                    Edited {formatDate(t.editedAt)}.{originalSummary(t.originalReadings) ? ` First saved as ${originalSummary(t.originalReadings)}.` : ''}
+                  </div>
+                )}
+                {t.id && onEditTest && (
+                  <div className="test-row-actions">
+                    {t.printoutPath && onViewPrintout && (
+                      <button className="btn btn-ghost btn-sm" style={{ minHeight: 44 }}
+                              aria-label={`View the printout photo from ${formatDate(t.createdAt)}`}
+                              onClick={() => onViewPrintout(t.printoutPath)}>Photo</button>
+                    )}
+                    <button className="btn btn-ghost btn-sm" style={{ minHeight: 44, minWidth: 64 }}
+                            aria-label={`Edit the test from ${formatDate(t.createdAt)}`}
+                            onClick={() => onEditTest(t)}>Edit</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
+}
+
+// "pH 7.5, chlorine 2 ppm, alkalinity 100 ppm" from the readings as first saved.
+function originalSummary(orig) {
+  if (!orig) return '';
+  const bits = [];
+  if (orig.free_chlorine != null) bits.push(`chlorine ${orig.free_chlorine} ppm`);
+  if (orig.ph != null) bits.push(`pH ${orig.ph}`);
+  if (orig.alkalinity != null) bits.push(`alkalinity ${orig.alkalinity} ppm`);
+  return bits.join(', ');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1305,7 +1480,7 @@ function SetupPage({ poolProfile, onSave }) {
             value={form.volumeL === 0 ? '' : form.volumeL}
             onChange={e => set('volumeL', e.target.value)}
           />
-          <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 4 }}>
+          <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 4 }}>
             {parseFloat(form.volumeL) > 0
               ? `≈ ${(parseFloat(form.volumeL) / 1000).toLocaleString('en-AU', { maximumFractionDigits: 1 })} kL`
               : 'Length × width × average depth (m) × 1,000 = litres'}
@@ -1314,13 +1489,13 @@ function SetupPage({ poolProfile, onSave }) {
           {/* Volume calculator (beta feedback: asked for on both devices) */}
           <details style={{ marginTop: 8 }}>
             <summary style={{
-              fontSize: 13, color: 'var(--blue)', cursor: 'pointer',
+              fontSize: 17, color: 'var(--blue)', cursor: 'pointer',
               minHeight: 44, display: 'flex', alignItems: 'center',
             }}>
               Not sure? Work it out from your pool's size
             </summary>
             <div style={{ paddingTop: 4 }}>
-              <div style={{ fontSize: 13, color: 'var(--gray-mid)', marginBottom: 8 }}>
+              <div style={{ fontSize: 17, color: 'var(--gray-mid)', marginBottom: 8 }}>
                 Measure in metres. Average depth = (shallow end + deep end) ÷ 2.
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
@@ -1343,7 +1518,7 @@ function SetupPage({ poolProfile, onSave }) {
                 ))}
               </div>
               {volumeEstimate && (
-                <div style={{ fontSize: 13, marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontSize: 17, marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span>Estimated ≈ <strong>{volumeEstimate.toLocaleString('en-AU')} L</strong></span>
                   <button
                     className="btn btn-ghost btn-sm"
@@ -1411,7 +1586,7 @@ function SetupPage({ poolProfile, onSave }) {
         {form.yearBuilt && (
           <label style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            fontSize: 13, color: 'var(--gray-mid)', cursor: 'pointer', marginTop: -4, marginBottom: 16,
+            fontSize: 17, color: 'var(--gray-mid)', cursor: 'pointer', marginTop: -4, marginBottom: 16,
           }}>
             <input
               type="checkbox"
@@ -1434,7 +1609,7 @@ function SetupPage({ poolProfile, onSave }) {
             value={form.fenceCertDate || ''}
             onChange={e => set('fenceCertDate', e.target.value)}
           />
-          <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 4 }}>
+          <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 4 }}>
             The date on your fencing compliance certificate — part of your pool's
             record, handy at sale or inspection time.
           </div>
@@ -1458,7 +1633,7 @@ function SetupPage({ poolProfile, onSave }) {
                     border: active ? '1px solid var(--water-deep)' : 'var(--border)',
                     background: active ? 'var(--water-pale)' : 'var(--white)',
                     color: active ? 'var(--water-deep)' : 'var(--gray-mid)',
-                    fontSize: 14, fontWeight: active ? 600 : 400,
+                    fontSize: 17, fontWeight: active ? 600 : 400,
                     cursor: 'pointer',
                   }}
                 >
@@ -1471,7 +1646,7 @@ function SetupPage({ poolProfile, onSave }) {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
           {saved && (
-            <span style={{ fontSize: 13, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 17, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               {Icon.check} Saved
             </span>
           )}
@@ -1525,16 +1700,16 @@ function SeasonalTipsPage({ season }) {
               background: 'var(--water-pale)',
               color: 'var(--blue)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'var(--font-read)', fontSize: 13, fontWeight: 500,
+              fontFamily: 'var(--font-read)', fontSize: 17, fontWeight: 500,
               flexShrink: 0, marginTop: 1,
             }}>
               {i + 1}
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--black)', marginBottom: 3 }}>
+              <div style={{ fontSize: 17, fontWeight: 500, color: 'var(--black)', marginBottom: 3 }}>
                 {tip.title}
               </div>
-              <div style={{ fontSize: 13, color: 'var(--gray-mid)', lineHeight: 1.55 }}>
+              <div style={{ fontSize: 17, color: 'var(--gray-mid)', lineHeight: 1.55 }}>
                 {tip.body}
               </div>
             </div>
@@ -1696,7 +1871,7 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
         </div>
       </div>
       {error && (
-        <p role="alert" style={{ fontSize: 13, color: '#e05555', marginTop: 10, marginBottom: 0 }}>
+        <p role="alert" style={{ fontSize: 17, color: '#e05555', marginTop: 10, marginBottom: 0 }}>
           {error}
         </p>
       )}
@@ -1713,7 +1888,7 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
 // ─────────────────────────────────────────────────────────────────
 // EQUIPMENT PAGE
 // ─────────────────────────────────────────────────────────────────
-function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAutoOpened }) {
+function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAutoOpened, careItems = [], onCareDone }) {
   const EMPTY_FORM = { type: 'Pump', brand: '', model: '', notes: '', installed_at: '' };
   const [mode, setMode] = useState('list'); // 'list' | 'new' | item-id string
   const [form, setForm] = useState(EMPTY_FORM);
@@ -1809,31 +1984,31 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
                     <PoolIcon name={equipmentIconName(item.type)} size={22} />
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--black)' }}>{item.type}</div>
-                    <div style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 2 }}>
+                    <div style={{ fontSize: 17, fontWeight: 500, color: 'var(--black)' }}>{item.type}</div>
+                    <div style={{ fontSize: 17, color: 'var(--gray-mid)', marginTop: 2 }}>
                       {[item.brand, item.model].filter(Boolean).join(' · ') || 'No brand/model added'}
                     </div>
                     {item.installed_at && (
-                      <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 2 }}>
+                      <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 2 }}>
                         Installed {formatDate(item.installed_at)}
                       </div>
                     )}
                     {item.notes && (
-                      <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 2 }}>{item.notes}</div>
+                      <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 2 }}>{item.notes}</div>
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                     <button
                       className="btn btn-ghost btn-sm"
                       onClick={() => startEdit(item)}
-                      style={{ fontSize: 12 }}
+                      style={{ fontSize: 17 }}
                     >
                       Edit
                     </button>
                     <button
                       className="btn btn-ghost btn-sm"
                       onClick={() => onDelete(item.id)}
-                      style={{ fontSize: 12, color: '#e05555' }}
+                      style={{ fontSize: 17, color: '#e05555' }}
                     >
                       Remove
                     </button>
@@ -1844,6 +2019,8 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
           ))}
         </div>
       )}
+
+      <EquipmentCare items={careItems} onDone={onCareDone} />
 
       {/* Add new inline form */}
       {mode === 'new' && (
@@ -1871,7 +2048,7 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
           <div className="eyebrow" style={{ marginBottom: 4 }}>
             {equipment.length === 0 ? 'Add your equipment' : 'Still to add'}
           </div>
-          <p style={{ fontSize: 13, color: 'var(--gray-mid)', lineHeight: 1.5, marginBottom: 12 }}>
+          <p style={{ fontSize: 17, color: 'var(--gray-mid)', lineHeight: 1.5, marginBottom: 12 }}>
             {equipment.length === 0
               ? "Add whatever you have — skip anything you don't. Each one sharpens your reminders."
               : "Anything else on your pool? Skip what you don't have."}
@@ -1892,8 +2069,8 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
                 <PoolIcon name={equipmentIconName(pr.type)} size={22} />
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--black)' }}>{pr.type}</div>
-                <div style={{ fontSize: 12, color: 'var(--gray-mid)', marginTop: 2 }}>{pr.why}</div>
+                <div style={{ fontSize: 17, fontWeight: 500, color: 'var(--black)' }}>{pr.type}</div>
+                <div style={{ fontSize: 17, color: 'var(--gray-mid)', marginTop: 2 }}>{pr.why}</div>
               </div>
               <button
                 className="btn btn-primary btn-sm"
@@ -2016,7 +2193,7 @@ function CheckoutButton({ label, className, style, block }) {
         {busy ? 'Opening checkout…' : label}
       </button>
       {error && (
-        <div role="alert" style={{ fontSize: 13, color: 'var(--red)', marginTop: 8, lineHeight: 1.4, textAlign: 'left' }}>
+        <div role="alert" style={{ fontSize: 17, color: 'var(--red)', marginTop: 8, lineHeight: 1.4, textAlign: 'left' }}>
           {error}
         </div>
       )}
@@ -2046,14 +2223,14 @@ function TrialExpiredScreen({ pricing, checkoutReturn }) {
         <h2 style={{ fontFamily: 'var(--font-read)', fontSize: 24, fontWeight: 400, color: 'var(--black)', marginBottom: 12 }}>
           Your free trial has ended
         </h2>
-        <p style={{ fontSize: 14, color: 'var(--gray-mid)', lineHeight: 'var(--lh-body)', marginBottom: 28 }}>
+        <p style={{ fontSize: 17, color: 'var(--gray-mid)', lineHeight: 'var(--lh-body)', marginBottom: 28 }}>
           {copy.expiredBody}
         </p>
         <div style={{ background: 'var(--water-pale)', borderRadius: 'var(--r-sm)', padding: '16px 20px', marginBottom: 24 }}>
           <div style={{ fontFamily: 'var(--font-read)', fontSize: 36, fontWeight: 400, color: 'var(--black)' }}>
             {copy.priceLabel || '—'}
           </div>
-          <div style={{ fontSize: 13, color: 'var(--gray-mid)' }}>{copy.priceNote}</div>
+          <div style={{ fontSize: 17, color: 'var(--gray-mid)' }}>{copy.priceNote}</div>
         </div>
         <CheckoutButton
           block
@@ -2061,7 +2238,7 @@ function TrialExpiredScreen({ pricing, checkoutReturn }) {
           className="btn btn-primary"
           style={{ width: '100%', marginBottom: 10 }}
         />
-        <div style={{ fontSize: 12, color: 'var(--gray-light)', marginTop: 10 }}>
+        <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 10 }}>
           {copy.footnote}
         </div>
       </div>
@@ -2323,6 +2500,7 @@ function buildSteps(test, pool, saltRange) {
         action: ACTION_LABEL[key]?.[state] || key,
         options: doseOptions(key, state, Number(test[key]), kl, saltPool, saltMid),
         notes: [note, ...interactionNotes(key, state, statuses)].filter(Boolean),
+        safety: safetyLineFor(key, state),
         volumeKnown: kl > 0,
       };
     });
@@ -2364,13 +2542,14 @@ function getRecommendations(test, pool, saltRange) {
           ))}
         </div>
         {!s.volumeKnown && (
-          <div style={{ marginTop: 4, fontSize: 13, color: 'var(--gray-light)' }}>
+          <div style={{ marginTop: 4, fontSize: 17, color: 'var(--gray-light)' }}>
             Set your pool volume in Setup to see exact quantities.
           </div>
         )}
         {s.notes.map((n, k) => (
-          <div key={k} style={{ marginTop: 4, fontSize: 13, color: 'var(--gray-mid)' }}>{n}</div>
+          <div key={k} style={{ marginTop: 4, fontSize: 17, color: 'var(--gray-mid)' }}>{n}</div>
         ))}
+        <div className="dose-safety">{s.safety}</div>
       </>
     ),
   }));
@@ -2438,7 +2617,7 @@ function VolumeGateModal({ onCancel, onConfirm }) {
           />
         </div>
 
-        <div style={{ fontSize: 13, color: 'var(--gray-mid)', marginBottom: 8 }}>
+        <div style={{ fontSize: 17, color: 'var(--gray-mid)', marginBottom: 8 }}>
           Not sure? Estimate it from the pool's size (metres):
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
@@ -2461,7 +2640,7 @@ function VolumeGateModal({ onCancel, onConfirm }) {
           ))}
         </div>
         {estimate && (
-          <div style={{ fontSize: 13, marginBottom: 16 }}>
+          <div style={{ fontSize: 17, marginBottom: 16 }}>
             Estimated ≈ <strong>{estimate.toLocaleString()} L</strong>{' '}
             <button
               className="btn btn-ghost btn-sm"
@@ -2508,18 +2687,18 @@ function HelpSheet({ onClose, onReplayTour }) {
                 width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                 background: 'var(--water-pale)', color: 'var(--blue)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 13, fontWeight: 600,
+                fontSize: 17, fontWeight: 600,
               }}>
                 {s.n}
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--black)', marginBottom: 2 }}>{s.title}</div>
-                <div style={{ fontSize: 13, color: 'var(--gray-mid)', lineHeight: 1.5 }}>{s.body}</div>
+                <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--black)', marginBottom: 2 }}>{s.title}</div>
+                <div style={{ fontSize: 17, color: 'var(--gray-mid)', lineHeight: 1.5 }}>{s.body}</div>
               </div>
             </div>
           ))}
         </div>
-        <div style={{ fontSize: 13, color: 'var(--gray-mid)', lineHeight: 1.5, marginBottom: 16 }}>
+        <div style={{ fontSize: 17, color: 'var(--gray-mid)', lineHeight: 1.5, marginBottom: 16 }}>
           Every test is saved to your history automatically — that's your warranty
           record. Stuck, or spotted something off? Use the feedback button, or email{' '}
           <a href="mailto:yourconnectionaustralia@gmail.com" style={{ color: 'var(--blue)' }}>
@@ -2580,6 +2759,12 @@ export default function App() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false); // session-scoped
   const [dataReady, setDataReady] = useState(false);
+  const [reminderPrefs, setReminderPrefs] = useState({ available: false, reminderDay: null, monthlyReport: true });
+  // The weekly email links to /?test=1. Remember it from the first render:
+  // sign-in can take a moment, and the form should open once the data is in.
+  const wantsTestLink = useRef(wantsTestForm(window.location.search));
+  const [photoViewer, setPhotoViewer] = useState(null); // printout photo path being viewed
+  const [editor, setEditor] = useState(null); // { mode: 'edit', test } | { mode: 'add' }
   const [openTestForm, setOpenTestForm] = useState(false); // one-shot: open the log form on the Tests page
   const [openEquipmentForm, setOpenEquipmentForm] = useState(false); // one-shot: open the add-equipment form
   const [tourActive, setTourActive] = useState(false); // post-onboarding walkthrough
@@ -2642,6 +2827,7 @@ export default function App() {
         }
       }
       setMemberDetails(memberFormFromRow(profile));
+      setReminderPrefs(prefsFromRow(profile));
       if (pool) setPoolProfile(pool);
       setTestHistory(tests);
       setTestData(tests.length ? tests[tests.length - 1] : null);
@@ -2653,6 +2839,13 @@ export default function App() {
       setDataReady(true);
     }
   };
+
+  useEffect(() => {
+    if (!dataReady || !wantsTestLink.current) return;
+    wantsTestLink.current = false;
+    try { window.history.replaceState(null, '', withoutTestParam(window.location.href)); } catch { /* ignore */ }
+    goLogTest();
+  }, [dataReady]);
 
   useEffect(() => {
     if (user?.id) loadAll(user.id);
@@ -2709,7 +2902,14 @@ export default function App() {
   const persistTest = (data, pool = poolProfile) => {
     const score = calculateScore(data, pool?.sanitiser, saltRange, pool?.surface);
     return db.saveTest(user.id, pool?.id, data, score)
-      .then(() => setSaveProblem(null))
+      .then((id) => {
+        setSaveProblem(null);
+        // Give the on-screen copy its database id so it can be edited or deleted
+        // straight away, without a reload.
+        setTestHistory(h => h.map(t => (t === data ? { ...t, id } : t)));
+        setTestData(td => (td === data ? { ...data, id } : td));
+        if (data.printout) attachPrintout(id, data.printout);
+      })
       .catch(err => {
         console.error('Failed to save test:', err);
         setTestHistory(h => {
@@ -2720,6 +2920,24 @@ export default function App() {
         setSaveProblem({
           message: "That water test didn't save, so it isn't in your history yet. Check your connection and try again.",
           retry: () => finalizeTest(data, pool),
+        });
+      });
+  };
+
+  // Keep the printout photo with a saved test. The test itself is already safe,
+  // so a failed upload says so and offers a retry rather than undoing the test.
+  const attachPrintout = (testId, blob) => {
+    return db.savePrintout(user.id, testId, blob)
+      .then((path) => {
+        const withPath = (t) => (t.id === testId ? { ...t, printoutPath: path, printout: undefined } : t);
+        setTestHistory(h => h.map(withPath));
+        setTestData(td => (td ? withPath(td) : td));
+      })
+      .catch(err => {
+        console.error('Failed to save printout photo:', err);
+        setSaveProblem({
+          message: "Your test is saved, but the printout photo didn't upload. Check your connection and try again.",
+          retry: () => attachPrintout(testId, blob),
         });
       });
   };
@@ -2764,6 +2982,12 @@ export default function App() {
     return saved;
   };
 
+  const handleSaveReminders = async (patch) => {
+    const saved = await db.saveReminderPrefs(user.id, patch);
+    setReminderPrefs(prefsFromRow(saved));
+    return saved;
+  };
+
   const handleSavePool = (profile) => {
     setPoolProfile(p => ({ ...p, ...profile }));
     // Merge with the current profile before persisting — savePoolProfile
@@ -2804,6 +3028,48 @@ export default function App() {
     });
   };
 
+  // ── Fix, delete or back-date a test (History screen) ─────────
+  // These await the database and rethrow, so the editor stays open and says
+  // what went wrong instead of closing on a save that did not happen.
+  const sortTests = (list) => [...list].sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+  const setHistorySorted = (next) => {
+    const sorted = sortTests(next);
+    setTestHistory(sorted);
+    setTestData(sorted.length ? sorted[sorted.length - 1] : null);
+  };
+  const scoreOne = (t) => calculateScore(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface);
+
+  const handleUpdateTest = async (data, { photo, removePhoto } = {}) => {
+    const saved = await db.updateTest(data.id, data, scoreOne(data));
+    let printoutPath = saved.printoutPath;
+    if (photo) printoutPath = await db.savePrintout(user.id, data.id, photo);
+    else if (removePhoto && printoutPath) { await db.removePrintout(data.id, printoutPath); printoutPath = null; }
+    setHistorySorted(testHistory.map(t => (t.id === saved.id ? { ...saved, printoutPath } : t)));
+    setEditor(null);
+  };
+  const handleDeleteTest = async (t) => {
+    await db.deleteTest(t.id, t.printoutPath);
+    setHistorySorted(testHistory.filter(x => x.id !== t.id));
+    setEditor(null);
+  };
+  const handleAddPastTest = async (data, { photo } = {}) => {
+    const test = { ...data, source: 'shop_import' };
+    const id = await db.saveTest(user.id, poolProfile?.id, test, scoreOne(test));
+    let printoutPath = null;
+    if (photo) {
+      // The result is saved. If only the photo fails, say so and keep the test.
+      try { printoutPath = await db.savePrintout(user.id, id, photo); } catch (err) {
+        console.error('Failed to save printout photo:', err);
+        setSaveProblem({
+          message: "Your past result is saved, but the photo didn't upload. Open it from the Chemistry log with Edit to add the photo again.",
+          retry: null,
+        });
+      }
+    }
+    setHistorySorted([...testHistory, { ...test, id, printoutPath }]);
+    setEditor(null);
+  };
+
   const handleAddEvent = (event) => {
     db.addEvent(user.id, poolProfile?.id, event)
       .then(saved => setEvents(e => [...e, saved]))
@@ -2814,6 +3080,23 @@ export default function App() {
           retry: () => handleAddEvent(event),
         });
       });
+  };
+  // "I added it" on a dose step: save it as an event and hand back its id so
+  // the step can take it out again on Undo.
+  const recordDose = async (step, option) => {
+    const saved = await db.addEvent(user.id, poolProfile?.id, doseEventFor(step, option, poolProfile?.volumeL));
+    setEvents(e => [...e, saved]);
+    return saved.id;
+  };
+  // "Done" on an equipment care job: save it as an event, so it is in the history and the record.
+  const handleCareDone = async (task) => {
+    const saved = await db.addEvent(user.id, poolProfile?.id, careEventFor(task));
+    setEvents(e => [...e, saved]);
+  };
+  // "Add to my history" on a problem fixer guide.
+  const handleAddFixerNote = async (event) => {
+    const saved = await db.addEvent(user.id, poolProfile?.id, event);
+    setEvents(e => [...e, saved]);
   };
   const handleDeleteEvent = (id) => {
     setEvents(e => e.filter(x => x.id !== id));
@@ -2864,7 +3147,19 @@ export default function App() {
 
         <main className="main-content">
           {activeView === 'health' && (
-            <HealthScorePage testData={testData} poolProfile={poolProfile} saltRange={saltRange} onLogFirst={goLogTest} user={user} />
+            <HealthScorePage
+              testData={testData}
+              poolProfile={poolProfile}
+              saltRange={saltRange}
+              onLogFirst={goLogTest}
+              onLogTest={goLogTest}
+              events={events}
+              user={user}
+              careDue={careDueNow(equipment, poolProfile, events)}
+              onOpenCare={() => setActiveView('equipment')}
+              onOpenFixer={() => setActiveView('fixer')}
+              reminderOffer={<ReminderOffer prefs={reminderPrefs} testCount={testHistory.length} lastTestAt={testData?.createdAt} onSave={handleSaveReminders} />}
+            />
           )}
           {activeView === 'tests' && (
             <WaterTestsPage
@@ -2872,6 +3167,8 @@ export default function App() {
               onLogTest={handleLogTest}
               onScanTest={() => setShowScan(true)}
               onSpeakTest={() => setShowVoice(true)}
+              onRecordDose={recordDose}
+              onUndoDose={handleDeleteEvent}
               poolProfile={poolProfile}
               saltRange={saltRange}
               autoOpenForm={openTestForm}
@@ -2887,6 +3184,11 @@ export default function App() {
               saltRange={saltRange}
               onAddEvent={handleAddEvent}
               onDeleteEvent={handleDeleteEvent}
+              onEditTest={(test) => setEditor({ mode: 'edit', test })}
+              onAddPastTest={() => setEditor({ mode: 'add' })}
+              onViewPrintout={setPhotoViewer}
+              owner={memberDetails}
+              getPhotoUrl={db.printoutUrl}
             />
           )}
           {activeView === 'setup' && (
@@ -2900,7 +3202,12 @@ export default function App() {
               onDelete={handleDeleteEquipment}
               autoOpenAdd={openEquipmentForm}
               onAutoOpened={() => setOpenEquipmentForm(false)}
+              careItems={careList(equipment, poolProfile, events)}
+              onCareDone={handleCareDone}
             />
+          )}
+          {activeView === 'fixer' && (
+            <ProblemFixer onTestWater={goLogTest} onNote={handleAddFixerNote} />
           )}
           {activeView === 'schedule' && (
             <SeasonalTipsPage season={getAUSeason()} />
@@ -2911,7 +3218,7 @@ export default function App() {
               <p className="page-subtitle">Account settings and preferences</p>
               <div className="card-section">
                 <div className="eyebrow" style={{ marginBottom: 12 }}>Account</div>
-                <div style={{ fontSize: 14, color: 'var(--gray-dark)', marginBottom: 16 }}>
+                <div style={{ fontSize: 17, color: 'var(--gray-dark)', marginBottom: 16 }}>
                   Signed in as <strong>{user?.email || 'guest'}</strong>
                 </div>
                 <div className="eyebrow" style={{ marginBottom: 12 }}>Membership</div>
@@ -2961,6 +3268,14 @@ export default function App() {
                   onSave={handleSaveMember}
                 />
               </div>
+              <ReminderSettings prefs={reminderPrefs} onSave={handleSaveReminders} />
+              <AccountData
+                email={user?.email}
+                isPremium={isPremium}
+                plan={plan}
+                loadMyData={() => db.loadMyData(user.id)}
+                deleteAccount={db.deleteMyAccount}
+              />
             </div>
           )}
         </main>
@@ -3057,17 +3372,36 @@ export default function App() {
         <div className="save-problem" role="alert">
           <span className="save-problem-text">{saveProblem.message}</span>
           <div className="save-problem-actions">
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => { const retry = saveProblem.retry; setSaveProblem(null); retry(); }}
-            >
-              Try again
-            </button>
+            {saveProblem.retry && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => { const retry = saveProblem.retry; setSaveProblem(null); retry(); }}
+              >
+                Try again
+              </button>
+            )}
             <button className="btn btn-ghost btn-sm" onClick={() => setSaveProblem(null)}>
               Dismiss
             </button>
           </div>
         </div>
+      )}
+
+      {editor && (
+        <TestEditor
+          mode={editor.mode}
+          test={editor.test}
+          saltPool={isSaltPool(poolProfile?.sanitiser)}
+          saltRange={saltRange}
+          auditTracked={testHistory.length === 0 || testHistory.some(t => t.auditTracked)}
+          onSave={editor.mode === 'edit' ? handleUpdateTest : handleAddPastTest}
+          onDelete={handleDeleteTest}
+          getPhotoUrl={db.printoutUrl}
+          onCancel={() => setEditor(null)}
+        />
+      )}
+      {photoViewer && (
+        <PrintoutViewer path={photoViewer} getUrl={db.printoutUrl} onClose={() => setPhotoViewer(null)} />
       )}
 
       {/* Feedback overlay — accumulate notes per page, submit as a round */}

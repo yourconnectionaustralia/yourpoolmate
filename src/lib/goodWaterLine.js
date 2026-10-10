@@ -17,7 +17,7 @@ export function waterLooksGood(score, hasCorrectiveAction) {
   return Number.isFinite(n) && n >= GOOD_SCORE_MIN && !hasCorrectiveAction;
 }
 
-function melbourneDayNumber(date) {
+export function melbourneDayNumber(date) {
   const parts = new Intl.DateTimeFormat('en-AU', {
     timeZone: MELBOURNE_TZ,
     year: 'numeric',

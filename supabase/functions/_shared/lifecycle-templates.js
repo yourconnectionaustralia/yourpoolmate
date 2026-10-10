@@ -6,7 +6,7 @@ import { FROM_ADDRESS, REPLY_TO } from "./lifecycle-rules.js"
 
 export { FROM_ADDRESS, REPLY_TO }
 
-const APP_URL = "https://app.yourpoolmate.com.au"
+export const APP_URL = "https://app.yourpoolmate.com.au"
 const SITE_URL = "https://yourpoolmate.com.au"
 const HELLO = "hello@yourpoolmate.com.au"
 const FONT = "Arial,Helvetica,sans-serif"
@@ -31,7 +31,7 @@ export function greetingName(raw) {
   return first
 }
 
-function esc(value) {
+export function esc(value) {
   return String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -84,7 +84,7 @@ export const UNSUBSCRIBE_MAILTO = `mailto:${REPLY_TO}?subject=Unsubscribe`
 const UNSUBSCRIBE_TEXT = `Don't want these tips? Reply with "unsubscribe" or email ${REPLY_TO} and we'll stop them.`
 const UNSUBSCRIBE_HTML = `<p style="font-size:12px;color:#666;text-align:center;margin:0 0 24px;">Don't want these tips? <a href="${UNSUBSCRIBE_MAILTO}" style="color:#0B7799;">Unsubscribe</a> or reply with "unsubscribe" and we'll stop them.</p>`
 
-function button(href, label) {
+export function button(href, label) {
   return `<tr>
             <td align="center" style="padding-bottom:18px;">
               <a href="${esc(href)}" style="display:inline-block;background:#0B7799;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;padding:12px 20px;border-radius:8px;">${esc(label)}</a>
@@ -92,11 +92,11 @@ function button(href, label) {
           </tr>`
 }
 
-function para(html, style = "font-size:16px;line-height:1.55;padding-bottom:14px;") {
+export function para(html, style = "font-size:16px;line-height:1.55;padding-bottom:14px;") {
   return `<tr><td style="${style}">${html}</td></tr>`
 }
 
-function signoff(closingHtml) {
+export function signoff(closingHtml) {
   return `${para(closingHtml, "font-size:15px;line-height:1.5;color:#333;")}
           <tr>
             <td style="font-size:15px;line-height:1.5;color:#333;">
@@ -106,7 +106,7 @@ function signoff(closingHtml) {
           </tr>`
 }
 
-function shell(title, preview, rows, footer) {
+export function shell(title, preview, rows, footer) {
   const footerHtml = footer
     ? `<p style="font-size:12px;color:#888;margin:16px 0 0;max-width:560px;">${footer}</p>`
     : ""
@@ -139,7 +139,7 @@ function shell(title, preview, rows, footer) {
 </html>`
 }
 
-function plainSignoff(closing) {
+export function plainSignoff(closing) {
   return `${closing}
 
 - James

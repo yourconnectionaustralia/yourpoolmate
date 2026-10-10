@@ -1,4 +1,4 @@
-# Sweeps L1–L7 lifecycle mail. Does not apply migrations and does not
+# Sweeps L1–L7 lifecycle mail, then the weekly test reminder and monthly pool report. Does not apply migrations and does not
 # deploy functions. A push to main does not run this file.
 #
 # Schedule runs on the default branch only, after this workflow is on main.
@@ -52,4 +52,31 @@ jobs:
           fi
           if grep -q '"failed":[1-9]' /tmp/lifecycle-sweep.json; then
             echo "::warning::One or more lifecycle sends failed. They can be retried on the next sweep. Check email_sends."
+          fi
+
+      - name: Sweep weekly reminders and monthly reports
+        env:
+          LIFECYCLE_CRON_SECRET: ${{ secrets.LIFECYCLE_CRON_SECRET }}
+        run: |
+          if [ -z "$LIFECYCLE_CRON_SECRET" ]; then
+            echo "::warning::LIFECYCLE_CRON_SECRET not set — skipping. No email is sent."
+            exit 0
+          fi
+          http_code=$(curl --max-time 90 -sS -o /tmp/recurring-sweep.json -w "%{http_code}" \
+            -X POST "https://chmjvbuesynicrmtkrqp.supabase.co/functions/v1/send-lifecycle-email" \
+            -H "Authorization: Bearer ${LIFECYCLE_CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            -d '{"action":"recurring_sweep"}')
+          echo "HTTP ${http_code}"
+          cat /tmp/recurring-sweep.json
+          echo
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Recurring sweep returned HTTP ${http_code}"
+            exit 1
+          fi
+          if grep -q '"MIGRATION_PENDING"' /tmp/recurring-sweep.json; then
+            echo "::warning::Migration 020 is not applied yet. Run Deploy Supabase with workflow_dispatch. Nothing was sent."
+          fi
+          if grep -q '"failed":[1-9]' /tmp/recurring-sweep.json; then
+            echo "::warning::One or more reminders or reports failed. They are retried on the next sweep."
           fi

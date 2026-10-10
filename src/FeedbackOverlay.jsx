@@ -169,7 +169,7 @@ export default function FeedbackOverlay({ activeView }) {
                   width: 24, height: 24, borderRadius: '50%',
                   background: 'var(--water-deep)', color: 'var(--white)',
                   border: '2px solid var(--white)', boxShadow: 'var(--shadow-float)',
-                  fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  fontSize: 17, fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >
@@ -184,14 +184,14 @@ export default function FeedbackOverlay({ activeView }) {
                   border: 'var(--border)', borderRadius: 'var(--r-sm)',
                   boxShadow: 'var(--shadow-modal)', padding: '10px 12px', zIndex: 1,
                 }}>
-                  <div style={{ fontSize: 12, color: 'var(--gray-dark)', lineHeight: 1.5, marginBottom: 6 }}>
+                  <div style={{ fontSize: 17, color: 'var(--gray-dark)', lineHeight: 1.5, marginBottom: 6 }}>
                     {n.note}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 10, color: 'var(--gray-light)' }}>{n.x}, {n.y}</span>
+                    <span style={{ fontSize: 17, color: 'var(--gray-light)' }}>{n.x}, {n.y}</span>
                     <button
                       onClick={() => removeNote(n._idx)}
-                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: 11, padding: 0, textDecoration: 'underline' }}
+                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: 17, padding: 0, textDecoration: 'underline' }}
                     >
                       Remove
                     </button>
@@ -220,7 +220,7 @@ export default function FeedbackOverlay({ activeView }) {
               transform: 'translateX(-50%)', cursor: 'default',
               background: 'var(--water-deep)', color: 'var(--white)',
               borderRadius: 'var(--r-full)', padding: '8px 14px',
-              fontSize: 13, fontWeight: 500, boxShadow: 'var(--shadow-float)',
+              fontSize: 17, fontWeight: 500, boxShadow: 'var(--shadow-float)',
               display: 'flex', alignItems: 'center', gap: 12, whiteSpace: 'nowrap',
             }}
           >
@@ -229,7 +229,7 @@ export default function FeedbackOverlay({ activeView }) {
               onClick={cancelPlacing}
               style={{
                 border: 'none', background: 'rgba(255,255,255,0.2)', color: 'var(--white)',
-                borderRadius: 'var(--r-xs)', padding: '3px 8px', fontSize: 12, cursor: 'pointer',
+                borderRadius: 'var(--r-xs)', padding: '3px 8px', fontSize: 17, cursor: 'pointer',
               }}
             >
               Cancel
@@ -281,7 +281,7 @@ export default function FeedbackOverlay({ activeView }) {
                       display: 'flex', alignItems: 'center', gap: 8,
                       background: 'var(--water-pale)', color: 'var(--water-mid)',
                       borderRadius: 'var(--r-sm)', padding: '7px 10px', marginBottom: 8,
-                      fontSize: 12, fontWeight: 500,
+                      fontSize: 17, fontWeight: 500,
                     }}>
                       <PoolIcon name="pin" size={14} />
                       <span style={{ flex: 1 }}>
@@ -319,7 +319,7 @@ export default function FeedbackOverlay({ activeView }) {
                     onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addNote(); }}
                     rows={3}
                   />
-                  <div style={{ fontSize: 11, color: 'var(--gray-light)', marginTop: 4 }}>
+                  <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 4 }}>
                     ⌘↵ to add
                   </div>
                   <button
@@ -374,7 +374,7 @@ export default function FeedbackOverlay({ activeView }) {
                     <div className="feedback-submit-section">
                       <input
                         className="input"
-                        style={{ fontSize: 13, marginBottom: 8 }}
+                        style={{ fontSize: 17, marginBottom: 8 }}
                         placeholder="Round name (optional) — e.g. Beta round 1"
                         value={roundLabel}
                         onChange={e => setRoundLabel(e.target.value)}
