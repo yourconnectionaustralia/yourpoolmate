@@ -333,14 +333,14 @@ export default function AuthScreen() {
             We've sent a confirmation link to <strong>{email}</strong>.
             Click it to activate your account and start your free trial.
           </p>
-          <p className={styles.formSubtext} style={{ fontSize: '0.9rem', marginTop: 'var(--space-2)' }}>
+          <p className={styles.formSubtext} style={{ fontSize: '1.0625rem', marginTop: 'var(--space-2)' }}>
             Can't find it? Check your spam or junk folder — and make sure the
             address above is spelled correctly.
           </p>
 
           {error && <p className={styles.error} role="alert">{error}</p>}
           {resendNote && (
-            <p className={styles.formSubtext} role="status" style={{ fontSize: '0.9rem' }}>
+            <p className={styles.formSubtext} role="status" style={{ fontSize: '1.0625rem' }}>
               {resendNote}
             </p>
           )}
@@ -390,7 +390,7 @@ export default function AuthScreen() {
             If an account exists for <strong>{email}</strong>, we've sent a
             sign-in link. Tap it to get into your pool mate.
           </p>
-          <p className={styles.formSubtext} style={{ fontSize: '0.9rem', marginTop: 'var(--space-2)' }}>
+          <p className={styles.formSubtext} style={{ fontSize: '1.0625rem', marginTop: 'var(--space-2)' }}>
             Can't find it? Check your spam or junk folder.
           </p>
           <button
@@ -415,7 +415,7 @@ export default function AuthScreen() {
             If an account exists for <strong>{email}</strong>, we've sent a link to
             reset your password. Tap it to choose a new one.
           </p>
-          <p className={styles.formSubtext} style={{ fontSize: '0.9rem', marginTop: 'var(--space-2)' }}>
+          <p className={styles.formSubtext} style={{ fontSize: '1.0625rem', marginTop: 'var(--space-2)' }}>
             Can't find it? Check your spam or junk folder.
           </p>
           <button

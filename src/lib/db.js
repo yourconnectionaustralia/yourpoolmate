@@ -23,6 +23,11 @@ export function rowToTest(r) {
     healthScore: r.health_score ?? null, // score as stored at test time
     createdAt: r.tested_at,
     source: r.source || 'manual',
+    // Set by the database when a reading is changed after the first save
+    // (migration 018). auditTracked is false until that migration is applied.
+    editedAt: r.edited_at ?? null,
+    originalReadings: r.original_readings ?? null,
+    auditTracked: 'edited_at' in r,
   };
 }
 
@@ -57,6 +62,37 @@ export async function saveTest(userId, poolId, test, healthScore) {
     .from('water_tests').insert(row).select('id').single();
   if (error) throw error;
   return data.id;
+}
+
+function testToRow(test, healthScore) {
+  return {
+    // ?? not || — a 0 reading is real data, not "untested".
+    ph:             test.pH ?? null,
+    free_chlorine:  test.freeChlor ?? null,
+    alkalinity:     test.alkalinity ?? null,
+    cyanuric_acid:  test.cyanuricAcid ?? null,
+    calcium:        test.calciumHardness ?? null,
+    salt:           test.salt ?? null,
+    phosphates:     test.phosphates ?? null,
+    tds:            test.tds ?? null,
+    health_score:   Number.isFinite(healthScore) ? Math.round(healthScore) : null,
+    tested_at:      test.createdAt || new Date().toISOString(),
+  };
+}
+
+// Fix a reading or the date. The database records that it was edited and keeps
+// the readings as first saved (migration 018), so the owner cannot hide an edit.
+export async function updateTest(id, test, healthScore) {
+  const { data, error } = await supabase
+    .from('water_tests').update(testToRow(test, healthScore)).eq('id', id).select('*').single();
+  if (error) throw error;
+  return rowToTest(data);
+}
+
+export async function deleteTest(id) {
+  const { data, error } = await supabase.from('water_tests').delete().eq('id', id).select('id');
+  if (error) throw error;
+  if (!data?.length) throw new Error('That test was not deleted.');
 }
 
 // ── Pool profile ─────────────────────────────────────────────

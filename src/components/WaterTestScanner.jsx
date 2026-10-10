@@ -200,8 +200,8 @@ export default function WaterTestScanner({ onClose, onComplete }) {
               }}
             >
               <span style={{ display: 'flex' }}>{CameraIcon}</span>
-              <span style={{ fontSize: 14, fontWeight: 500 }}>Take a photo</span>
-              <span style={{ fontSize: 12, color: 'var(--gray-light)' }}>or choose one from your gallery</span>
+              <span style={{ fontSize: 17, fontWeight: 500 }}>Take a photo</span>
+              <span style={{ fontSize: 17, color: 'var(--gray-light)' }}>or choose one from your gallery</span>
             </div>
           </>
         )}
@@ -216,7 +216,7 @@ export default function WaterTestScanner({ onClose, onComplete }) {
                    style={{ maxHeight: 120, maxWidth: '100%', borderRadius: 'var(--r-md)', opacity: 0.85 }} />
             )}
             <div className="dot-loader"><span/><span/><span/></div>
-            <span style={{ fontSize: 13, color: 'var(--gray-mid)' }}>Reading your test results…</span>
+            <span style={{ fontSize: 17, color: 'var(--gray-mid)' }}>Reading your test results…</span>
           </div>
         )}
 
@@ -228,12 +228,12 @@ export default function WaterTestScanner({ onClose, onComplete }) {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16, alignItems: 'center' }}>
               <span className={`tag ${confidenceTag.cls}`}>{confidenceTag.text}</span>
               {scansLeft !== null && (
-                <span style={{ fontSize: 12, color: 'var(--gray-light)' }}>{scansLeft} scans left this hour</span>
+                <span style={{ fontSize: 17, color: 'var(--gray-light)' }}>{scansLeft} scans left this hour</span>
               )}
             </div>
             {notes && (
               <div style={{
-                fontSize: 13, color: 'var(--gray-mid)', background: 'var(--gray-bg)',
+                fontSize: 17, color: 'var(--gray-mid)', background: 'var(--gray-bg)',
                 borderRadius: 'var(--r-md)', padding: '10px 12px', marginBottom: 16,
               }}>
                 {notes}
@@ -266,8 +266,8 @@ export default function WaterTestScanner({ onClose, onComplete }) {
             alignItems: 'center', justifyContent: 'center', gap: 12,
             marginBottom: 24, textAlign: 'center',
           }}>
-            <span style={{ fontSize: 14, color: 'var(--gray-dark)', maxWidth: 360 }}>{errorMsg}</span>
-            <span style={{ fontSize: 13, color: 'var(--gray-light)' }}>
+            <span style={{ fontSize: 17, color: 'var(--gray-dark)', maxWidth: 360 }}>{errorMsg}</span>
+            <span style={{ fontSize: 17, color: 'var(--gray-light)' }}>
               You can always type the readings in manually — it takes under a minute.
             </span>
           </div>

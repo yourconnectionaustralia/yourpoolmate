@@ -330,7 +330,7 @@ export function WaterTrendChart({ history = [], events = [], gaps = [], saltRang
           {available.map(s => (
             <span key={s.key} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 12, color: 'var(--gray-mid)',
+              fontSize: 17, color: 'var(--gray-mid)',
             }}>
               <span style={{
                 width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
