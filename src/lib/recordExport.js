@@ -4,6 +4,8 @@
 // This file only prepares the content (dates, labels, CSV text). Drawing the
 // PDF is in recordPdf.js. Nothing here talks to the network.
 
+import { isCareEvent } from './equipmentCare.js';
+
 const TZ = 'Australia/Melbourne';
 
 export function formatDay(iso) {
@@ -38,7 +40,7 @@ const EVENT_LABELS = {
   dose: 'Dose added', shock: 'Shock dose', green_treatment: 'Green-pool treatment', treatment: 'Treatment',
   drain_refill: 'Drain / refill', new_equipment: 'New equipment', custom: 'Note',
 };
-export const eventLabel = (type) => EVENT_LABELS[type] || 'Note';
+export const eventLabel = (type) => EVENT_LABELS[type] || (isCareEvent(type) ? 'Equipment care' : 'Note');
 
 // Rounded to 2 places so a stray 7.6000000000000005 never reaches the page.
 const num = (v) => (v === null || v === undefined || v === '' ? null : Math.round(Number(v) * 100) / 100);

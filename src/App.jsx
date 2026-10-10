@@ -16,6 +16,8 @@ import TestEditor, { PrintoutViewer } from './components/TestEditor.jsx';
 import InstallGuide from './components/InstallGuide.jsx';
 import { ReminderOffer, ReminderSettings } from './components/ReminderSettings.jsx';
 import AccountData from './components/AccountData.jsx';
+import EquipmentCare from './components/EquipmentCare.jsx';
+import { careDueNow, careEventFor, careList, isCareEvent } from './lib/equipmentCare.js';
 import { prefsFromRow, wantsTestForm, withoutTestParam } from './lib/reminderPrefs.js';
 import RecordExport from './components/RecordExport.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
@@ -531,7 +533,7 @@ function useHomeGreeting(user) {
   return melbourneGreeting(user, now);
 }
 
-function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogFirst, onLogTest, user, reminderOffer = null }) {
+function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogFirst, onLogTest, user, reminderOffer = null, careDue = [], onOpenCare }) {
   const greeting = useHomeGreeting(user);
   const surface = poolProfile?.surface;
   const score = testData ? scoreFor(testData, poolProfile?.sanitiser, saltRange, surface) : null;
@@ -639,6 +641,18 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
           </div>
         )}
       </div>
+
+      {careDue.length > 0 && (
+        <div className="callout callout-action care-due-callout">
+          <div className="callout-body">
+            <strong>{careDue.length === 1 ? 'A job is due' : `${careDue.length} jobs are due`}.</strong>{' '}
+            {careDue.map(s => s.task.label).join(', ')}.
+            <div style={{ marginTop: 10 }}>
+              <button className="btn btn-primary btn-sm" onClick={onOpenCare}>Open equipment care</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {reminderOffer}
 
@@ -1113,6 +1127,7 @@ const EVENT_TYPE_OPTIONS = [
 ];
 
 function eventMeta(type) {
+  if (isCareEvent(type)) return { color: 'var(--color-sky)', label: 'Equipment care' };
   return {
     green_treatment: { color: 'var(--green)',     label: 'Green-pool treatment' },
     shock:           { color: 'var(--blue)',      label: 'Shock dose' },
@@ -1859,7 +1874,7 @@ function EquipmentForm({ form, setForm, onSave, onCancel, isNew, saving, error }
 // ─────────────────────────────────────────────────────────────────
 // EQUIPMENT PAGE
 // ─────────────────────────────────────────────────────────────────
-function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAutoOpened }) {
+function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAutoOpened, careItems = [], onCareDone }) {
   const EMPTY_FORM = { type: 'Pump', brand: '', model: '', notes: '', installed_at: '' };
   const [mode, setMode] = useState('list'); // 'list' | 'new' | item-id string
   const [form, setForm] = useState(EMPTY_FORM);
@@ -1990,6 +2005,8 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
           ))}
         </div>
       )}
+
+      <EquipmentCare items={careItems} onDone={onCareDone} />
 
       {/* Add new inline form */}
       {mode === 'new' && (
@@ -3057,6 +3074,11 @@ export default function App() {
     setEvents(e => [...e, saved]);
     return saved.id;
   };
+  // "Done" on an equipment care job: save it as an event, so it is in the history and the record.
+  const handleCareDone = async (task) => {
+    const saved = await db.addEvent(user.id, poolProfile?.id, careEventFor(task));
+    setEvents(e => [...e, saved]);
+  };
   const handleDeleteEvent = (id) => {
     setEvents(e => e.filter(x => x.id !== id));
     db.deleteEvent(id).catch(err => console.error('Failed to delete event:', err));
@@ -3114,6 +3136,8 @@ export default function App() {
               onLogTest={goLogTest}
               events={events}
               user={user}
+              careDue={careDueNow(equipment, poolProfile, events)}
+              onOpenCare={() => setActiveView('equipment')}
               reminderOffer={<ReminderOffer prefs={reminderPrefs} testCount={testHistory.length} lastTestAt={testData?.createdAt} onSave={handleSaveReminders} />}
             />
           )}
@@ -3158,6 +3182,8 @@ export default function App() {
               onDelete={handleDeleteEquipment}
               autoOpenAdd={openEquipmentForm}
               onAutoOpened={() => setOpenEquipmentForm(false)}
+              careItems={careList(equipment, poolProfile, events)}
+              onCareDone={handleCareDone}
             />
           )}
           {activeView === 'schedule' && (

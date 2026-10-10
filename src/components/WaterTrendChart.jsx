@@ -19,6 +19,7 @@
 
 import { useState } from 'react';
 import styles from './WaterTrendChart.module.css';
+import { isCareEvent } from '../lib/equipmentCare.js';
 
 // ── Series config ────────────────────────────────────────────
 // lo/hi = ideal target band. decimals = display precision.
@@ -55,7 +56,9 @@ function eventStyle(type) {
     case 'new_equipment':   return { color: 'var(--color-sky)',  code: 'E', label: 'New equipment' };
     case 'drain_refill':    return { color: 'var(--blue)',       code: 'D', label: 'Drain / refill' };
     case 'treatment':       return { color: 'var(--green)',      code: 'T', label: 'Treatment' };
-    default:                return { color: 'var(--gray-mid)',   code: '•', label: 'Event' };
+    default:
+      if (isCareEvent(type)) return { color: 'var(--color-sky)', code: 'C', label: 'Equipment care' };
+      return { color: 'var(--gray-mid)',   code: '•', label: 'Event' };
   }
 }
 
