@@ -10,7 +10,7 @@ import LoadingScreen from './components/LoadingScreen.jsx';
 import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
-import { memberFormFromRow } from './lib/memberProfile.js';
+import { memberDetailsForForm, memberFormFromRow, shouldCopyAccountDetailsToProfile } from './lib/memberProfile.js';
 import MemberProfileForm from './components/MemberProfileForm.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { analyticsScreen, trackPageView } from './lib/analytics.js';
@@ -2641,7 +2641,18 @@ export default function App() {
           setTrialDaysLeft(Math.max(0, days));
         }
       }
-      setMemberDetails(memberFormFromRow(profile));
+      let details = memberDetailsForForm(profile, user?.user_metadata);
+      // Details saved before migration 017 live on the account. Once the
+      // profile columns exist, move that copy onto the row.
+      if (shouldCopyAccountDetailsToProfile(profile, details)) {
+        try {
+          const saved = await db.saveUserProfile(uid, details);
+          details = memberFormFromRow(saved);
+        } catch (err) {
+          console.error('Failed to move saved details onto the profile:', err);
+        }
+      }
+      setMemberDetails(details);
       if (pool) setPoolProfile(pool);
       setTestHistory(tests);
       setTestData(tests.length ? tests[tests.length - 1] : null);
