@@ -1654,3 +1654,7 @@ img, svg { display: block; max-width: 100%; }
 .fixer-link:hover { border-color: var(--blue); }
 .fixer-link-title { font-size: 18px; font-weight: 600; color: var(--blue); }
 .fixer-link-sub { font-size: 17px; line-height: 1.4; color: var(--gray-mid); }
+
+/* Long button labels wrap on very narrow phones instead of pushing the page wide */
+.btn:not(.btn-nav) { max-width: 100%; white-space: normal; text-align: center; }
+.btn-nav { white-space: nowrap; }
