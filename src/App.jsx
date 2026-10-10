@@ -12,7 +12,7 @@ import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
 import { memberFormFromRow } from './lib/memberProfile.js';
 import MemberProfileForm from './components/MemberProfileForm.jsx';
-import TestEditor from './components/TestEditor.jsx';
+import TestEditor, { PrintoutViewer } from './components/TestEditor.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { analyticsScreen, trackPageView } from './lib/analytics.js';
 import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
@@ -1073,7 +1073,7 @@ function deriveEquipmentEvents(equipment) {
 // ─────────────────────────────────────────────────────────────────
 // CHEMISTRY LOG PAGE  (trend graph + events + history table)
 // ─────────────────────────────────────────────────────────────────
-function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, saltRange, onAddEvent, onDeleteEvent, onEditTest, onAddPastTest }) {
+function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, saltRange, onAddEvent, onDeleteEvent, onEditTest, onAddPastTest, onViewPrintout }) {
   const today = new Date().toISOString().slice(0, 10);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ type: 'green_treatment', title: '', date: today, notes: '' });
@@ -1253,6 +1253,11 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
                 )}
                 {t.id && onEditTest && (
                   <div className="test-row-actions">
+                    {t.printoutPath && onViewPrintout && (
+                      <button className="btn btn-ghost btn-sm" style={{ minHeight: 44 }}
+                              aria-label={`View the printout photo from ${formatDate(t.createdAt)}`}
+                              onClick={() => onViewPrintout(t.printoutPath)}>Photo</button>
+                    )}
                     <button className="btn btn-ghost btn-sm" style={{ minHeight: 44, minWidth: 64 }}
                             aria-label={`Edit the test from ${formatDate(t.createdAt)}`}
                             onClick={() => onEditTest(t)}>Edit</button>
@@ -2625,6 +2630,7 @@ export default function App() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false); // session-scoped
   const [dataReady, setDataReady] = useState(false);
+  const [photoViewer, setPhotoViewer] = useState(null); // printout photo path being viewed
   const [editor, setEditor] = useState(null); // { mode: 'edit', test } | { mode: 'add' }
   const [openTestForm, setOpenTestForm] = useState(false); // one-shot: open the log form on the Tests page
   const [openEquipmentForm, setOpenEquipmentForm] = useState(false); // one-shot: open the add-equipment form
@@ -2761,6 +2767,7 @@ export default function App() {
         // straight away, without a reload.
         setTestHistory(h => h.map(t => (t === data ? { ...t, id } : t)));
         setTestData(td => (td === data ? { ...data, id } : td));
+        if (data.printout) attachPrintout(id, data.printout);
       })
       .catch(err => {
         console.error('Failed to save test:', err);
@@ -2772,6 +2779,24 @@ export default function App() {
         setSaveProblem({
           message: "That water test didn't save, so it isn't in your history yet. Check your connection and try again.",
           retry: () => finalizeTest(data, pool),
+        });
+      });
+  };
+
+  // Keep the printout photo with a saved test. The test itself is already safe,
+  // so a failed upload says so and offers a retry rather than undoing the test.
+  const attachPrintout = (testId, blob) => {
+    return db.savePrintout(user.id, testId, blob)
+      .then((path) => {
+        const withPath = (t) => (t.id === testId ? { ...t, printoutPath: path, printout: undefined } : t);
+        setTestHistory(h => h.map(withPath));
+        setTestData(td => (td ? withPath(td) : td));
+      })
+      .catch(err => {
+        console.error('Failed to save printout photo:', err);
+        setSaveProblem({
+          message: "Your test is saved, but the printout photo didn't upload. Check your connection and try again.",
+          retry: () => attachPrintout(testId, blob),
         });
       });
   };
@@ -2867,20 +2892,34 @@ export default function App() {
   };
   const scoreOne = (t) => calculateScore(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface);
 
-  const handleUpdateTest = async (data) => {
+  const handleUpdateTest = async (data, { photo, removePhoto } = {}) => {
     const saved = await db.updateTest(data.id, data, scoreOne(data));
-    setHistorySorted(testHistory.map(t => (t.id === saved.id ? saved : t)));
+    let printoutPath = saved.printoutPath;
+    if (photo) printoutPath = await db.savePrintout(user.id, data.id, photo);
+    else if (removePhoto && printoutPath) { await db.removePrintout(data.id, printoutPath); printoutPath = null; }
+    setHistorySorted(testHistory.map(t => (t.id === saved.id ? { ...saved, printoutPath } : t)));
     setEditor(null);
   };
   const handleDeleteTest = async (t) => {
-    await db.deleteTest(t.id);
+    await db.deleteTest(t.id, t.printoutPath);
     setHistorySorted(testHistory.filter(x => x.id !== t.id));
     setEditor(null);
   };
-  const handleAddPastTest = async (data) => {
+  const handleAddPastTest = async (data, { photo } = {}) => {
     const test = { ...data, source: 'shop_import' };
     const id = await db.saveTest(user.id, poolProfile?.id, test, scoreOne(test));
-    setHistorySorted([...testHistory, { ...test, id }]);
+    let printoutPath = null;
+    if (photo) {
+      // The result is saved. If only the photo fails, say so and keep the test.
+      try { printoutPath = await db.savePrintout(user.id, id, photo); } catch (err) {
+        console.error('Failed to save printout photo:', err);
+        setSaveProblem({
+          message: "Your past result is saved, but the photo didn't upload. Open it from the Chemistry log with Edit to add the photo again.",
+          retry: null,
+        });
+      }
+    }
+    setHistorySorted([...testHistory, { ...test, id, printoutPath }]);
     setEditor(null);
   };
 
@@ -2969,6 +3008,7 @@ export default function App() {
               onDeleteEvent={handleDeleteEvent}
               onEditTest={(test) => setEditor({ mode: 'edit', test })}
               onAddPastTest={() => setEditor({ mode: 'add' })}
+              onViewPrintout={setPhotoViewer}
             />
           )}
           {activeView === 'setup' && (
@@ -3139,12 +3179,14 @@ export default function App() {
         <div className="save-problem" role="alert">
           <span className="save-problem-text">{saveProblem.message}</span>
           <div className="save-problem-actions">
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => { const retry = saveProblem.retry; setSaveProblem(null); retry(); }}
-            >
-              Try again
-            </button>
+            {saveProblem.retry && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => { const retry = saveProblem.retry; setSaveProblem(null); retry(); }}
+              >
+                Try again
+              </button>
+            )}
             <button className="btn btn-ghost btn-sm" onClick={() => setSaveProblem(null)}>
               Dismiss
             </button>
@@ -3161,8 +3203,12 @@ export default function App() {
           auditTracked={testHistory.length === 0 || testHistory.some(t => t.auditTracked)}
           onSave={editor.mode === 'edit' ? handleUpdateTest : handleAddPastTest}
           onDelete={handleDeleteTest}
+          getPhotoUrl={db.printoutUrl}
           onCancel={() => setEditor(null)}
         />
+      )}
+      {photoViewer && (
+        <PrintoutViewer path={photoViewer} getUrl={db.printoutUrl} onClose={() => setPhotoViewer(null)} />
       )}
 
       {/* Feedback overlay — accumulate notes per page, submit as a round */}

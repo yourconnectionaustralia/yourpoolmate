@@ -28,6 +28,8 @@ export function rowToTest(r) {
     editedAt: r.edited_at ?? null,
     originalReadings: r.original_readings ?? null,
     auditTracked: 'edited_at' in r,
+    // Path of the printout photo in the private bucket (migration 019).
+    printoutPath: r.printout_path ?? null,
   };
 }
 
@@ -89,10 +91,40 @@ export async function updateTest(id, test, healthScore) {
   return rowToTest(data);
 }
 
-export async function deleteTest(id) {
+export async function deleteTest(id, printoutPath) {
   const { data, error } = await supabase.from('water_tests').delete().eq('id', id).select('id');
   if (error) throw error;
   if (!data?.length) throw new Error('That test was not deleted.');
+  if (printoutPath) await supabase.storage.from(PRINTOUT_BUCKET).remove([printoutPath]).catch(() => {});
+}
+
+// ── Printout photos (private bucket, migration 019) ──────────
+// One photo per test at <user_id>/<test_id>.jpg. Never public: the app opens a
+// photo with a link that expires in a few minutes.
+
+const PRINTOUT_BUCKET = 'printouts';
+
+export async function savePrintout(userId, testId, blob) {
+  const path = `${userId}/${testId}.jpg`;
+  const up = await supabase.storage.from(PRINTOUT_BUCKET)
+    .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+  if (up.error) throw up.error;
+  const { error } = await supabase.from('water_tests').update({ printout_path: path }).eq('id', testId);
+  if (error) throw error;
+  return path;
+}
+
+export async function printoutUrl(path) {
+  const { data, error } = await supabase.storage.from(PRINTOUT_BUCKET).createSignedUrl(path, 300);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+export async function removePrintout(testId, path) {
+  const { error } = await supabase.from('water_tests').update({ printout_path: null }).eq('id', testId);
+  if (error) throw error;
+  // Best effort: the row no longer points at it either way.
+  await supabase.storage.from(PRINTOUT_BUCKET).remove([path]).catch(() => {});
 }
 
 // ── Pool profile ─────────────────────────────────────────────

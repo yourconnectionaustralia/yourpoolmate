@@ -743,8 +743,10 @@ img, svg { display: block; max-width: 100%; }
   font-weight: 500;
   color: var(--gray-mid);
   margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: var(--ls-eyebrow);
+  /* Sentence case: capitals at 17px wrap to three lines on a phone. */
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.3;
 }
 
 .input-group {
@@ -1541,7 +1543,7 @@ img, svg { display: block; max-width: 100%; }
   padding: 28px 24px;
   max-width: 480px;
 }
-.test-editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.test-editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
 @media (max-width: 340px) { .test-editor-grid { grid-template-columns: 1fr; } }
 .test-editor-problem { margin: 8px 0 0; font-size: 17px; color: var(--red); line-height: 1.4; }
 .test-editor-actions { margin-top: 16px; flex-wrap: wrap; }
@@ -1564,3 +1566,9 @@ img, svg { display: block; max-width: 100%; }
 .test-row-readings { grid-column: 1; color: var(--gray-mid); font-size: 17px; }
 .test-row-edited { grid-column: 1 / -1; color: var(--gray-mid); font-size: 17px; }
 .test-row-actions { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; align-items: center; }
+
+.keep-photo { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 16px; font-size: 17px; line-height: 1.4; color: var(--gray-dark); cursor: pointer; }
+.keep-photo input { width: 24px; height: 24px; margin-top: 2px; flex-shrink: 0; accent-color: var(--water-deep); }
+.printout-photo { display: block; max-width: 100%; max-height: 60vh; margin: 0 auto 16px; border-radius: var(--radius-md, 12px); }
+.photo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0 4px; }
+.photo-row-note { color: var(--gray-mid); font-size: 17px; }

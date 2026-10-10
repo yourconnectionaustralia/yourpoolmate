@@ -5,12 +5,37 @@
 // is told that up front. Deleting asks first, inline, with no browser dialog.
 
 import { useEffect, useRef, useState } from 'react';
+import { compressImage } from '../lib/imageCompress.js';
 import {
   formFromTest, isoFromDateInput, testFormFields, testFromForm, toDateInput, validateReadings, EMPTY_TEST_FORM,
 } from '../lib/testFields.js';
 
+// Shows one printout photo. The link is fetched when it opens and expires in minutes.
+export function PrintoutViewer({ path, getUrl, onClose }) {
+  const [url, setUrl] = useState(null);
+  const [problem, setProblem] = useState('');
+  useEffect(() => {
+    let live = true;
+    getUrl(path).then(u => { if (live) setUrl(u); })
+      .catch(() => { if (live) setProblem("Couldn't open that photo. Check your connection and try again."); });
+    return () => { live = false; };
+  }, [path, getUrl]);
+  return (
+    <div className="modal-backdrop" onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ zIndex: 450 }}>
+      <div className="modal-panel modal-panel-tall" role="dialog" aria-modal="true" aria-label="Printout photo"
+           onClick={e => e.stopPropagation()}>
+        <div className="modal-title">Printout photo</div>
+        {!url && !problem && <p className="modal-body">Opening…</p>}
+        {problem && <p role="alert" className="test-editor-problem">{problem}</p>}
+        {url && <img className="printout-photo" src={url} alt="Photo of the pool shop printout for this test" />}
+        <div className="modal-actions"><button className="btn btn-primary btn-sm" onClick={onClose}>Close</button></div>
+      </div>
+    </div>
+  );
+}
+
 export default function TestEditor({
-  mode, test, saltPool, saltRange, auditTracked = true, onSave, onDelete, onCancel,
+  mode, test, saltPool, saltRange, auditTracked = true, getPhotoUrl, onSave, onDelete, onCancel,
 }) {
   const isEdit = mode === 'edit';
   const today = toDateInput(new Date().toISOString());
@@ -19,6 +44,23 @@ export default function TestEditor({
   const [problem, setProblem] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [photo, setPhoto] = useState(null);            // { blob, dataUrl } chosen in this editor
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [viewing, setViewing] = useState(false);
+  const photoRef = useRef(null);
+  const hasSavedPhoto = isEdit && !!test.printoutPath && !removePhoto;
+
+  const pickPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const { blob, dataUrl } = await compressImage(file);
+      setPhoto({ blob, dataUrl });
+      setRemovePhoto(false);
+      setProblem('');
+    } catch (err) { setProblem(err.message); }
+  };
 
   const confirmRef = useRef(null);
   useEffect(() => { if (confirmDelete) confirmRef.current?.scrollIntoView({ block: 'nearest' }); }, [confirmDelete]);
@@ -36,7 +78,7 @@ export default function TestEditor({
         ...(isEdit ? { id: test.id } : {}),
         ...testFromForm(form),
         createdAt: isoFromDateInput(date, isEdit ? test.createdAt : null),
-      });
+      }, { photo: photo?.blob || null, removePhoto: removePhoto && !photo });
     } catch (err) {
       setProblem(err?.message || "That didn't save. Check your connection and try again.");
       setBusy(false);
@@ -82,6 +124,29 @@ export default function TestEditor({
           ))}
         </div>
 
+        <div className="photo-row">
+          <input ref={photoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={pickPhoto} />
+          {photo ? (
+            <>
+              <img src={photo.dataUrl} alt="Chosen printout" style={{ height: 56, borderRadius: 8 }} />
+              <span className="photo-row-note">New photo ready</span>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPhoto(null)}>Remove</button>
+            </>
+          ) : hasSavedPhoto ? (
+            <>
+              <span className="photo-row-note">Printout photo on file</span>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setViewing(true)}>View</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => photoRef.current?.click()}>Replace</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setRemovePhoto(true)}>Remove</button>
+            </>
+          ) : (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => photoRef.current?.click()}>
+              {removePhoto ? 'Add a different photo' : 'Add a photo of the printout'}
+            </button>
+          )}
+        </div>
+        {removePhoto && !photo && <p className="photo-row-note" style={{ margin: '0 0 4px' }}>The photo will be removed when you save.</p>}
+
         {problem && <p role="alert" className="test-editor-problem">{problem}</p>}
 
         {confirmDelete ? (
@@ -110,6 +175,7 @@ export default function TestEditor({
           </div>
         )}
       </div>
+      {viewing && <PrintoutViewer path={test.printoutPath} getUrl={getPhotoUrl} onClose={() => setViewing(false)} />}
     </div>
   );
 }
