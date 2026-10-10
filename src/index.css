@@ -1586,3 +1586,7 @@ img, svg { display: block; max-width: 100%; }
 .install-guide-steps { margin: 0; padding-left: 24px; font-size: 17px; line-height: 1.5; color: var(--gray-dark); }
 .install-guide-steps li { margin-bottom: 8px; }
 .topnav-trial-badge { white-space: nowrap; }
+
+/* ── Download your water record ── */
+.record-export-body { font-size: 17px; line-height: 1.5; color: var(--gray-mid); margin: 0 0 12px; }
+.record-export-actions { display: flex; gap: 8px; flex-wrap: wrap; }

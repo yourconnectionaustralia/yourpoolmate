@@ -14,6 +14,7 @@ import { memberFormFromRow } from './lib/memberProfile.js';
 import MemberProfileForm from './components/MemberProfileForm.jsx';
 import TestEditor, { PrintoutViewer } from './components/TestEditor.jsx';
 import InstallGuide from './components/InstallGuide.jsx';
+import RecordExport from './components/RecordExport.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { analyticsScreen, trackPageView } from './lib/analytics.js';
 import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
@@ -1155,7 +1156,7 @@ function deriveEquipmentEvents(equipment) {
 // ─────────────────────────────────────────────────────────────────
 // CHEMISTRY LOG PAGE  (trend graph + events + history table)
 // ─────────────────────────────────────────────────────────────────
-function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, saltRange, onAddEvent, onDeleteEvent, onEditTest, onAddPastTest, onViewPrintout }) {
+function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, saltRange, onAddEvent, onDeleteEvent, onEditTest, onAddPastTest, onViewPrintout, owner, getPhotoUrl }) {
   const today = new Date().toISOString().slice(0, 10);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ type: 'green_treatment', title: '', date: today, notes: '' });
@@ -1306,6 +1307,16 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
           </div>
         )}
       </div>
+
+      <RecordExport
+        owner={owner}
+        pool={poolProfile}
+        equipment={equipment}
+        tests={history}
+        events={events}
+        scoreFn={(t) => scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface)}
+        getPhotoUrl={getPhotoUrl}
+      />
 
       {/* All tests: each can be edited or deleted from here */}
       <div className="card-section">
@@ -3100,6 +3111,8 @@ export default function App() {
               onEditTest={(test) => setEditor({ mode: 'edit', test })}
               onAddPastTest={() => setEditor({ mode: 'add' })}
               onViewPrintout={setPhotoViewer}
+              owner={memberDetails}
+              getPhotoUrl={db.printoutUrl}
             />
           )}
           {activeView === 'setup' && (
