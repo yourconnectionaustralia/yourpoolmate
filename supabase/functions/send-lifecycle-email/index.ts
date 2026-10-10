@@ -11,13 +11,16 @@
 //   POST { "action": "recurring_sweep" }   weekly test reminder + monthly pool report
 //   GET/POST ?u=<signed token>             one-click unsubscribe, no bearer secret
 //                                          (the signed token is the credential)
+//   POST { "action": "test_series", "email": "<address>" }
+//     Sends L1–L7 to one test account straight away, ignoring timing.
+//     The address must be named in EMAIL_ALLOWLIST ("*" does not count).
 //
 // Allowlist and once-only rules live in _shared/lifecycle-email.ts.
 // S1–S3 are not accepted.
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { isTemplateKey } from "../_shared/lifecycle-rules.js"
+import { TEMPLATE_KEYS, isExplicitTestRecipient, isTemplateKey } from "../_shared/lifecycle-rules.js"
 import { deliverLifecycleEmail, sweepLifecycleEmails } from "../_shared/lifecycle-email.ts"
 import { handleUnsubscribe, recurringSweep } from "../_shared/recurring-email.ts"
 
@@ -43,6 +46,22 @@ function authorized(req: Request): boolean {
   const header = req.headers.get("authorization") ?? ""
   const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : ""
   return secretsMatch(token, expected)
+}
+
+// Auth users have no email index in the API, so page through. The beta
+// base is small; stop after 10,000 accounts.
+// deno-lint-ignore no-explicit-any
+async function findUserIdByEmail(db: any, email: string): Promise<string | null> {
+  for (let page = 1; page <= 10; page++) {
+    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error) throw error
+    const users = data?.users ?? []
+    // deno-lint-ignore no-explicit-any
+    const match = users.find((u: any) => String(u.email ?? "").toLowerCase() === email)
+    if (match) return match.id
+    if (users.length < 1000) return null
+  }
+  return null
 }
 
 serve(async (req) => {
@@ -133,6 +152,37 @@ serve(async (req) => {
         ok: result.status === "sent" || result.status === "skipped" || result.status === "already",
         ...result,
       }, status)
+    }
+
+    if (body.action === "test_series") {
+      const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+      if (!isExplicitTestRecipient(email, Deno.env.get("EMAIL_ALLOWLIST"))) {
+        return json({
+          error: "Test series only goes to an address named in EMAIL_ALLOWLIST",
+          code: "NOT_TEST_RECIPIENT",
+        }, 403)
+      }
+      const userId = await findUserIdByEmail(db, email)
+      if (!userId) {
+        return json({ error: "No account with that email. Sign up in the app first.", code: "USER_NOT_FOUND" }, 404)
+      }
+      const results = []
+      for (const template of TEMPLATE_KEYS) {
+        const result = await deliverLifecycleEmail(db, {
+          userId,
+          template,
+          source: "test_series",
+          reclaimSkipped: true,
+          // L6 is the paid thank-you; show the founding receipt version.
+          l6: template === "L6"
+            ? { plan: "founding_lifetime", amountCents: 7900, currency: "aud" }
+            : undefined,
+        })
+        results.push(result)
+        // Stay well under Resend's 10 requests a second.
+        await new Promise((resolve) => setTimeout(resolve, 600))
+      }
+      return json({ ok: results.every((r) => r.status === "sent" || r.status === "already"), user_id: userId, results })
     }
 
     return json({ error: "Unknown action", code: "BAD_ACTION" }, 400)
