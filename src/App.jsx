@@ -17,6 +17,7 @@ import InstallGuide from './components/InstallGuide.jsx';
 import { ReminderOffer, ReminderSettings } from './components/ReminderSettings.jsx';
 import AccountData from './components/AccountData.jsx';
 import EquipmentCare from './components/EquipmentCare.jsx';
+import ProblemFixer from './components/ProblemFixer.jsx';
 import { careDueNow, careEventFor, careList, isCareEvent } from './lib/equipmentCare.js';
 import { prefsFromRow, wantsTestForm, withoutTestParam } from './lib/reminderPrefs.js';
 import RecordExport from './components/RecordExport.jsx';
@@ -370,6 +371,13 @@ function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
           <span className="sidebar-icon">{Icon.droplet}</span>
           Chemistry log
         </div>
+        <div
+          className={`sidebar-item ${activeView === 'fixer' ? 'active' : ''}`}
+          onClick={() => onNav('fixer')}
+        >
+          <span className="sidebar-icon">{Icon.tip}</span>
+          Problem fixer
+        </div>
       </div>
 
       <div className="sidebar-section">
@@ -423,7 +431,7 @@ function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
 // MOBILE BOTTOM NAV
 // ─────────────────────────────────────────────────────────────────
 function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
-  const SECONDARY = ['setup', 'equipment', 'schedule', 'profile'];
+  const SECONDARY = ['fixer', 'setup', 'equipment', 'schedule', 'profile'];
   const moreActive = SECONDARY.includes(activeView);
 
   return (
@@ -485,6 +493,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
 // ─────────────────────────────────────────────────────────────────
 function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
   const items = [
+    { view: 'fixer',     icon: Icon.tip,        label: 'Problem fixer' },
     { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
     { view: 'equipment', icon: Icon.equipment,  label: 'Equipment' },
     { view: 'schedule',  icon: Icon.calendar,   label: SEASONAL_TIPS_LABEL },
@@ -533,7 +542,7 @@ function useHomeGreeting(user) {
   return melbourneGreeting(user, now);
 }
 
-function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogFirst, onLogTest, user, reminderOffer = null, careDue = [], onOpenCare }) {
+function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogFirst, onLogTest, user, reminderOffer = null, careDue = [], onOpenCare, onOpenFixer }) {
   const greeting = useHomeGreeting(user);
   const surface = poolProfile?.surface;
   const score = testData ? scoreFor(testData, poolProfile?.sanitiser, saltRange, surface) : null;
@@ -655,6 +664,11 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
       )}
 
       {reminderOffer}
+
+      <button className="fixer-link" onClick={onOpenFixer}>
+        <span className="fixer-link-title">Water looking off?</span>
+        <span className="fixer-link-sub">Green, cloudy, stinging eyes, foam or stains: open the problem fixer.</span>
+      </button>
 
       <InstallGuide />
 
@@ -3079,6 +3093,11 @@ export default function App() {
     const saved = await db.addEvent(user.id, poolProfile?.id, careEventFor(task));
     setEvents(e => [...e, saved]);
   };
+  // "Add to my history" on a problem fixer guide.
+  const handleAddFixerNote = async (event) => {
+    const saved = await db.addEvent(user.id, poolProfile?.id, event);
+    setEvents(e => [...e, saved]);
+  };
   const handleDeleteEvent = (id) => {
     setEvents(e => e.filter(x => x.id !== id));
     db.deleteEvent(id).catch(err => console.error('Failed to delete event:', err));
@@ -3138,6 +3157,7 @@ export default function App() {
               user={user}
               careDue={careDueNow(equipment, poolProfile, events)}
               onOpenCare={() => setActiveView('equipment')}
+              onOpenFixer={() => setActiveView('fixer')}
               reminderOffer={<ReminderOffer prefs={reminderPrefs} testCount={testHistory.length} lastTestAt={testData?.createdAt} onSave={handleSaveReminders} />}
             />
           )}
@@ -3185,6 +3205,9 @@ export default function App() {
               careItems={careList(equipment, poolProfile, events)}
               onCareDone={handleCareDone}
             />
+          )}
+          {activeView === 'fixer' && (
+            <ProblemFixer onTestWater={goLogTest} onNote={handleAddFixerNote} />
           )}
           {activeView === 'schedule' && (
             <SeasonalTipsPage season={getAUSeason()} />

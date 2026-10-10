@@ -1627,3 +1627,30 @@ img, svg { display: block; max-width: 100%; }
 .care-more summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--blue); }
 .care-more p { margin: 0 0 4px; line-height: 1.5; color: var(--gray-mid); }
 .care-due-callout { margin-bottom: 16px; }
+
+/* Problem fixer */
+.fixer-list { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 12px; }
+.fixer-card { width: 100%; text-align: left; background: var(--white); border: var(--border); border-radius: var(--radius-lg); padding: 16px; min-height: 64px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; font: inherit; }
+.fixer-card:hover { border-color: var(--blue); }
+.fixer-card-title { font-size: 19px; font-weight: 600; color: var(--black); }
+.fixer-card-sub { font-size: 17px; line-height: 1.45; color: var(--gray-mid); }
+.fixer-foot { font-size: 17px; line-height: 1.5; color: var(--gray-mid); }
+.fixer-back { margin-bottom: 12px; }
+.fixer-why { font-size: 18px; line-height: 1.55; color: var(--gray-dark); margin: 0 0 16px; }
+.fixer-safety { background: var(--amber-bg); border-radius: var(--r-md); padding: 16px; margin-bottom: 16px; }
+.fixer-safety ul { margin: 0 0 12px; padding-left: 22px; font-size: 17px; line-height: 1.5; }
+.fixer-safety li { margin-bottom: 6px; }
+.fixer-emergency { font-size: 17px; line-height: 1.5; margin: 0; font-weight: 600; }
+.fixer-h2, .fixer-h3 { font-family: var(--font-heading, inherit); margin: 0 0 8px; }
+.fixer-h2 { font-size: 22px; }
+.fixer-h3 { font-size: 19px; }
+.fixer-steps-card, .fixer-shop, .fixer-note { margin-bottom: 16px; }
+.fixer-steps { margin: 0 0 16px; padding-left: 24px; }
+.fixer-steps li { margin-bottom: 14px; font-size: 17px; line-height: 1.5; }
+.fixer-steps p { margin: 4px 0 0; color: var(--gray-mid); }
+.fixer-step-title { font-weight: 600; font-size: 18px; color: var(--black); }
+.fixer-shop p, .fixer-note p { font-size: 17px; line-height: 1.5; margin: 0 0 10px; }
+.fixer-link { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; margin-bottom: 16px; padding: 14px 16px; min-height: 56px; background: var(--white); border: var(--border); border-radius: var(--radius-lg); cursor: pointer; font: inherit; }
+.fixer-link:hover { border-color: var(--blue); }
+.fixer-link-title { font-size: 18px; font-weight: 600; color: var(--blue); }
+.fixer-link-sub { font-size: 17px; line-height: 1.4; color: var(--gray-mid); }
