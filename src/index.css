@@ -1572,3 +1572,17 @@ img, svg { display: block; max-width: 100%; }
 .printout-photo { display: block; max-width: 100%; max-height: 60vh; margin: 0 auto 16px; border-radius: var(--radius-md, 12px); }
 .photo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0 4px; }
 .photo-row-note { color: var(--gray-mid); font-size: 17px; }
+
+/* ── Dose steps: "I added it" ── */
+.dose-step { padding: 14px 0; }
+.dose-step-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.dose-choice { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.dose-choice-label { font-size: 17px; font-weight: 600; color: var(--gray-dark); }
+.dose-choice-btn { width: 100%; text-align: left; justify-content: flex-start; white-space: normal; height: auto; min-height: 44px; padding-top: 10px; padding-bottom: 10px; }
+
+/* ── Add to home screen guide ── */
+.install-guide-title { font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: var(--cc-depth); margin-bottom: 6px; }
+.install-guide-body { font-size: 17px; color: var(--gray-mid); line-height: 1.5; margin: 0 0 12px; }
+.install-guide-steps { margin: 0; padding-left: 24px; font-size: 17px; line-height: 1.5; color: var(--gray-dark); }
+.install-guide-steps li { margin-bottom: 8px; }
+.topnav-trial-badge { white-space: nowrap; }

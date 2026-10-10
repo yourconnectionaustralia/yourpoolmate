@@ -13,10 +13,12 @@ import * as db from './lib/db.js';
 import { memberFormFromRow } from './lib/memberProfile.js';
 import MemberProfileForm from './components/MemberProfileForm.jsx';
 import TestEditor, { PrintoutViewer } from './components/TestEditor.jsx';
+import InstallGuide from './components/InstallGuide.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { analyticsScreen, trackPageView } from './lib/analytics.js';
 import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
 import { testPrompt } from './lib/testPrompt.js';
+import { doseEventFor, retestPrompt } from './lib/doseLog.js';
 import { DOSE_PLAN_GUIDANCE, safetyLineFor } from './lib/dosingSafety.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
@@ -525,7 +527,7 @@ function useHomeGreeting(user) {
   return melbourneGreeting(user, now);
 }
 
-function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, onLogTest, user }) {
+function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogFirst, onLogTest, user }) {
   const greeting = useHomeGreeting(user);
   const surface = poolProfile?.surface;
   const score = testData ? scoreFor(testData, poolProfile?.sanitiser, saltRange, surface) : null;
@@ -563,6 +565,8 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, onLogTe
   // Overdue: a banner with a button. Otherwise a quiet "next test due" line,
   // unless the good-water line under the score already says it.
   const prompt = testPrompt(lastTest);
+  // A dose or shock with no test since is a more useful thing to say than "last tested".
+  const retest = retestPrompt(events, lastTest);
 
   return (
     <div>
@@ -576,7 +580,19 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, onLogTe
         )}
       </div>
 
-      {prompt?.kind === 'stale' && (
+      {retest && (
+        <div className="callout callout-info test-prompt" role="status">
+          <span className="callout-icon" style={{ color: 'var(--blue)', display: 'inline-flex' }}>{Icon.info}</span>
+          <div className="callout-body">
+            <strong>{retest.title}.</strong> {retest.body}
+            <div style={{ marginTop: 10 }}>
+              <button className="btn btn-primary btn-sm" onClick={onLogTest || onLogFirst}>Test water</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!retest && prompt?.kind === 'stale' && (
         <div className="callout callout-info test-prompt" role="status">
           <span className="callout-icon" style={{ color: 'var(--blue)', display: 'inline-flex' }}>{Icon.info}</span>
           <div className="callout-body">
@@ -597,7 +613,7 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, onLogTe
         <HealthScoreRing score={score} size={240} />
         {showQuietLine && <p className="score-quiet">{goodWaterLine(lastTest)}</p>}
         {!showQuietLine && <div className="score-headline">{headline}</div>}
-        {!showQuietLine && prompt?.kind === 'upcoming' && <p className="score-next-test">{prompt.text}</p>}
+        {!showQuietLine && !retest && prompt?.kind === 'upcoming' && <p className="score-next-test">{prompt.text}</p>}
         <div className="param-tag-row score-hero-tags">
           {params.map(p => (
             <span key={p.key} className={`tag ${p.tagClass}`}>
@@ -619,6 +635,8 @@ function HealthScorePage({ testData, poolProfile, saltRange, onLogFirst, onLogTe
           </div>
         )}
       </div>
+
+      <InstallGuide />
 
       {/* Readings table */}
       <div className="card-section stack-lg">
@@ -713,16 +731,34 @@ function writeCompletedAt(testKey, iso) {
   } catch { /* non-fatal */ }
 }
 
-function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
+// Which logged dose belongs to which step, so "Undo" can take it back out.
+const DOSE_IDS_STORE = 'ypm.doseEvents.v1';
+
+function readDoseIds(testKey) {
+  try { return JSON.parse(localStorage.getItem(DOSE_IDS_STORE) || '{}')[testKey] || {}; } catch { return {}; }
+}
+
+function writeDoseIds(testKey, ids) {
+  try {
+    const all = JSON.parse(localStorage.getItem(DOSE_IDS_STORE) || '{}');
+    all[testKey] = ids;
+    localStorage.setItem(DOSE_IDS_STORE, JSON.stringify(all));
+  } catch { /* non-fatal */ }
+}
+
+function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest, onRecordDose, onUndoDose }) {
   const testKey = test.id || test.createdAt;
   const steps = buildSteps(test, poolProfile, saltRange);
   const [done, setDone] = useState(() => readActionsDone(testKey));
   const [completedAt, setCompletedAt] = useState(() => readCompletedAt(testKey));
+  const [doseIds, setDoseIds] = useState(() => readDoseIds(testKey));
+  const [choosing, setChoosing] = useState(null); // step key waiting for "which one did you add?"
+  const [doseNote, setDoseNote] = useState('');
 
-  const toggle = (k) => {
+  const setStepDone = (k, on) => {
     setDone(prev => {
       const next = new Set(prev);
-      if (next.has(k)) next.delete(k); else next.add(k);
+      if (on) next.add(k); else next.delete(k);
       writeActionsDone(testKey, next);
       // Stamp/clear the completion time as the checklist crosses fully-done.
       // Ticking actions never changes the Health Score — it only starts the
@@ -736,6 +772,39 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
       }
       return next;
     });
+  };
+
+  // "I added it": mark the step and write the chemical and amount to the history.
+  const added = async (step, option) => {
+    setChoosing(null);
+    setDoseNote('');
+    setStepDone(step.key, true);
+    if (!onRecordDose) return;
+    try {
+      const id = await onRecordDose(step, option);
+      if (id) {
+        const next = { ...readDoseIds(testKey), [step.key]: id };
+        writeDoseIds(testKey, next); setDoseIds(next);
+      }
+    } catch {
+      setDoseNote("Ticked off, but that dose didn't save to your history. You can add it as an event in the Chemistry log.");
+    }
+  };
+
+  const undo = (step) => {
+    setChoosing(null);
+    setStepDone(step.key, false);
+    const id = doseIds[step.key];
+    if (id) {
+      onUndoDose?.(id);
+      const next = { ...doseIds }; delete next[step.key];
+      writeDoseIds(testKey, next); setDoseIds(next);
+    }
+  };
+
+  const tap = (step) => {
+    if (step.options.length > 1) setChoosing(step.key);
+    else added(step, step.options[0]);
   };
 
   // Nothing to correct — celebrate the win.
@@ -774,26 +843,13 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
         {steps.map((s, i) => {
           const isDone = done.has(s.key);
           return (
-            <label
+            <div
               key={s.key}
-              style={{
-                display: 'flex', alignItems: 'flex-start', gap: 12,
-                padding: '12px 0', cursor: 'pointer',
-                borderBottom: i < steps.length - 1 ? 'var(--border)' : 'none',
-                minHeight: 44,
-              }}
+              className="dose-step"
+              style={{ borderBottom: i < steps.length - 1 ? 'var(--border)' : 'none' }}
             >
-              <input
-                type="checkbox"
-                checked={isDone}
-                onChange={() => toggle(s.key)}
-                style={{ width: 22, height: 22, marginTop: 1, flexShrink: 0, accentColor: 'var(--water-deep)', cursor: 'pointer' }}
-              />
-              <div style={{ flex: 1, minWidth: 0, opacity: isDone ? 0.55 : 1 }}>
-                <div style={{
-                  fontSize: 17, fontWeight: 600, color: 'var(--black)',
-                  textDecoration: isDone ? 'line-through' : 'none',
-                }}>
+              <div style={{ opacity: isDone ? 0.65 : 1 }}>
+                <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--black)' }}>
                   {steps.length > 1 ? `${i + 1}. ` : ''}{s.action}
                 </div>
                 <div style={{ fontSize: 17, color: 'var(--gray-mid)', marginTop: 3 }}>
@@ -814,10 +870,33 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
                 )}
                 <div className="dose-safety">{s.safety}</div>
               </div>
-            </label>
+
+              <div className="dose-step-actions">
+                {isDone ? (
+                  <>
+                    <span className="tag tag-good">{Icon.check} Added</span>
+                    <button className="btn btn-ghost btn-sm" onClick={() => undo(s)}>Undo</button>
+                  </>
+                ) : choosing === s.key ? (
+                  <div className="dose-choice">
+                    <div className="dose-choice-label">Which one did you add?</div>
+                    {s.options.map((opt, j) => (
+                      <button key={j} className="btn btn-primary btn-sm dose-choice-btn" onClick={() => added(s, opt)}>
+                        {opt.amount ? `${opt.amount} ${opt.name}` : opt.name}
+                      </button>
+                    ))}
+                    <button className="btn btn-ghost btn-sm" onClick={() => setChoosing(null)}>Cancel</button>
+                  </div>
+                ) : (
+                  <button className="btn btn-primary btn-sm" onClick={() => tap(s)}>I added it</button>
+                )}
+              </div>
+            </div>
           );
         })}
       </div>
+
+      {doseNote && <p role="alert" className="test-editor-problem">{doseNote}</p>}
 
       {/* Re-test prompt — chemicals are in, the balance needs time to settle. */}
       {allDone && (
@@ -826,8 +905,8 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
             {Icon.info}
           </span>
           <div className="callout-body">
-            <strong>Chemicals added.</strong> Give them time to circulate, then log a new
-            test <strong>within the next week or so</strong> to confirm the new balance.
+            <strong>Chemicals added.</strong> Give them time to circulate, then test again{' '}
+            <strong>in about 24 hours</strong> to confirm the new balance.
             {onLogRetest && (
               <div style={{ marginTop: 10 }}>
                 <button className="btn btn-primary btn-sm" onClick={onLogRetest}>
@@ -841,13 +920,13 @@ function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest }) {
 
       <p className="dose-guidance">{DOSE_PLAN_GUIDANCE}</p>
       <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 12 }}>
-        Tick each step as you add it. Your Health Score updates when you log the confirming test.
+        Tap "I added it" after each step. It goes in your history with the amount. Your Health Score updates when you log the confirming test.
       </div>
     </div>
   );
 }
 
-function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProfile, saltRange, autoOpenForm, onAutoOpened }) {
+function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, onRecordDose, onUndoDose, poolProfile, saltRange, autoOpenForm, onAutoOpened }) {
   const [showForm, setShowForm] = useState(false);
   const EMPTY_FORM = {
     freeChlor: '', pH: '', alkalinity: '', cyanuricAcid: '', calciumHardness: '',
@@ -993,6 +1072,8 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProf
             poolProfile={poolProfile}
             saltRange={saltRange}
             onLogRetest={() => setShowForm(true)}
+            onRecordDose={onRecordDose}
+            onUndoDose={onUndoDose}
           />
         </>
       ) : (
@@ -1029,6 +1110,7 @@ function eventMeta(type) {
   return {
     green_treatment: { color: 'var(--green)',     label: 'Green-pool treatment' },
     shock:           { color: 'var(--blue)',      label: 'Shock dose' },
+    dose:            { color: 'var(--amber)',     label: 'Dose added' },
     new_equipment:   { color: 'var(--color-sky)', label: 'New equipment' },
     drain_refill:    { color: 'var(--blue)',      label: 'Drain / refill' },
     treatment:       { color: 'var(--green)',     label: 'Treatment' },
@@ -2934,6 +3016,13 @@ export default function App() {
         });
       });
   };
+  // "I added it" on a dose step: save it as an event and hand back its id so
+  // the step can take it out again on Undo.
+  const recordDose = async (step, option) => {
+    const saved = await db.addEvent(user.id, poolProfile?.id, doseEventFor(step, option, poolProfile?.volumeL));
+    setEvents(e => [...e, saved]);
+    return saved.id;
+  };
   const handleDeleteEvent = (id) => {
     setEvents(e => e.filter(x => x.id !== id));
     db.deleteEvent(id).catch(err => console.error('Failed to delete event:', err));
@@ -2983,7 +3072,7 @@ export default function App() {
 
         <main className="main-content">
           {activeView === 'health' && (
-            <HealthScorePage testData={testData} poolProfile={poolProfile} saltRange={saltRange} onLogFirst={goLogTest} onLogTest={goLogTest} user={user} />
+            <HealthScorePage testData={testData} poolProfile={poolProfile} saltRange={saltRange} onLogFirst={goLogTest} onLogTest={goLogTest} events={events} user={user} />
           )}
           {activeView === 'tests' && (
             <WaterTestsPage
@@ -2991,6 +3080,8 @@ export default function App() {
               onLogTest={handleLogTest}
               onScanTest={() => setShowScan(true)}
               onSpeakTest={() => setShowVoice(true)}
+              onRecordDose={recordDose}
+              onUndoDose={handleDeleteEvent}
               poolProfile={poolProfile}
               saltRange={saltRange}
               autoOpenForm={openTestForm}

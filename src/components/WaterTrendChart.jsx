@@ -51,6 +51,7 @@ function eventStyle(type) {
   switch (type) {
     case 'green_treatment': return { color: 'var(--green)',      code: 'G', label: 'Green-pool treatment' };
     case 'shock':           return { color: 'var(--blue)',       code: 'S', label: 'Shock dose' };
+    case 'dose':            return { color: 'var(--amber)',      code: 'A', label: 'Dose added' };
     case 'new_equipment':   return { color: 'var(--color-sky)',  code: 'E', label: 'New equipment' };
     case 'drain_refill':    return { color: 'var(--blue)',       code: 'D', label: 'Drain / refill' };
     case 'treatment':       return { color: 'var(--green)',      code: 'T', label: 'Treatment' };
