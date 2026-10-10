@@ -8,6 +8,9 @@
 //
 //   POST { "action": "sweep" }
 //   POST { "action": "send", "template": "L1", "user_id": "<uuid>" }
+//   POST { "action": "recurring_sweep" }   weekly test reminder + monthly pool report
+//   GET/POST ?u=<signed token>             one-click unsubscribe, no bearer secret
+//                                          (the signed token is the credential)
 //
 // Allowlist and once-only rules live in _shared/lifecycle-email.ts.
 // S1–S3 are not accepted.
@@ -16,6 +19,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { isTemplateKey } from "../_shared/lifecycle-rules.js"
 import { deliverLifecycleEmail, sweepLifecycleEmails } from "../_shared/lifecycle-email.ts"
+import { handleUnsubscribe, recurringSweep } from "../_shared/recurring-email.ts"
 
 const JSON_HEADERS = { "Content-Type": "application/json" }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -42,6 +46,21 @@ function authorized(req: Request): boolean {
 }
 
 serve(async (req) => {
+  // Unsubscribe links come from members' inboxes, so no bearer secret. The
+  // HMAC-signed token in ?u= is checked inside handleUnsubscribe.
+  if (new URL(req.url).searchParams.has("u") && (req.method === "GET" || req.method === "POST")) {
+    if (!(Deno.env.get("LIFECYCLE_CRON_SECRET") ?? "")) return json({ error: "Not configured" }, 503)
+    const udb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    )
+    try {
+      return await handleUnsubscribe(udb, req)
+    } catch (err) {
+      console.error("unsubscribe failed:", err)
+      return json({ error: "Internal error" }, 500)
+    }
+  }
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405)
   }
@@ -72,6 +91,12 @@ serve(async (req) => {
   try {
     if (body.action === "sweep") {
       const result = await sweepLifecycleEmails(db)
+      const status = result.code === "SWEEP_FAILED" ? 500 : 200
+      return json(result, status)
+    }
+
+    if (body.action === "recurring_sweep") {
+      const result = await recurringSweep(db)
       const status = result.code === "SWEEP_FAILED" ? 500 : 200
       return json(result, status)
     }
