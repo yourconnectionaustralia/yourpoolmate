@@ -14,6 +14,8 @@ import { memberFormFromRow } from './lib/memberProfile.js';
 import MemberProfileForm from './components/MemberProfileForm.jsx';
 import TestEditor, { PrintoutViewer } from './components/TestEditor.jsx';
 import InstallGuide from './components/InstallGuide.jsx';
+import { ReminderOffer, ReminderSettings } from './components/ReminderSettings.jsx';
+import { prefsFromRow, wantsTestForm, withoutTestParam } from './lib/reminderPrefs.js';
 import RecordExport from './components/RecordExport.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { analyticsScreen, trackPageView } from './lib/analytics.js';
@@ -528,7 +530,7 @@ function useHomeGreeting(user) {
   return melbourneGreeting(user, now);
 }
 
-function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogFirst, onLogTest, user }) {
+function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogFirst, onLogTest, user, reminderOffer = null }) {
   const greeting = useHomeGreeting(user);
   const surface = poolProfile?.surface;
   const score = testData ? scoreFor(testData, poolProfile?.sanitiser, saltRange, surface) : null;
@@ -636,6 +638,8 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
           </div>
         )}
       </div>
+
+      {reminderOffer}
 
       <InstallGuide />
 
@@ -2723,6 +2727,10 @@ export default function App() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false); // session-scoped
   const [dataReady, setDataReady] = useState(false);
+  const [reminderPrefs, setReminderPrefs] = useState({ available: false, reminderDay: null, monthlyReport: true });
+  // The weekly email links to /?test=1. Remember it from the first render:
+  // sign-in can take a moment, and the form should open once the data is in.
+  const wantsTestLink = useRef(wantsTestForm(window.location.search));
   const [photoViewer, setPhotoViewer] = useState(null); // printout photo path being viewed
   const [editor, setEditor] = useState(null); // { mode: 'edit', test } | { mode: 'add' }
   const [openTestForm, setOpenTestForm] = useState(false); // one-shot: open the log form on the Tests page
@@ -2787,6 +2795,7 @@ export default function App() {
         }
       }
       setMemberDetails(memberFormFromRow(profile));
+      setReminderPrefs(prefsFromRow(profile));
       if (pool) setPoolProfile(pool);
       setTestHistory(tests);
       setTestData(tests.length ? tests[tests.length - 1] : null);
@@ -2798,6 +2807,13 @@ export default function App() {
       setDataReady(true);
     }
   };
+
+  useEffect(() => {
+    if (!dataReady || !wantsTestLink.current) return;
+    wantsTestLink.current = false;
+    try { window.history.replaceState(null, '', withoutTestParam(window.location.href)); } catch { /* ignore */ }
+    goLogTest();
+  }, [dataReady]);
 
   useEffect(() => {
     if (user?.id) loadAll(user.id);
@@ -2931,6 +2947,12 @@ export default function App() {
   const handleSaveMember = async (fields) => {
     const saved = await db.saveUserProfile(user.id, fields);
     setMemberDetails(memberFormFromRow(saved));
+    return saved;
+  };
+
+  const handleSaveReminders = async (patch) => {
+    const saved = await db.saveReminderPrefs(user.id, patch);
+    setReminderPrefs(prefsFromRow(saved));
     return saved;
   };
 
@@ -3083,7 +3105,16 @@ export default function App() {
 
         <main className="main-content">
           {activeView === 'health' && (
-            <HealthScorePage testData={testData} poolProfile={poolProfile} saltRange={saltRange} onLogFirst={goLogTest} onLogTest={goLogTest} events={events} user={user} />
+            <HealthScorePage
+              testData={testData}
+              poolProfile={poolProfile}
+              saltRange={saltRange}
+              onLogFirst={goLogTest}
+              onLogTest={goLogTest}
+              events={events}
+              user={user}
+              reminderOffer={<ReminderOffer prefs={reminderPrefs} testCount={testHistory.length} lastTestAt={testData?.createdAt} onSave={handleSaveReminders} />}
+            />
           )}
           {activeView === 'tests' && (
             <WaterTestsPage
@@ -3187,6 +3218,7 @@ export default function App() {
                   onSave={handleSaveMember}
                 />
               </div>
+              <ReminderSettings prefs={reminderPrefs} onSave={handleSaveReminders} />
             </div>
           )}
         </main>

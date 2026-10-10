@@ -1590,3 +1590,15 @@ img, svg { display: block; max-width: 100%; }
 /* ── Download your water record ── */
 .record-export-body { font-size: 17px; line-height: 1.5; color: var(--gray-mid); margin: 0 0 12px; }
 .record-export-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Reminders (Profile card and the one-time offer on Health) */
+.reminder-title { font-family: var(--font-heading, inherit); font-size: 22px; margin: 0 0 12px; }
+.reminder-help { font-size: 17px; line-height: 1.5; color: var(--gray-mid); margin: 8px 0 0; }
+.reminder-check { display: flex; gap: 12px; align-items: flex-start; font-size: 17px; line-height: 1.5; min-height: 44px; margin-top: 8px; }
+.reminder-check input { width: 24px; height: 24px; flex: none; margin-top: 2px; }
+.reminder-ok { font-size: 17px; color: var(--green-dark, #14753a); margin: 8px 0 0; }
+.reminder-problem { font-size: 17px; color: var(--red, #b3261e); margin: 8px 0 0; }
+.reminder-offer { margin-bottom: 16px; }
+.reminder-offer-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.reminder-offer-row .input { width: auto; min-width: 150px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

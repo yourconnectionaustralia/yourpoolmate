@@ -269,26 +269,48 @@ export async function deleteEvent(id) {
 
 // ── User profile (trial / premium) ───────────────────────────
 
-const USER_PROFILE_COLUMNS = 'is_premium, trial_ends_at, plan, first_name, last_name, address, suburb, postcode';
+// Newest column set first. Each older set is used only when the database
+// does not have the newer columns yet (migrations 017 and 020 are applied by
+// hand), so the membership read keeps working and the rest of the app loads.
+const USER_PROFILE_COLUMN_SETS = [
+  'is_premium, trial_ends_at, plan, first_name, last_name, address, suburb, postcode, reminder_day, monthly_report',
+  'is_premium, trial_ends_at, plan, first_name, last_name, address, suburb, postcode',
+  'is_premium, trial_ends_at, plan',
+];
 
 export async function loadUserProfile(userId) {
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select(USER_PROFILE_COLUMNS)
-    .eq('id', userId)
-    .maybeSingle();
-  // Migration 017 adds the location columns. Until it is applied, keep the
-  // membership read working so the rest of the app still loads.
-  if (error?.code === '42703') {
-    const base = await supabase
+  for (let i = 0; i < USER_PROFILE_COLUMN_SETS.length; i++) {
+    const { data, error } = await supabase
       .from('user_profiles')
-      .select('is_premium, trial_ends_at, plan')
+      .select(USER_PROFILE_COLUMN_SETS[i])
       .eq('id', userId)
       .maybeSingle();
-    if (base.error) throw base.error;
-    return base.data;
+    if (error?.code === '42703' && i < USER_PROFILE_COLUMN_SETS.length - 1) continue;
+    if (error) throw error;
+    return data;
   }
+  return null;
+}
+
+// Weekly reminder day (0 Sunday to 6 Saturday, null = off) and the monthly
+// report switch. Migration 020 grants UPDATE on just these two columns.
+export async function saveReminderPrefs(userId, { reminderDay, monthlyReport }) {
+  const row = {};
+  if (reminderDay !== undefined) {
+    if (reminderDay !== null && !(Number.isInteger(reminderDay) && reminderDay >= 0 && reminderDay <= 6)) {
+      throw new Error('Pick a day of the week.');
+    }
+    row.reminder_day = reminderDay;
+  }
+  if (monthlyReport !== undefined) row.monthly_report = !!monthlyReport;
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .update(row)
+    .eq('id', userId)
+    .select('reminder_day, monthly_report')
+    .maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error("Couldn't save that. Try again.");
   return data;
 }
 
