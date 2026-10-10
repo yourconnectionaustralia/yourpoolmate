@@ -15,6 +15,7 @@ import MemberProfileForm from './components/MemberProfileForm.jsx';
 import TestEditor, { PrintoutViewer } from './components/TestEditor.jsx';
 import InstallGuide from './components/InstallGuide.jsx';
 import { ReminderOffer, ReminderSettings } from './components/ReminderSettings.jsx';
+import AccountData from './components/AccountData.jsx';
 import { prefsFromRow, wantsTestForm, withoutTestParam } from './lib/reminderPrefs.js';
 import RecordExport from './components/RecordExport.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
@@ -3219,6 +3220,13 @@ export default function App() {
                 />
               </div>
               <ReminderSettings prefs={reminderPrefs} onSave={handleSaveReminders} />
+              <AccountData
+                email={user?.email}
+                isPremium={isPremium}
+                plan={plan}
+                loadMyData={() => db.loadMyData(user.id)}
+                deleteAccount={db.deleteMyAccount}
+              />
             </div>
           )}
         </main>

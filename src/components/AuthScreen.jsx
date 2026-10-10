@@ -72,6 +72,14 @@ function PasswordField({ id, label, value, onChange, placeholder, autoComplete, 
 }
 
 export default function AuthScreen() {
+  // Set by Profile just after the account is deleted. Shown once.
+  const [accountDeleted] = useState(() => {
+    try {
+      const flag = sessionStorage.getItem('ypm.accountDeleted') === '1'
+      if (flag) sessionStorage.removeItem('ypm.accountDeleted')
+      return flag
+    } catch { return false }
+  })
   const {
     signInWithEmail,
     signUpWithEmail,
@@ -450,6 +458,11 @@ export default function AuthScreen() {
             <h1 className={styles.heading}>Your Pool Mate</h1>
             <p className={styles.tagline}>Your pool. Your mate. Your water, sorted.</p>
           </div>
+          {accountDeleted && (
+            <p className={styles.formSubtext} role="status" style={{ textAlign: 'center', marginTop: 12 }}>
+              Your account and everything in it has been deleted. Thanks for giving Your Pool Mate a go.
+            </p>
+          )}
 
           <div className={styles.valueProps}>
             <div className={styles.prop}>

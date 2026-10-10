@@ -336,3 +336,46 @@ export async function saveUserProfile(userId, fields) {
   }
   return data;
 }
+
+// ── Your data: download everything, or delete the account ────
+
+export async function loadMyData(userId) {
+  const [profile, pool, tests, equipment, events] = await Promise.all([
+    loadUserProfile(userId),
+    supabase.from('pool_profiles').select('*').eq('user_id', userId).maybeSingle(),
+    supabase.from('water_tests').select('*').eq('user_id', userId).order('tested_at', { ascending: true }),
+    supabase.from('equipment').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabase.from('pool_events').select('*').eq('user_id', userId).order('occurred_at', { ascending: true }),
+  ]);
+  for (const r of [pool, tests, equipment, events]) if (r.error) throw r.error;
+  return {
+    profile,
+    pool: pool.data,
+    tests: tests.data || [],
+    equipment: equipment.data || [],
+    events: events.data || [],
+  };
+}
+
+// Calls the delete-account Edge Function. It cancels a live subscription,
+// removes saved photos and deletes the account. Throws with a plain message
+// and a code on any failure; nothing is half-deleted without saying so.
+export async function deleteMyAccount() {
+  const { data, error } = await supabase.functions.invoke('delete-account', { body: { confirm: 'DELETE' } });
+  let detail = data && typeof data === 'object' ? data : null;
+  if (error) {
+    const ctx = error.context;
+    if (ctx && typeof ctx.json === 'function') {
+      try { detail = await (typeof ctx.clone === 'function' ? ctx.clone().json() : ctx.json()); } catch { /* not JSON */ }
+    }
+    const err = new Error(error.message || 'delete failed');
+    err.code = detail?.code || 'DELETE_FAILED';
+    throw err;
+  }
+  if (!detail?.ok) {
+    const err = new Error(detail?.error || 'delete failed');
+    err.code = detail?.code || 'DELETE_FAILED';
+    throw err;
+  }
+  return true;
+}
