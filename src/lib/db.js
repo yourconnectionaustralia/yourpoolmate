@@ -201,7 +201,7 @@ export async function deleteEvent(id) {
 
 // ── User profile (trial / premium) ───────────────────────────
 
-const USER_PROFILE_COLUMNS = 'is_premium, trial_ends_at, first_name, last_name, address, suburb, postcode';
+const USER_PROFILE_COLUMNS = 'is_premium, trial_ends_at, plan, first_name, last_name, address, suburb, postcode';
 
 export async function loadUserProfile(userId) {
   const { data, error } = await supabase
@@ -214,7 +214,7 @@ export async function loadUserProfile(userId) {
   if (error?.code === '42703') {
     const base = await supabase
       .from('user_profiles')
-      .select('is_premium, trial_ends_at')
+      .select('is_premium, trial_ends_at, plan')
       .eq('id', userId)
       .maybeSingle();
     if (base.error) throw base.error;

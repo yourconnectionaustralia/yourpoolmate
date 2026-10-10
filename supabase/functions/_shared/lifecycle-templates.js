@@ -77,6 +77,13 @@ function assertOutboundStyle(template, blob) {
   if (blob.includes("{{")) throw new Error(`lifecycle ${template} has an unreplaced field`)
 }
 
+// Spam Act 2003 (Cth): every commercial email needs a working unsubscribe.
+// Replies land in REPLY_TO; whoever reads that inbox actions the request
+// within 5 working days. Mirrored as a List-Unsubscribe header.
+export const UNSUBSCRIBE_MAILTO = `mailto:${REPLY_TO}?subject=Unsubscribe`
+const UNSUBSCRIBE_TEXT = `Don't want these tips? Reply with "unsubscribe" or email ${REPLY_TO} and we'll stop them.`
+const UNSUBSCRIBE_HTML = `<p style="font-size:12px;color:#666;text-align:center;margin:0 0 24px;">Don't want these tips? <a href="${UNSUBSCRIBE_MAILTO}" style="color:#0B7799;">Unsubscribe</a> or reply with "unsubscribe" and we'll stop them.</p>`
+
 function button(href, label) {
   return `<tr>
             <td align="center" style="padding-bottom:18px;">
@@ -392,8 +399,8 @@ export function renderTemplate(template, input = {}) {
     template,
     subject: SUBJECTS[template],
     preview: body.preview,
-    text: body.text,
-    html: body.html,
+    text: `${body.text}\n\n${UNSUBSCRIBE_TEXT}`,
+    html: body.html.replace("</body>", `${UNSUBSCRIBE_HTML}\n</body>`),
   }
   assertOutboundStyle(template, `${rendered.subject}\n${rendered.preview}\n${rendered.text}\n${rendered.html}`)
   return rendered
@@ -407,6 +414,7 @@ export function resendPayload(to, rendered) {
     subject: rendered.subject,
     html: rendered.html,
     text: rendered.text,
+    headers: { "List-Unsubscribe": `<${UNSUBSCRIBE_MAILTO}>` },
     tags: [{ name: "template", value: rendered.template }],
   }
 }
