@@ -236,7 +236,7 @@ export function GuestOnboarding({ onComplete, onDismiss }) {
           {step === 2 && <StepSanitiser form={form} set={set} />}
           {step === 3 && <StepEquipment form={form} set={set} />}
           {step === 4 && <StepFirstTest form={form} set={set} />}
-          {step === 5 && <StepComplete />}
+          {step === 5 && <StepComplete hasTest={Boolean(form.ph || form.free_chlorine || form.alkalinity)} />}
         </div>
 
         {/* Save error — never a dead end */}
@@ -541,7 +541,7 @@ function StepFirstTest({ form, set }) {
   )
 }
 
-function StepComplete() {
+function StepComplete({ hasTest }) {
   return (
     <div className={styles.stepWrap}>
       <div className={styles.stepIcon} aria-hidden="true">
@@ -549,8 +549,9 @@ function StepComplete() {
       </div>
       <h2 className={styles.stepHeading}>You're all set</h2>
       <p className={styles.stepBody}>
-        Your pool's Health Score is ready. Next we'll show you around — it takes
-        about 30 seconds.
+        {hasTest
+          ? "Your pool's Health Score is ready. Next we'll show you around. It takes about 30 seconds."
+          : "Your pool is set up. Next we'll show you around, then you can log your first test. It takes about 30 seconds."}
       </p>
       <div className={styles.featureList}>
         <div className={styles.feature}>
@@ -563,7 +564,7 @@ function StepComplete() {
         </div>
         <div className={styles.feature}>
           <TickIcon />
-          Health Score ready
+          {hasTest ? 'Health Score ready' : 'Ready for your first test'}
         </div>
       </div>
     </div>

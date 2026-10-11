@@ -587,7 +587,10 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
     ? `${poolProfile.name} · ${(poolProfile.volumeL ?? (poolProfile.volumeKl || 0) * 1000).toLocaleString('en-AU')} L`
     : null;
 
-  if (!testData) {
+  // No test at all, or a saved test with no readings in it (a stored 0 that is
+  // not bad water). Either way there is nothing to score, so no warning:
+  // just offer the test.
+  if (!testData || emptyTestHeadline(testData, poolProfile?.sanitiser)) {
     return (
       <div>
         <p className="page-title">{greeting}</p>
@@ -596,26 +599,28 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
         <div className="card">
           <div className="empty-state">
             <div className="empty-state-icon">{Icon.flask}</div>
-            <div className="empty-state-title">No tests logged yet</div>
+            <div className="empty-state-title">Log your first test</div>
             <div className="empty-state-body">
-              Add your first water test and your Health Score will appear here within seconds.
+              Add your water test results and your Health Score will appear here within seconds.
             </div>
-            <button className="btn btn-primary btn-sm" onClick={onLogFirst}>Enter first test results</button>
+            <button className="btn btn-primary btn-sm" onClick={onLogTest || onLogFirst}>Log a test now</button>
           </div>
         </div>
+        {/* Green or cloudy before the first test? The fixer works without one. */}
+        <button className="fixer-link" style={{ marginTop: 16 }} onClick={onOpenFixer}>
+          <span className="fixer-link-title">Water looking off?</span>
+          <span className="fixer-link-sub">Green, cloudy, stinging eyes, foam or stains: open the problem fixer.</span>
+        </button>
       </div>
     );
   }
 
   const params = buildParams(testData, saltRange, surface);
-  // A stored 0 with nothing to weigh is an empty test, not bad water.
-  const emptyHeadline = emptyTestHeadline(testData, poolProfile?.sanitiser);
-  const headline = emptyHeadline ?? scoreHeadline(score, params);
+  const headline = scoreHeadline(score, params);
   const primaryAction = getPrimaryAction(testData, poolProfile, saltRange);
   const recommendations = getRecommendations(testData, poolProfile, saltRange);
   // Green ring is 80+. The quiet line only shows when that score has nothing to add.
-  // An empty test never looks "good", even if an old stored score is high.
-  const showQuietLine = !emptyHeadline && waterLooksGood(score, Boolean(primaryAction));
+  const showQuietLine = waterLooksGood(score, Boolean(primaryAction));
   // Overdue: a banner with a button. Otherwise a quiet "next test due" line,
   // unless the good-water line under the score already says it.
   const prompt = testPrompt(lastTest);
@@ -738,7 +743,7 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
 
       {/* Secondary recommendations. A good result already has its one quiet
           line under the score, so the green success callout stays off. */}
-      {!showQuietLine && !emptyHeadline && recommendations.length > 0 && (
+      {!showQuietLine && recommendations.length > 0 && (
         <div className="card-section" style={{ marginTop: 16 }}>
           <div className="eyebrow" style={{ marginBottom: 12 }}>What to do — in order</div>
           <div className="stack">
@@ -2738,7 +2743,7 @@ function HelpSheet({ onClose, onReplayTour }) {
           ))}
         </div>
         <div style={{ fontSize: 17, color: 'var(--gray-mid)', lineHeight: 1.5, marginBottom: 16 }}>
-          Every test is saved to your history automatically. That's your warranty record. Stuck, or spotted something off? Use the feedback button, or email{' '}
+          Every test is saved to your history automatically. That's your warranty record. Stuck, or spotted something off? Use Feedback under Profile, or email{' '}
           <a href="mailto:hello@yourpoolmate.com.au" style={{ color: 'var(--blue)' }}>
             hello@yourpoolmate.com.au
           </a>
@@ -2832,15 +2837,18 @@ export default function App() {
     setMobileDrawerOpen(false);
   }, []);
 
-  // Seen once, never again — the walkthrough is a first-run thing.
+  // Seen once per account, never again — the walkthrough is a first-run thing.
+  // Keyed by account, not just browser, so a second person signing up on the
+  // same phone or laptop still gets their welcome.
+  const tourSeenKey = `ypm_tour_seen_${user?.id ?? 'guest'}`;
   const endTour = useCallback(({ addEquipment = false } = {}) => {
     setTourActive(false);
-    try { localStorage.setItem('ypm_tour_seen', '1'); } catch { /* private mode */ }
+    try { localStorage.setItem(tourSeenKey, '1'); } catch { /* private mode */ }
     if (addEquipment) {
       setActiveView('equipment');
       setOpenEquipmentForm(true);
     }
-  }, []);
+  }, [tourSeenKey]);
 
   // Shared action for every "Log test" entry point: go to Tests and open the form.
   const goLogTest = () => {
@@ -3280,6 +3288,16 @@ export default function App() {
             <div>
               <h1 className="page-title">Profile</h1>
               <p className="page-subtitle">Account settings and preferences</p>
+              <div className="card-section feedback-card">
+                <div className="eyebrow" style={{ marginBottom: 12 }}>Feedback</div>
+                <div style={{ fontSize: 17, color: 'var(--gray-dark)', marginBottom: 12 }}>
+                  Something confusing, missing or not working? Tell us. You can jot notes as you
+                  move around the app and send them together.
+                </div>
+                <button className="btn btn-primary" onClick={openFeedback}>
+                  {feedbackNoteCount > 0 ? `Review ${feedbackNoteCount} note${feedbackNoteCount === 1 ? '' : 's'} and send` : 'Give feedback'}
+                </button>
+              </div>
               <div className="card-section">
                 <div className="eyebrow" style={{ marginBottom: 12 }}>Account</div>
                 <div style={{ fontSize: 17, color: 'var(--gray-dark)', marginBottom: 16 }}>
@@ -3413,7 +3431,7 @@ export default function App() {
             loadAll(user.id);
             // Straight into the walkthrough — unless they've already had it.
             let seen = false;
-            try { seen = localStorage.getItem('ypm_tour_seen') === '1'; } catch { /* private mode */ }
+            try { seen = localStorage.getItem(tourSeenKey) === '1'; } catch { /* private mode */ }
             if (!seen) {
               setActiveView('health');
               setTourActive(true);
