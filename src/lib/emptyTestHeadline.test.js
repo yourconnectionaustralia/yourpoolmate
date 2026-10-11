@@ -65,11 +65,10 @@ test('a measured zero still uses the scored warning, not the empty-test line', (
   assert.equal(emptyTestHeadline(bad, 'Saltwater chlorinator'), null);
 });
 
-test('the home screen asks for a test only when nothing is scorable', () => {
+test('the home screen offers a test, not a warning, when nothing is scorable', () => {
   const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
-  assert.match(app, /const emptyHeadline = emptyTestHeadline\(testData, poolProfile\?\.sanitiser\)/);
-  assert.match(app, /const headline = emptyHeadline \?\? scoreHeadline\(score, params\)/);
-  assert.match(app, /const showQuietLine = !emptyHeadline && waterLooksGood\(score, Boolean\(primaryAction\)\)/);
-  assert.match(app, /\{!showQuietLine && !emptyHeadline && recommendations\.length > 0 && \(/);
+  assert.match(app, /if \(!testData \|\| emptyTestHeadline\(testData, poolProfile\?\.sanitiser\)\) \{/);
+  assert.match(app, /Log a test now/);
+  assert.match(app, /const headline = scoreHeadline\(score, params\)/);
   assert.match(app, /return 'Chemistry needs urgent correction\. Hold off swimming for now\.'/);
 });

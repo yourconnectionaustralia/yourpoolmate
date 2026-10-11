@@ -65,7 +65,7 @@ test('the home screen centres the score and does not invent local weather', () =
   assert.match(app, /score >= 80 \? 'score-ring-fill score-good'/);
   assert.match(app, /score >= 50 \? 'score-ring-fill score-warn'/);
   assert.match(app, /score-ring-fill score-critical/);
-  assert.match(app, /const showQuietLine = !emptyHeadline && waterLooksGood\(score, Boolean\(primaryAction\)\)/);
+  assert.match(app, /const showQuietLine = waterLooksGood\(score, Boolean\(primaryAction\)\)/);
   assert.match(app, /className="card score-hero-card"/);
   assert.match(app, /<HealthScoreRing score=\{score\} size=\{240\} \/>/);
   assert.match(app, /className="score-quiet"/);
