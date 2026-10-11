@@ -9,8 +9,8 @@ Supabase dashboard > Authentication > Emails (or Email Templates):
 | Template | Subject | Paste |
 |----------|---------|-------|
 | Confirm signup | Confirm your email to start your trial | `confirm-signup.html` |
-| Magic link | Your Your Pool Mate sign-in link | `magic-link.html` |
-| Reset password | Reset your Your Pool Mate password | `reset-password.html` |
+| Magic link | Your sign-in link for Your Pool Mate | `magic-link.html` |
+| Reset password | Reset your password for Your Pool Mate | `reset-password.html` |
 
 `{{ .ConfirmationURL }}` is a Supabase variable. Leave it exactly as written.
 

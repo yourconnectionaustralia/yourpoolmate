@@ -1,5 +1,6 @@
 // Weekly test reminder and monthly pool report: subjects and bodies.
-// Same voice and same house rules as L1-L7: hyphens only, no "log", no "photo".
+// Same voice and same house rules as L1-L7: hyphens only, no "log"
+// (the Chemistry log page name is the one exception), no "photo".
 
 import {
   APP_URL, FROM_ADDRESS, REPLY_TO, button, esc, greetingName, para, plainSignoff, shell, signoff,
@@ -8,7 +9,7 @@ import { dayName } from "./recurring-rules.js"
 
 function assertStyle(kind, blob) {
   if (blob.includes("—") || blob.includes("–")) throw new Error(`${kind} contains a dash that is not a hyphen`)
-  if (/\blog\b/i.test(blob)) throw new Error(`${kind} uses "log"`)
+  if (/\blog\b/i.test(blob.replaceAll("Chemistry log", ""))) throw new Error(`${kind} uses "log"`)
   if (/photo/i.test(blob)) throw new Error(`${kind} mentions a photo`)
   if (blob.includes("{{") || blob.includes("undefined") || blob.includes("NaN")) throw new Error(`${kind} has an unreplaced field`)
 }
@@ -91,7 +92,7 @@ export function renderMonthlyReport(input) {
     readingsLine(input.lastReadings),
   ].filter(Boolean)
   const intro = `Here's how your pool went in ${input.monthName}.`
-  const tail = "Your full record, as a PDF or spreadsheet, is in the app, on the History page. It's the page to hand over if you ever need to show your water history."
+  const tail = "Your full record, as a PDF or spreadsheet, is in the app, in the Chemistry log. It's the page to hand over if you ever need to show your water history."
   const unsubLabel = "Don't want this monthly report?"
 
   const factRows = facts.map((f) => para(esc(f), "font-size:16px;line-height:1.5;padding-bottom:8px;")).join("\n")
