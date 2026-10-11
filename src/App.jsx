@@ -2901,6 +2901,19 @@ export default function App() {
     else setDataReady(false);
   }, [user?.id]);
 
+  // Welcome and first-test emails go out as soon as they are due, not at the
+  // next scheduled sweep. New members only; the server decides what is owed.
+  const hasTests = testHistory.length > 0;
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    const joined = new Date(user.created_at).getTime();
+    if (!Number.isFinite(joined) || Date.now() - joined > 32 * 24 * 60 * 60 * 1000) return undefined;
+    db.nudgeMemberEmails();
+    // The first-test follow-up waits 15 minutes by design; ask again just after.
+    const timer = hasTests ? setTimeout(() => db.nudgeMemberEmails(), 16 * 60 * 1000) : null;
+    return () => { if (timer) clearTimeout(timer); };
+  }, [user?.id, hasTests]);
+
   // Server-authoritative price for the paywall and profile CTA.
   // Failure leaves the button price-neutral; create_session still works.
   useEffect(() => {
