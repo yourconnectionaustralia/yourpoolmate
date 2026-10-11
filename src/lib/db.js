@@ -357,6 +357,16 @@ export async function loadMyData(userId) {
   };
 }
 
+// Asks the server to send this member's own welcome / first-test email now,
+// instead of waiting for the next scheduled sweep. Fire and forget: it never
+// blocks or breaks the app, and the server decides whether anything is due
+// (once-only ledger, allowlist and timing rules all live there).
+export async function nudgeMemberEmails() {
+  try {
+    await supabase.functions.invoke('send-lifecycle-email', { body: { action: 'member_sweep' } });
+  } catch { /* the scheduled sweep is the backstop */ }
+}
+
 // Calls the delete-account Edge Function. It cancels a live subscription,
 // removes saved photos and deletes the account. Throws with a plain message
 // and a code on any failure; nothing is half-deleted without saying so.
