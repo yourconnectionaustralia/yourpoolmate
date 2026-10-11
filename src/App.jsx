@@ -22,14 +22,27 @@ import { careDueNow, careEventFor, careList, isCareEvent } from './lib/equipment
 import { prefsFromRow, wantsTestForm, withoutTestParam } from './lib/reminderPrefs.js';
 import RecordExport from './components/RecordExport.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
-import { analyticsScreen, trackPageView } from './lib/analytics.js';
+import {
+  analyticsScreen,
+  armCheckoutPending,
+  consumeCheckoutPending,
+  readCheckoutPending,
+  createTestSaveTracker,
+  rememberCheckoutOffer,
+  testEntry,
+  trackCheckoutStarted,
+  trackEvent,
+  trackPageView,
+  trackTrialStartOnce,
+} from './lib/analytics.js';
+import { emptyTestHeadline } from './lib/emptyTestHeadline.js';
 import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
 import { testPrompt } from './lib/testPrompt.js';
 import { doseEventFor, retestPrompt } from './lib/doseLog.js';
 import { DOSE_PLAN_GUIDANCE, safetyLineFor } from './lib/dosingSafety.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
-import { createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
+import { awaitWithTimeout, CHECKOUT_PRICING_WAIT_MS, createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM ICONS — inline SVG only, no library dependency
@@ -81,6 +94,11 @@ const Icon = {
       <circle cx="12" cy="12" r="9"/>
       <path d="M9.4 9.2a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.3-2.6 4"/>
       <path d="M12 17.2h.01"/>
+    </svg>
+  ),
+  feedback: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
     </svg>
   ),
   camera: (
@@ -339,7 +357,7 @@ const SEASONAL_TIPS = {
 // ─────────────────────────────────────────────────────────────────
 // SIDEBAR
 // ─────────────────────────────────────────────────────────────────
-function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
+function Sidebar({ activeView, onNav, pendingActions, onHelp, onFeedback, feedbackNoteCount = 0 }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-section">
@@ -422,6 +440,25 @@ function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
           <span className="sidebar-icon">{Icon.help}</span>
           Help
         </div>
+        {/* Same feedback panel as before. The menu is the only way in. */}
+        <div
+          className="sidebar-item"
+          onClick={onFeedback}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onFeedback?.();
+            }
+          }}
+        >
+          <span className="sidebar-icon">{Icon.feedback}</span>
+          Feedback
+          {feedbackNoteCount > 0 && (
+            <span className="sidebar-badge">{feedbackNoteCount}</span>
+          )}
+        </div>
       </div>
     </aside>
   );
@@ -491,7 +528,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
 // ─────────────────────────────────────────────────────────────────
 // MOBILE MORE DRAWER (slide-up sheet)
 // ─────────────────────────────────────────────────────────────────
-function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
+function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feedbackNoteCount = 0 }) {
   const items = [
     { view: 'fixer',     icon: Icon.tip,        label: 'Problem fixer' },
     { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
@@ -523,6 +560,17 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
           <span className="mobile-drawer-icon">{Icon.help}</span>
           <span>Help</span>
         </button>
+        <button
+          type="button"
+          className="mobile-drawer-item"
+          onClick={() => { onClose(); onFeedback?.(); }}
+        >
+          <span className="mobile-drawer-icon">{Icon.feedback}</span>
+          <span>Feedback</span>
+          {feedbackNoteCount > 0 && (
+            <span className="mobile-drawer-badge">{feedbackNoteCount}</span>
+          )}
+        </button>
       </div>
     </>
   );
@@ -551,7 +599,10 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
     ? `${poolProfile.name} · ${(poolProfile.volumeL ?? (poolProfile.volumeKl || 0) * 1000).toLocaleString('en-AU')} L`
     : null;
 
-  if (!testData) {
+  // No test at all, or a saved test with no readings in it (a stored 0 that is
+  // not bad water). Either way there is nothing to score, so no warning:
+  // just offer the test.
+  if (!testData || emptyTestHeadline(testData, poolProfile?.sanitiser)) {
     return (
       <div>
         <p className="page-title">{greeting}</p>
@@ -560,13 +611,18 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
         <div className="card">
           <div className="empty-state">
             <div className="empty-state-icon">{Icon.flask}</div>
-            <div className="empty-state-title">No tests logged yet</div>
+            <div className="empty-state-title">Log your first test</div>
             <div className="empty-state-body">
-              Add your first water test and your Health Score will appear here within seconds.
+              Add your water test results and your Health Score will appear here within seconds.
             </div>
-            <button className="btn btn-primary btn-sm" onClick={onLogFirst}>Enter first test results</button>
+            <button className="btn btn-primary btn-sm" onClick={onLogTest || onLogFirst}>Log a test now</button>
           </div>
         </div>
+        {/* Green or cloudy before the first test? The fixer works without one. */}
+        <button className="fixer-link" style={{ marginTop: 16 }} onClick={onOpenFixer}>
+          <span className="fixer-link-title">Water looking off?</span>
+          <span className="fixer-link-sub">Green, cloudy, stinging eyes, foam or stains: open the problem fixer.</span>
+        </button>
       </div>
     );
   }
@@ -2158,7 +2214,7 @@ function CheckoutReturnNote({ status }) {
   );
 }
 
-function CheckoutButton({ label, className, style, block }) {
+function CheckoutButton({ label, className, style, block, pricing }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -2172,6 +2228,23 @@ function CheckoutButton({ label, className, style, block }) {
         successUrl: origin,
         cancelUrl: origin,
       });
+      // Plan comes from get_pricing, never a hardcoded price. Fetch only
+      // when the paywall has not already loaded it, and only for a
+      // moment — a slow price lookup must not delay Stripe.
+      let offer = pricing;
+      if (!offer?.plan) {
+        offer = await awaitWithTimeout(
+          fetchCheckoutPricing(supabase),
+          CHECKOUT_PRICING_WAIT_MS,
+          null,
+        );
+      }
+      try {
+        rememberCheckoutOffer(offer);
+        trackCheckoutStarted(offer);
+      } catch (analyticsErr) {
+        console.error('checkout analytics failed:', analyticsErr);
+      }
       window.location.assign(url);
     } catch (err) {
       console.error('stripe-checkout create_session failed:', err);
@@ -2234,6 +2307,7 @@ function TrialExpiredScreen({ pricing, checkoutReturn }) {
         </div>
         <CheckoutButton
           block
+          pricing={pricing}
           label={copy.claimLabel}
           className="btn btn-primary"
           style={{ width: '100%', marginBottom: 10 }}
@@ -2337,7 +2411,7 @@ function scoreHeadline(score, params) {
       : `Your pool is in great shape — ${issues.length === 1 ? 'one minor tweak' : `${issues.length} minor tweaks`}.`;
   }
   if (score >= 50) return 'A few readings need attention before your next swim.';
-  return 'Chemistry needs urgent correction — hold off swimming for now.';
+  return 'Chemistry needs urgent correction. Hold off swimming for now.';
 }
 
 // Resolve pool volume in kilolitres (kL) for dosing maths.
@@ -2672,7 +2746,7 @@ function VolumeGateModal({ onCancel, onConfirm }) {
 // ─────────────────────────────────────────────────────────────────
 function HelpSheet({ onClose, onReplayTour }) {
   const steps = [
-    { n: '1', title: 'Enter your test results', body: 'Type the readings in, or scan your pool shop\'s printout with your camera — it fills the numbers in for you.' },
+    { n: '1', title: 'Enter your test results', body: 'Type the readings in, or scan your pool shop\'s printout with your camera. It fills the numbers in for you.' },
     { n: '2', title: 'Check your Health Score', body: 'One number out of 100 tells you where your water stands. Green is swim-ready.' },
     { n: '3', title: 'Follow the plan, in order', body: 'The "what to do" list gives exact doses for your pool\'s volume. Re-test a day after dosing.' },
   ];
@@ -2699,11 +2773,10 @@ function HelpSheet({ onClose, onReplayTour }) {
           ))}
         </div>
         <div style={{ fontSize: 17, color: 'var(--gray-mid)', lineHeight: 1.5, marginBottom: 16 }}>
-          Every test is saved to your history automatically — that's your warranty
-          record. Stuck, or spotted something off? Use the feedback button, or email{' '}
-          <a href="mailto:yourconnectionaustralia@gmail.com" style={{ color: 'var(--blue)' }}>
-            yourconnectionaustralia@gmail.com
-          </a>.
+          Every test is saved to your history automatically. That's your warranty record. Stuck, or spotted something off? Use Feedback under Profile, or email{' '}
+          <a href="mailto:hello@yourpoolmate.com.au" style={{ color: 'var(--blue)' }}>
+            hello@yourpoolmate.com.au
+          </a>
         </div>
         <div className="modal-actions">
           {onReplayTour && (
@@ -2743,6 +2816,8 @@ export default function App() {
   const [showScan, setShowScan] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [feedbackOpenToken, setFeedbackOpenToken] = useState(0);
+  const [feedbackNoteCount, setFeedbackNoteCount] = useState(0);
   const [pendingTest, setPendingTest] = useState(null); // test awaiting a pool volume
   const [trialDaysLeft, setTrialDaysLeft] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
@@ -2771,19 +2846,64 @@ export default function App() {
 
   // The shell never changes the URL, so Analytics only sees a new screen
   // when activeView (or an auth/trial gate) changes. Same measurement id
-  // and linker as index.html; this only sends page_view.
+  // and linker as index.html. The first page_view keeps utm_* and gclid;
+  // later screens and custom events use the clean virtual path.
   const signedIn = Boolean(session);
+  const screenNow = analyticsScreen({
+    loading,
+    recoveryMode,
+    signedIn,
+    trialExpired,
+    isPremium,
+    dataReady,
+    activeView,
+  });
   useEffect(() => {
-    trackPageView(analyticsScreen({
-      loading,
-      recoveryMode,
-      signedIn,
-      trialExpired,
+    trackPageView(screenNow);
+  }, [screenNow]);
+
+  // One successful-save counter for this page load. Server history marks
+  // returning members so they do not emit first_test_saved.
+  const testSavesRef = useRef(null);
+  if (testSavesRef.current == null) testSavesRef.current = createTestSaveTracker();
+
+  // trial_start: once per account, when a recent confirmed user first
+  // reaches the signed-in app. The marker lives on auth user_metadata.
+  useEffect(() => {
+    if (loading || recoveryMode || !signedIn || !user || !dataReady) return;
+    if (trialExpired || isPremium) return;
+    trackTrialStartOnce(user, {
       isPremium,
-      dataReady,
-      activeView,
-    }));
-  }, [loading, recoveryMode, signedIn, trialExpired, isPremium, dataReady, activeView]);
+      screen: screenNow,
+      updateUser: (attrs) => supabase.auth.updateUser(attrs),
+    });
+  }, [loading, recoveryMode, signedIn, user, dataReady, trialExpired, isPremium, screenNow]);
+
+  // checkout_completed: after a success return, once the profile shows
+  // is_premium. The return flag itself is cleared on mount, so the offer
+  // is copied to a pending marker that survives a refresh until premium
+  // is seen or the marker expires. A cancelled return does not arm it.
+  useEffect(() => {
+    if (checkoutReturn === 'success') armCheckoutPending();
+    else readCheckoutPending();
+    if (!isPremium || !screenNow) return undefined;
+    const pending = readCheckoutPending();
+    if (!pending) return undefined;
+    if (pending.plan || pricing) {
+      consumeCheckoutPending(pricing, { screen: screenNow });
+      return undefined;
+    }
+    let cancelled = false;
+    fetchCheckoutPricing(supabase)
+      .then((data) => {
+        if (!cancelled) consumeCheckoutPending(data, { screen: screenNow });
+      })
+      .catch((err) => {
+        console.error('stripe-checkout get_pricing failed:', err);
+        if (!cancelled) consumeCheckoutPending(null, { screen: screenNow });
+      });
+    return () => { cancelled = true; };
+  }, [checkoutReturn, isPremium, pricing, screenNow]);
 
   // Walkthrough drives the view so each popup describes the page in front of
   // the user. Stable identity so AppTour's effects don't re-fire every render.
@@ -2792,21 +2912,33 @@ export default function App() {
     setMobileDrawerOpen(false);
   }, []);
 
-  // Seen once, never again — the walkthrough is a first-run thing.
+  // Seen once per account, never again — the walkthrough is a first-run thing.
+  // Keyed by account, not just browser, so a second person signing up on the
+  // same phone or laptop still gets their welcome.
+  const tourSeenKey = `ypm_tour_seen_${user?.id ?? 'guest'}`;
   const endTour = useCallback(({ addEquipment = false } = {}) => {
     setTourActive(false);
-    try { localStorage.setItem('ypm_tour_seen', '1'); } catch { /* private mode */ }
+    try { localStorage.setItem(tourSeenKey, '1'); } catch { /* private mode */ }
     if (addEquipment) {
       setActiveView('equipment');
       setOpenEquipmentForm(true);
     }
-  }, []);
+  }, [tourSeenKey]);
 
   // Shared action for every "Log test" entry point: go to Tests and open the form.
   const goLogTest = () => {
     setActiveView('tests');
     setOpenTestForm(true);
   };
+
+  // Opens the existing feedback panel. A new token each tap so closing
+  // it and choosing Feedback again opens it a second time.
+  const openFeedback = useCallback(() => {
+    setFeedbackOpenToken((n) => n + 1);
+  }, []);
+  const handleFeedbackNoteCount = useCallback((count) => {
+    setFeedbackNoteCount(count);
+  }, []);
 
   // Load everything from Supabase once signed in (and again after onboarding)
   const loadAll = async (uid) => {
@@ -2830,6 +2962,7 @@ export default function App() {
       setReminderPrefs(prefsFromRow(profile));
       if (pool) setPoolProfile(pool);
       setTestHistory(tests);
+      testSavesRef.current.noteServerCount(tests.length);
       setTestData(tests.length ? tests[tests.length - 1] : null);
       setEquipment(equip);
       setEvents(evts || []);
@@ -2867,6 +3000,12 @@ export default function App() {
 
   // Server-authoritative price for the paywall and profile CTA.
   // Failure leaves the button price-neutral; create_session still works.
+  // Drop a previous account's plan as soon as the user changes, so a
+  // checkout event cannot inherit it.
+  useEffect(() => {
+    setPricing(null);
+  }, [user?.id]);
+
   useEffect(() => {
     if (!user?.id || isPremium) return undefined;
     let cancelled = false;
@@ -2914,8 +3053,11 @@ export default function App() {
   // that only exists on screen would vanish on the next launch.
   const persistTest = (data, pool = poolProfile) => {
     const score = calculateScore(data, pool?.sanitiser, saltRange, pool?.surface);
+    const attempt = testSavesRef.current.begin();
     return db.saveTest(user.id, pool?.id, data, score)
       .then((id) => {
+        const name = attempt.finish();
+        if (name) trackEvent(name, { entry: testEntry(data?.source) });
         setSaveProblem(null);
         // Give the on-screen copy its database id so it can be edited or deleted
         // straight away, without a reload.
@@ -2924,6 +3066,7 @@ export default function App() {
         if (data.printout) attachPrintout(id, data.printout);
       })
       .catch(err => {
+        attempt.cancel();
         console.error('Failed to save test:', err);
         setTestHistory(h => {
           const next = h.filter(t => t !== data);
@@ -3156,6 +3299,8 @@ export default function App() {
           onNav={setActiveView}
           pendingActions={pendingActions}
           onHelp={() => setShowHelp(true)}
+          onFeedback={openFeedback}
+          feedbackNoteCount={feedbackNoteCount}
         />
 
         <main className="main-content">
@@ -3229,6 +3374,16 @@ export default function App() {
             <div>
               <h1 className="page-title">Profile</h1>
               <p className="page-subtitle">Account settings and preferences</p>
+              <div className="card-section feedback-card">
+                <div className="eyebrow" style={{ marginBottom: 12 }}>Feedback</div>
+                <div style={{ fontSize: 17, color: 'var(--gray-dark)', marginBottom: 12 }}>
+                  Something confusing, missing or not working? Tell us. You can jot notes as you
+                  move around the app and send them together.
+                </div>
+                <button className="btn btn-primary" onClick={openFeedback}>
+                  {feedbackNoteCount > 0 ? `Review ${feedbackNoteCount} note${feedbackNoteCount === 1 ? '' : 's'} and send` : 'Give feedback'}
+                </button>
+              </div>
               <div className="card-section">
                 <div className="eyebrow" style={{ marginBottom: 12 }}>Account</div>
                 <div style={{ fontSize: 17, color: 'var(--gray-dark)', marginBottom: 16 }}>
@@ -3268,6 +3423,7 @@ export default function App() {
                 <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   {!isPremium && (
                     <CheckoutButton
+                      pricing={pricing}
                       label={membershipCopy.profileLabel}
                       className="btn btn-primary btn-sm"
                     />
@@ -3346,6 +3502,8 @@ export default function App() {
           onNav={setActiveView}
           onClose={() => setMobileDrawerOpen(false)}
           onHelp={() => setShowHelp(true)}
+          onFeedback={openFeedback}
+          feedbackNoteCount={feedbackNoteCount}
         />
       )}
 
@@ -3356,11 +3514,15 @@ export default function App() {
           next app launch until a pool profile exists. */}
       {hasPoolProfile === false && !onboardingDismissed && (
         <GuestOnboarding
+          onTestSaved={() => {
+            const name = testSavesRef.current.savedNow();
+            if (name) trackEvent(name, { entry: 'manual' });
+          }}
           onComplete={() => {
             loadAll(user.id);
             // Straight into the walkthrough — unless they've already had it.
             let seen = false;
-            try { seen = localStorage.getItem('ypm_tour_seen') === '1'; } catch { /* private mode */ }
+            try { seen = localStorage.getItem(tourSeenKey) === '1'; } catch { /* private mode */ }
             if (!seen) {
               setActiveView('health');
               setTourActive(true);
@@ -3417,8 +3579,12 @@ export default function App() {
         <PrintoutViewer path={photoViewer} getUrl={db.printoutUrl} onClose={() => setPhotoViewer(null)} />
       )}
 
-      {/* Feedback overlay — accumulate notes per page, submit as a round */}
-      <FeedbackOverlay activeView={activeView} />
+      {/* Feedback panel. Opened from the desktop sidebar and the mobile More menu. */}
+      <FeedbackOverlay
+        activeView={activeView}
+        openToken={feedbackOpenToken}
+        onNoteCount={handleFeedbackNoteCount}
+      />
     </div>
   );
 }

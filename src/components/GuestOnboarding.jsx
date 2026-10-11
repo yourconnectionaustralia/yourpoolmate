@@ -52,7 +52,7 @@ const FILTER_TYPES = [
   { value: 'DE',         label: 'Diatomaceous earth (DE)' },
 ]
 
-export function GuestOnboarding({ onComplete, onDismiss }) {
+export function GuestOnboarding({ onComplete, onDismiss, onTestSaved }) {
   const { user, setHasPoolProfile } = useAuth()
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -173,6 +173,11 @@ export function GuestOnboarding({ onComplete, onDismiss }) {
 
         const { error: testError } = await supabase.from('water_tests').insert(readings)
         if (testError) throw testError
+        // The row is stored. Tell the shell so first_test_saved can fire.
+        // A throw here must not undo a save that already succeeded.
+        try { onTestSaved?.() } catch (analyticsErr) {
+          console.error('water test analytics failed:', analyticsErr)
+        }
       }
 
       // NOTE: do NOT call setHasPoolProfile(true) here. App renders this
@@ -236,7 +241,7 @@ export function GuestOnboarding({ onComplete, onDismiss }) {
           {step === 2 && <StepSanitiser form={form} set={set} />}
           {step === 3 && <StepEquipment form={form} set={set} />}
           {step === 4 && <StepFirstTest form={form} set={set} />}
-          {step === 5 && <StepComplete />}
+          {step === 5 && <StepComplete hasTest={Boolean(form.ph || form.free_chlorine || form.alkalinity)} />}
         </div>
 
         {/* Save error — never a dead end */}
@@ -541,7 +546,7 @@ function StepFirstTest({ form, set }) {
   )
 }
 
-function StepComplete() {
+function StepComplete({ hasTest }) {
   return (
     <div className={styles.stepWrap}>
       <div className={styles.stepIcon} aria-hidden="true">
@@ -549,8 +554,9 @@ function StepComplete() {
       </div>
       <h2 className={styles.stepHeading}>You're all set</h2>
       <p className={styles.stepBody}>
-        Your pool's Health Score is ready. Next we'll show you around — it takes
-        about 30 seconds.
+        {hasTest
+          ? "Your pool's Health Score is ready. Next we'll show you around. It takes about 30 seconds."
+          : "Your pool is set up. Next we'll show you around, then you can log your first test. It takes about 30 seconds."}
       </p>
       <div className={styles.featureList}>
         <div className={styles.feature}>
@@ -563,7 +569,7 @@ function StepComplete() {
         </div>
         <div className={styles.feature}>
           <TickIcon />
-          Health Score ready
+          {hasTest ? 'Health Score ready' : 'Ready for your first test'}
         </div>
       </div>
     </div>

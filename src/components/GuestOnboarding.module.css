@@ -12,7 +12,7 @@
   left: 0;
   right: 0;
   height: var(--ypm-vvh, 100dvh);
-  z-index: 100;
+  z-index: var(--z-modal, 400);
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: flex-end;

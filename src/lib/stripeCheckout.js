@@ -6,6 +6,40 @@
 
 const CHECKOUT_HOST = 'checkout.stripe.com'
 
+// How long startCheckout may wait for get_pricing before it redirects.
+// Analytics must not hold the user on the paywall.
+export const CHECKOUT_PRICING_WAIT_MS = 1500
+
+/**
+ * Resolve with the promise's value, or with fallback when it is still
+ * pending after ms. A rejection also becomes fallback. The timer does
+ * not reject, so a caller can redirect either way.
+ */
+export function awaitWithTimeout(promise, ms, fallback = null) {
+  return new Promise((resolve) => {
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      resolve(fallback)
+    }, ms)
+    Promise.resolve(promise).then(
+      (value) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve(value)
+      },
+      () => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve(fallback)
+      },
+    )
+  })
+}
+
 export function isStripeCheckoutUrl(url) {
   if (typeof url !== 'string' || !url) return false
   try {
@@ -64,6 +98,9 @@ export async function fetchCheckoutPricing(client) {
     price_aud: data.price_aud,
     interval: data.interval ?? null,
     founding: data.founding === true || data.plan === 'founding_lifetime',
+    // Absent until the edge function that returns test_mode is deployed.
+    // Only an explicit true tags the purchase as internal traffic.
+    test_mode: data.test_mode === true,
   }
 }
 
