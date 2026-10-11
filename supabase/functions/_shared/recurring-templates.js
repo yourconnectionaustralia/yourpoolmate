@@ -91,7 +91,7 @@ export function renderMonthlyReport(input) {
     readingsLine(input.lastReadings),
   ].filter(Boolean)
   const intro = `Here's how your pool went in ${input.monthName}.`
-  const tail = "Your full record, as a PDF or spreadsheet, is in the app under Chemistry. It's the page to hand over if you ever need to show your water history."
+  const tail = "Your full record, as a PDF or spreadsheet, is in the app, on the History page. It's the page to hand over if you ever need to show your water history."
   const unsubLabel = "Don't want this monthly report?"
 
   const factRows = facts.map((f) => para(esc(f), "font-size:16px;line-height:1.5;padding-bottom:8px;")).join("\n")

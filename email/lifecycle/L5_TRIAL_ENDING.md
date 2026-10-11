@@ -12,12 +12,12 @@
 
 Hi {{first_name|there}},
 
-Your 30-day Your Pool Mate trial ends in about three days.
+Your 30-day Your Pool Mate trial ends in a few days.
 
 If the app's been useful - clearer water tests, Health Score, and plain-English next steps - you can keep it. Here's how.
 
-- Founding (while under 300 paid members): $79 once, lifetime access
-- After founding is full: $49/year
+- Founding member rate (you're one of the first 300): $79 once, lifetime access
+- Yearly: $49/year
 
 Open the app to lock in (or keep using the trial until it ends):
 https://app.yourpoolmate.com.au
@@ -34,7 +34,7 @@ hello@yourpoolmate.com.au
 
 Same email, with only this price line:
 
-- After founding is full: $49/year
+- Yearly: $49/year
 
 The `$79` line is omitted. Open-beta extensions do not receive L5.
 

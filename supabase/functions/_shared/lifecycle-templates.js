@@ -268,20 +268,20 @@ function renderL5(name, founding) {
     ? "First 300 keep $79 lifetime. After that it's $49/year."
     : "After the trial, access is $49/year."
   const choicePlain = founding
-    ? `• Founding (while under 300 paid members): $79 once, lifetime access
-• After founding is full: $49/year`
-    : "• After founding is full: $49/year"
+    ? `• Founding member rate (you're one of the first 300): $79 once, lifetime access
+• Yearly: $49/year`
+    : "• Yearly: $49/year"
   const choiceHtml = founding
     ? `<ul style="margin:0;padding-left:20px;">
-                <li style="margin-bottom:8px;"><strong>Founding</strong> (while under 300 paid members): <strong>$79</strong> once, lifetime access</li>
-                <li><strong>After founding is full:</strong> <strong>$49/year</strong></li>
+                <li style="margin-bottom:8px;"><strong>Founding member rate</strong> (you're one of the first 300): <strong>$79</strong> once, lifetime access</li>
+                <li><strong>Yearly:</strong> <strong>$49/year</strong></li>
               </ul>`
     : `<ul style="margin:0;padding-left:20px;">
-                <li><strong>After founding is full:</strong> <strong>$49/year</strong></li>
+                <li><strong>Yearly:</strong> <strong>$49/year</strong></li>
               </ul>`
   const text = `Hi ${name},
 
-Your 30-day Your Pool Mate trial ends in about three days.
+Your 30-day Your Pool Mate trial ends in a few days.
 
 If the app's been useful - clearer water tests, Health Score, and plain-English next steps - you can keep it. Here's how.
 
@@ -295,7 +295,7 @@ No card was required to start the trial. If you do nothing, access ends when the
 ${plainSignoff("If you have any questions, reply to this email.")}`
   const html = shell(SUBJECTS.L5, preview, `
           ${para(`Hi ${esc(name)},`)}
-          ${para("Your 30-day Your Pool Mate trial ends in about three days.")}
+          ${para("Your 30-day Your Pool Mate trial ends in a few days.")}
           ${para("If the app's been useful - clearer water tests, Health Score, and plain-English next steps - you can keep it. Here's how.")}
           ${para(choiceHtml, "font-size:16px;line-height:1.55;padding-bottom:18px;")}
           ${button(APP_URL, "Lock in access")}
@@ -348,7 +348,7 @@ If Your Pool Mate has been useful for your water tests and next steps, you might
 No pressure. If it fits, send them this link:
 ${SITE_URL}
 
-They can try the 30-day free trial (no card to start). Founding is still $79 lifetime while under 300 paid members; after that it's $49/year.
+They can try the 30-day free trial (no card to start). The first 300 members get $79 lifetime; after that it's $49/year.
 
 If you'd rather not share, all good - just keep using the app.
 
@@ -359,7 +359,7 @@ ${plainSignoff("Questions? Reply here. It comes to me.")}`
           ${para("If Your Pool Mate has been useful for your water tests and next steps, you might know one other pool owner who'd want the same clarity.")}
           ${para("No pressure. If it fits, send them this link:", "font-size:16px;line-height:1.55;padding-bottom:18px;")}
           ${button(SITE_URL, "Share Your Pool Mate")}
-          ${para("They can try the 30-day free trial (no card to start). Founding is still $79 lifetime while under 300 paid members; after that it's $49/year.", "font-size:15px;line-height:1.55;padding-bottom:14px;color:#333;")}
+          ${para("They can try the 30-day free trial (no card to start). The first 300 members get $79 lifetime; after that it's $49/year.", "font-size:15px;line-height:1.55;padding-bottom:14px;color:#333;")}
           ${para("If you'd rather not share, all good - just keep using the app.", "font-size:15px;line-height:1.55;padding-bottom:14px;color:#333;")}
           ${signoff("Questions? Reply here. It comes to me.")}
   `, "You're receiving this because you've used Your Pool Mate. We send this ask once.")
