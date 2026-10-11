@@ -23,6 +23,7 @@ import { prefsFromRow, wantsTestForm, withoutTestParam } from './lib/reminderPre
 import RecordExport from './components/RecordExport.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { analyticsScreen, trackPageView } from './lib/analytics.js';
+import { emptyTestHeadline } from './lib/emptyTestHeadline.js';
 import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
 import { testPrompt } from './lib/testPrompt.js';
 import { doseEventFor, retestPrompt } from './lib/doseLog.js';
@@ -607,11 +608,14 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
   }
 
   const params = buildParams(testData, saltRange, surface);
-  const headline = scoreHeadline(score, params);
+  // A stored 0 with nothing to weigh is an empty test, not bad water.
+  const emptyHeadline = emptyTestHeadline(testData, poolProfile?.sanitiser);
+  const headline = emptyHeadline ?? scoreHeadline(score, params);
   const primaryAction = getPrimaryAction(testData, poolProfile, saltRange);
   const recommendations = getRecommendations(testData, poolProfile, saltRange);
   // Green ring is 80+. The quiet line only shows when that score has nothing to add.
-  const showQuietLine = waterLooksGood(score, Boolean(primaryAction));
+  // An empty test never looks "good", even if an old stored score is high.
+  const showQuietLine = !emptyHeadline && waterLooksGood(score, Boolean(primaryAction));
   // Overdue: a banner with a button. Otherwise a quiet "next test due" line,
   // unless the good-water line under the score already says it.
   const prompt = testPrompt(lastTest);
@@ -734,7 +738,7 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
 
       {/* Secondary recommendations. A good result already has its one quiet
           line under the score, so the green success callout stays off. */}
-      {!showQuietLine && recommendations.length > 0 && (
+      {!showQuietLine && !emptyHeadline && recommendations.length > 0 && (
         <div className="card-section" style={{ marginTop: 16 }}>
           <div className="eyebrow" style={{ marginBottom: 12 }}>What to do — in order</div>
           <div className="stack">
@@ -2372,7 +2376,7 @@ function scoreHeadline(score, params) {
       : `Your pool is in great shape — ${issues.length === 1 ? 'one minor tweak' : `${issues.length} minor tweaks`}.`;
   }
   if (score >= 50) return 'A few readings need attention before your next swim.';
-  return 'Chemistry needs urgent correction — hold off swimming for now.';
+  return 'Chemistry needs urgent correction. Hold off swimming for now.';
 }
 
 // Resolve pool volume in kilolitres (kL) for dosing maths.
