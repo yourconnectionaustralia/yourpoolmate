@@ -3210,7 +3210,18 @@ export default function App() {
   };
   const handleAddPastTest = async (data, { photo } = {}) => {
     const test = { ...data, source: 'shop_import' };
-    const id = await db.saveTest(user.id, poolProfile?.id, test, scoreOne(test));
+    // Same tracker as a normal save. The event waits until the row is stored,
+    // and a failed save does not use up "first".
+    const attempt = testSavesRef.current.begin();
+    let id;
+    try {
+      id = await db.saveTest(user.id, poolProfile?.id, test, scoreOne(test));
+    } catch (err) {
+      attempt.cancel();
+      throw err;
+    }
+    const name = attempt.finish();
+    if (name) trackEvent(name, { entry: testEntry(test.source) });
     let printoutPath = null;
     if (photo) {
       // The result is saved. If only the photo fails, say so and keep the test.

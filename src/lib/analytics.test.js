@@ -243,12 +243,54 @@ test('internal traffic drops value and currency even if both were passed', () =>
   assert.equal(trackEvent('checkout_started', {}, { origin: ORIGIN }), false);
 });
 
-test('test entry is manual, voice, or ocr', () => {
+test('test entry is manual, voice, ocr, or import', () => {
   assert.equal(testEntry(undefined), 'manual');
   assert.equal(testEntry('manual'), 'manual');
   assert.equal(testEntry('voice'), 'voice');
   assert.equal(testEntry('ocr'), 'ocr');
-  assert.equal(testEntry('shop_import'), 'manual');
+  assert.equal(testEntry('shop_import'), 'import');
+  assert.equal(testEntry('import'), 'import');
+  assert.equal(publicEventParams({ entry: 'import' }).entry, 'import');
+});
+
+test('a past shop import fires test_saved with entry import', () => {
+  const { calls, gtag } = gtagRecorder();
+  const tracker = createTestSaveTracker();
+  tracker.noteServerCount(2);
+  const name = tracker.begin().finish();
+  assert.equal(name, 'test_saved');
+  assert.equal(trackEvent(name, { entry: testEntry('shop_import') }, {
+    gtag,
+    origin: ORIGIN,
+    screen: 'history',
+  }), true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1], 'test_saved');
+  assert.equal(calls[0][2].entry, 'import');
+  assert.equal(calls[0][2].page_path, '/history');
+});
+
+test('a past test as the first save is first_test_saved once, then a normal save is test_saved', () => {
+  const { calls, gtag } = gtagRecorder();
+  const tracker = createTestSaveTracker();
+  tracker.noteServerCount(0);
+  const pastName = tracker.begin().finish();
+  trackEvent(pastName, { entry: testEntry('shop_import') }, {
+    gtag,
+    origin: ORIGIN,
+    screen: 'history',
+  });
+  const nextName = tracker.begin().finish();
+  trackEvent(nextName, { entry: testEntry(undefined) }, {
+    gtag,
+    origin: ORIGIN,
+    screen: 'tests',
+  });
+  assert.deepEqual(calls.map((call) => [call[1], call[2].entry]), [
+    ['first_test_saved', 'import'],
+    ['test_saved', 'manual'],
+  ]);
+  assert.equal(calls.filter((call) => call[1] === 'first_test_saved').length, 1);
 });
 
 test('the first successful save is first_test_saved and later saves are not', () => {
@@ -493,6 +535,14 @@ test('the live shell wires each event without sending a Stripe session id', () =
   assert.equal(persist.indexOf('trackEvent') < persist.indexOf('.catch('), true);
   assert.equal(app.includes("source: 'ocr'"), true);
   assert.equal(app.includes("source: 'voice'"), true);
+
+  const past = app.slice(app.indexOf('const handleAddPastTest'), app.indexOf('const handleAddEvent'));
+  assert.equal(past.includes("source: 'shop_import'"), true);
+  assert.equal(past.indexOf('begin()') < past.indexOf('db.saveTest'), true);
+  assert.equal(past.indexOf('db.saveTest') < past.indexOf('finish()'), true);
+  assert.equal(past.indexOf('finish()') < past.indexOf('trackEvent'), true);
+  assert.equal(past.indexOf('attempt.cancel()') < past.indexOf('throw err'), true);
+  assert.equal(past.indexOf('throw err') < past.indexOf('finish()'), true);
 
   const saved = onboarding.indexOf("supabase.from('water_tests').insert");
   const callback = onboarding.indexOf('onTestSaved?.()');

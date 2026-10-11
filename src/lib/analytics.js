@@ -41,7 +41,7 @@ const ATTRIBUTION_PARAMS = [
 ];
 
 const PLANS = new Set(['founding_lifetime', 'annual']);
-const ENTRIES = new Set(['manual', 'voice', 'ocr']);
+const ENTRIES = new Set(['manual', 'voice', 'ocr', 'import']);
 
 // Written onto the auth user's user_metadata. One flag per account,
 // so a second sign-in (or a second device) does not send trial_start
@@ -217,6 +217,9 @@ export function trackEvent(name, params = {}, options = {}) {
 
 export function testEntry(source) {
   if (source === 'voice' || source === 'ocr') return source;
+  // A back-dated shop printout is its own entry. Do not fold it into manual,
+  // or the first real test typed afterwards is labelled as the first save.
+  if (source === 'shop_import' || source === 'import') return 'import';
   return 'manual';
 }
 
