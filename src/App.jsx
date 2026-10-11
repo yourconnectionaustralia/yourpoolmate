@@ -23,6 +23,7 @@ import { prefsFromRow, wantsTestForm, withoutTestParam } from './lib/reminderPre
 import RecordExport from './components/RecordExport.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { analyticsScreen, trackPageView } from './lib/analytics.js';
+import { emptyTestHeadline } from './lib/emptyTestHeadline.js';
 import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
 import { testPrompt } from './lib/testPrompt.js';
 import { doseEventFor, retestPrompt } from './lib/doseLog.js';
@@ -81,6 +82,11 @@ const Icon = {
       <circle cx="12" cy="12" r="9"/>
       <path d="M9.4 9.2a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.3-2.6 4"/>
       <path d="M12 17.2h.01"/>
+    </svg>
+  ),
+  feedback: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
     </svg>
   ),
   camera: (
@@ -339,7 +345,7 @@ const SEASONAL_TIPS = {
 // ─────────────────────────────────────────────────────────────────
 // SIDEBAR
 // ─────────────────────────────────────────────────────────────────
-function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
+function Sidebar({ activeView, onNav, pendingActions, onHelp, onFeedback, feedbackNoteCount = 0 }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-section">
@@ -422,6 +428,25 @@ function Sidebar({ activeView, onNav, pendingActions, onHelp }) {
           <span className="sidebar-icon">{Icon.help}</span>
           Help
         </div>
+        {/* Same feedback panel as before. The menu is the only way in. */}
+        <div
+          className="sidebar-item"
+          onClick={onFeedback}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onFeedback?.();
+            }
+          }}
+        >
+          <span className="sidebar-icon">{Icon.feedback}</span>
+          Feedback
+          {feedbackNoteCount > 0 && (
+            <span className="sidebar-badge">{feedbackNoteCount}</span>
+          )}
+        </div>
       </div>
     </aside>
   );
@@ -491,7 +516,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
 // ─────────────────────────────────────────────────────────────────
 // MOBILE MORE DRAWER (slide-up sheet)
 // ─────────────────────────────────────────────────────────────────
-function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
+function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feedbackNoteCount = 0 }) {
   const items = [
     { view: 'fixer',     icon: Icon.tip,        label: 'Problem fixer' },
     { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
@@ -523,6 +548,17 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp }) {
           <span className="mobile-drawer-icon">{Icon.help}</span>
           <span>Help</span>
         </button>
+        <button
+          type="button"
+          className="mobile-drawer-item"
+          onClick={() => { onClose(); onFeedback?.(); }}
+        >
+          <span className="mobile-drawer-icon">{Icon.feedback}</span>
+          <span>Feedback</span>
+          {feedbackNoteCount > 0 && (
+            <span className="mobile-drawer-badge">{feedbackNoteCount}</span>
+          )}
+        </button>
       </div>
     </>
   );
@@ -551,7 +587,10 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
     ? `${poolProfile.name} · ${(poolProfile.volumeL ?? (poolProfile.volumeKl || 0) * 1000).toLocaleString('en-AU')} L`
     : null;
 
-  if (!testData) {
+  // No test at all, or a saved test with no readings in it (a stored 0 that is
+  // not bad water). Either way there is nothing to score, so no warning:
+  // just offer the test.
+  if (!testData || emptyTestHeadline(testData, poolProfile?.sanitiser)) {
     return (
       <div>
         <p className="page-title">{greeting}</p>
@@ -560,13 +599,18 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
         <div className="card">
           <div className="empty-state">
             <div className="empty-state-icon">{Icon.flask}</div>
-            <div className="empty-state-title">No tests logged yet</div>
+            <div className="empty-state-title">Log your first test</div>
             <div className="empty-state-body">
-              Add your first water test and your Health Score will appear here within seconds.
+              Add your water test results and your Health Score will appear here within seconds.
             </div>
-            <button className="btn btn-primary btn-sm" onClick={onLogFirst}>Enter first test results</button>
+            <button className="btn btn-primary btn-sm" onClick={onLogTest || onLogFirst}>Log a test now</button>
           </div>
         </div>
+        {/* Green or cloudy before the first test? The fixer works without one. */}
+        <button className="fixer-link" style={{ marginTop: 16 }} onClick={onOpenFixer}>
+          <span className="fixer-link-title">Water looking off?</span>
+          <span className="fixer-link-sub">Green, cloudy, stinging eyes, foam or stains: open the problem fixer.</span>
+        </button>
       </div>
     );
   }
@@ -2337,7 +2381,7 @@ function scoreHeadline(score, params) {
       : `Your pool is in great shape — ${issues.length === 1 ? 'one minor tweak' : `${issues.length} minor tweaks`}.`;
   }
   if (score >= 50) return 'A few readings need attention before your next swim.';
-  return 'Chemistry needs urgent correction — hold off swimming for now.';
+  return 'Chemistry needs urgent correction. Hold off swimming for now.';
 }
 
 // Resolve pool volume in kilolitres (kL) for dosing maths.
@@ -2672,7 +2716,7 @@ function VolumeGateModal({ onCancel, onConfirm }) {
 // ─────────────────────────────────────────────────────────────────
 function HelpSheet({ onClose, onReplayTour }) {
   const steps = [
-    { n: '1', title: 'Enter your test results', body: 'Type the readings in, or scan your pool shop\'s printout with your camera — it fills the numbers in for you.' },
+    { n: '1', title: 'Enter your test results', body: 'Type the readings in, or scan your pool shop\'s printout with your camera. It fills the numbers in for you.' },
     { n: '2', title: 'Check your Health Score', body: 'One number out of 100 tells you where your water stands. Green is swim-ready.' },
     { n: '3', title: 'Follow the plan, in order', body: 'The "what to do" list gives exact doses for your pool\'s volume. Re-test a day after dosing.' },
   ];
@@ -2699,11 +2743,10 @@ function HelpSheet({ onClose, onReplayTour }) {
           ))}
         </div>
         <div style={{ fontSize: 17, color: 'var(--gray-mid)', lineHeight: 1.5, marginBottom: 16 }}>
-          Every test is saved to your history automatically — that's your warranty
-          record. Stuck, or spotted something off? Use the feedback button, or email{' '}
-          <a href="mailto:yourconnectionaustralia@gmail.com" style={{ color: 'var(--blue)' }}>
-            yourconnectionaustralia@gmail.com
-          </a>.
+          Every test is saved to your history automatically. That's your warranty record. Stuck, or spotted something off? Use Feedback under Profile, or email{' '}
+          <a href="mailto:hello@yourpoolmate.com.au" style={{ color: 'var(--blue)' }}>
+            hello@yourpoolmate.com.au
+          </a>
         </div>
         <div className="modal-actions">
           {onReplayTour && (
@@ -2743,6 +2786,8 @@ export default function App() {
   const [showScan, setShowScan] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [feedbackOpenToken, setFeedbackOpenToken] = useState(0);
+  const [feedbackNoteCount, setFeedbackNoteCount] = useState(0);
   const [pendingTest, setPendingTest] = useState(null); // test awaiting a pool volume
   const [trialDaysLeft, setTrialDaysLeft] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
@@ -2792,21 +2837,33 @@ export default function App() {
     setMobileDrawerOpen(false);
   }, []);
 
-  // Seen once, never again — the walkthrough is a first-run thing.
+  // Seen once per account, never again — the walkthrough is a first-run thing.
+  // Keyed by account, not just browser, so a second person signing up on the
+  // same phone or laptop still gets their welcome.
+  const tourSeenKey = `ypm_tour_seen_${user?.id ?? 'guest'}`;
   const endTour = useCallback(({ addEquipment = false } = {}) => {
     setTourActive(false);
-    try { localStorage.setItem('ypm_tour_seen', '1'); } catch { /* private mode */ }
+    try { localStorage.setItem(tourSeenKey, '1'); } catch { /* private mode */ }
     if (addEquipment) {
       setActiveView('equipment');
       setOpenEquipmentForm(true);
     }
-  }, []);
+  }, [tourSeenKey]);
 
   // Shared action for every "Log test" entry point: go to Tests and open the form.
   const goLogTest = () => {
     setActiveView('tests');
     setOpenTestForm(true);
   };
+
+  // Opens the existing feedback panel. A new token each tap so closing
+  // it and choosing Feedback again opens it a second time.
+  const openFeedback = useCallback(() => {
+    setFeedbackOpenToken((n) => n + 1);
+  }, []);
+  const handleFeedbackNoteCount = useCallback((count) => {
+    setFeedbackNoteCount(count);
+  }, []);
 
   // Load everything from Supabase once signed in (and again after onboarding)
   const loadAll = async (uid) => {
@@ -3156,6 +3213,8 @@ export default function App() {
           onNav={setActiveView}
           pendingActions={pendingActions}
           onHelp={() => setShowHelp(true)}
+          onFeedback={openFeedback}
+          feedbackNoteCount={feedbackNoteCount}
         />
 
         <main className="main-content">
@@ -3229,6 +3288,16 @@ export default function App() {
             <div>
               <h1 className="page-title">Profile</h1>
               <p className="page-subtitle">Account settings and preferences</p>
+              <div className="card-section feedback-card">
+                <div className="eyebrow" style={{ marginBottom: 12 }}>Feedback</div>
+                <div style={{ fontSize: 17, color: 'var(--gray-dark)', marginBottom: 12 }}>
+                  Something confusing, missing or not working? Tell us. You can jot notes as you
+                  move around the app and send them together.
+                </div>
+                <button className="btn btn-primary" onClick={openFeedback}>
+                  {feedbackNoteCount > 0 ? `Review ${feedbackNoteCount} note${feedbackNoteCount === 1 ? '' : 's'} and send` : 'Give feedback'}
+                </button>
+              </div>
               <div className="card-section">
                 <div className="eyebrow" style={{ marginBottom: 12 }}>Account</div>
                 <div style={{ fontSize: 17, color: 'var(--gray-dark)', marginBottom: 16 }}>
@@ -3346,6 +3415,8 @@ export default function App() {
           onNav={setActiveView}
           onClose={() => setMobileDrawerOpen(false)}
           onHelp={() => setShowHelp(true)}
+          onFeedback={openFeedback}
+          feedbackNoteCount={feedbackNoteCount}
         />
       )}
 
@@ -3360,7 +3431,7 @@ export default function App() {
             loadAll(user.id);
             // Straight into the walkthrough — unless they've already had it.
             let seen = false;
-            try { seen = localStorage.getItem('ypm_tour_seen') === '1'; } catch { /* private mode */ }
+            try { seen = localStorage.getItem(tourSeenKey) === '1'; } catch { /* private mode */ }
             if (!seen) {
               setActiveView('health');
               setTourActive(true);
@@ -3417,8 +3488,12 @@ export default function App() {
         <PrintoutViewer path={photoViewer} getUrl={db.printoutUrl} onClose={() => setPhotoViewer(null)} />
       )}
 
-      {/* Feedback overlay — accumulate notes per page, submit as a round */}
-      <FeedbackOverlay activeView={activeView} />
+      {/* Feedback panel. Opened from the desktop sidebar and the mobile More menu. */}
+      <FeedbackOverlay
+        activeView={activeView}
+        openToken={feedbackOpenToken}
+        onNoteCount={handleFeedbackNoteCount}
+      />
     </div>
   );
 }

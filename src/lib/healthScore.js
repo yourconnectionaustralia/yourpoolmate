@@ -142,6 +142,16 @@ export function calculateScore(test, sanitiserType, saltRange, surface) {
   return Math.round(total / weightSum);
 }
 
+// True when calculateScore has at least one reading to weigh. Missing,
+// blank, and out-of-bounds values do not count. A reading of 0 does:
+// that is measured chemistry (for example no chlorine), and it can
+// still produce a real score of 0.
+export function hasScorableReadings(test, sanitiserType) {
+  if (!test || typeof test !== 'object') return false;
+  const weights = isSaltPool(sanitiserType) ? WEIGHTS_SALTWATER : WEIGHTS_DEFAULT;
+  return Object.keys(weights).some((param) => sanitise(param, test[param]) !== null);
+}
+
 // ── Chlorinator-specific salt / mineral bands ────────────────
 // Different chlorinators need very different salt (or mineral TDS) levels —
 // a Pool Controls XLS runs at ~1000 ppm while a Mineral Swim wants 3500+.
