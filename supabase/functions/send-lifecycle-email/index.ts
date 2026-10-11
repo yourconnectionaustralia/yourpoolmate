@@ -8,6 +8,11 @@
 //
 //   POST { "action": "sweep" }
 //   POST { "action": "send", "template": "L1", "user_id": "<uuid>" }
+//   POST { "action": "recurring_sweep" }   weekly test reminder + monthly pool report
+//   POST { "action": "member_sweep" }      signed-in member's JWT, not the secret: their own
+//                                          welcome (L1) / first-test (L3) now, not at the next timer
+//   GET/POST ?u=<signed token>             one-click unsubscribe, no bearer secret
+//                                          (the signed token is the credential)
 //
 // Allowlist and once-only rules live in _shared/lifecycle-email.ts.
 // S1–S3 are not accepted.
@@ -15,13 +20,25 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { isTemplateKey } from "../_shared/lifecycle-rules.js"
-import { deliverLifecycleEmail, sweepLifecycleEmails } from "../_shared/lifecycle-email.ts"
+import { deliverLifecycleEmail, sweepLifecycleEmails, sweepMemberEmails } from "../_shared/lifecycle-email.ts"
+import { handleUnsubscribe, recurringSweep } from "../_shared/recurring-email.ts"
 
 const JSON_HEADERS = { "Content-Type": "application/json" }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS })
+}
+
+// Only the member-triggered call comes from a browser. The CORS headers sit on
+// that path alone; the cron and unsubscribe paths are unchanged.
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+}
+function memberJson(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...CORS } })
 }
 
 function secretsMatch(given: string, expected: string): boolean {
@@ -41,7 +58,51 @@ function authorized(req: Request): boolean {
   return secretsMatch(token, expected)
 }
 
+async function handleMemberSweep(req: Request, jwt: string): Promise<Response> {
+  const raw = await req.text()
+  if (raw.length > 1000) return memberJson({ error: "Body too large" }, 400)
+  let body: Record<string, unknown> = {}
+  try {
+    body = raw.trim() ? JSON.parse(raw) : {}
+  } catch {
+    return memberJson({ error: "Bad JSON" }, 400)
+  }
+  if (body.action !== "member_sweep") return memberJson({ error: "Unauthorized" }, 401)
+
+  const db = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  )
+  const who = await db.auth.getUser(jwt)
+  const userId = who.data?.user?.id
+  if (who.error || !userId) return memberJson({ error: "Unauthorized" }, 401)
+  try {
+    const result = await sweepMemberEmails(db, userId)
+    // Deliberately terse: the app does not need to know what was or wasn't sent.
+    return memberJson({ ok: result.status !== "failed" })
+  } catch (err) {
+    console.error("member_sweep failed:", err)
+    return memberJson({ error: "Internal error", code: "SERVER_ERROR" }, 500)
+  }
+}
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS })
+  // Unsubscribe links come from members' inboxes, so no bearer secret. The
+  // HMAC-signed token in ?u= is checked inside handleUnsubscribe.
+  if (new URL(req.url).searchParams.has("u") && (req.method === "GET" || req.method === "POST")) {
+    if (!(Deno.env.get("LIFECYCLE_CRON_SECRET") ?? "")) return json({ error: "Not configured" }, 503)
+    const udb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    )
+    try {
+      return await handleUnsubscribe(udb, req)
+    } catch (err) {
+      console.error("unsubscribe failed:", err)
+      return json({ error: "Internal error" }, 500)
+    }
+  }
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405)
   }
@@ -49,8 +110,13 @@ serve(async (req) => {
     console.error("LIFECYCLE_CRON_SECRET is not set")
     return json({ error: "Lifecycle mail is not configured", code: "NOT_CONFIGURED" }, 503)
   }
+  const header = req.headers.get("authorization") ?? ""
+  const bearer = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : ""
   if (!authorized(req)) {
-    return json({ error: "Unauthorized" }, 401)
+    // Not the cron secret: the only other caller allowed is a signed-in member
+    // asking for their own mail, handled below.
+    if (!bearer) return json({ error: "Unauthorized" }, 401)
+    return await handleMemberSweep(req, bearer)
   }
 
   const raw = await req.text()
@@ -72,6 +138,12 @@ serve(async (req) => {
   try {
     if (body.action === "sweep") {
       const result = await sweepLifecycleEmails(db)
+      const status = result.code === "SWEEP_FAILED" ? 500 : 200
+      return json(result, status)
+    }
+
+    if (body.action === "recurring_sweep") {
+      const result = await recurringSweep(db)
       const status = result.code === "SWEEP_FAILED" ? 500 : 200
       return json(result, status)
     }

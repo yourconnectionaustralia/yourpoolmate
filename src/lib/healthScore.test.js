@@ -79,7 +79,7 @@ test('live app greets only on the Health Score header and softens vinyl calcium'
   assert.match(app, /test\?\.healthScore \?\? calculateScore\(test, sanitiser, saltRange, surface\)/);
   assert.doesNotMatch(app, /isVinylLiner\(surface\)\) return calculateScore/);
   assert.match(app, /includeCalciumInActions\(statuses\[key\], pool\?\.surface\)/);
-  assert.match(app, /calculateScore\(data, poolProfile\?\.sanitiser, saltRange, poolProfile\?\.surface\)/);
+  assert.match(app, /calculateScore\(data, pool\?\.sanitiser, saltRange, pool\?\.surface\)/);
   assert.match(app, /Enter Test Results/);
   assert.match(app, /Scan test results/);
   assert.match(app, /Speak results/);

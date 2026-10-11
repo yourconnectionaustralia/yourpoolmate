@@ -13,6 +13,7 @@
 
 import { useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { compressImage } from '../lib/imageCompress.js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -27,9 +28,6 @@ const FIELD_MAP = [
   { ocr: 'salt',          app: 'salt',            label: 'Salt',             unit: 'ppm' },
 ];
 
-const MAX_DIMENSION = 1600;   // px — plenty for printout text
-const JPEG_QUALITY = 0.85;
-
 const CameraIcon = (
   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
        strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -37,26 +35,6 @@ const CameraIcon = (
     <circle cx="12" cy="13" r="4"/>
   </svg>
 );
-
-// Downscale + re-encode the photo so uploads are fast and cheap.
-function compressImage(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
-      resolve({ dataUrl, base64: dataUrl.split(',')[1], mediaType: 'image/jpeg' });
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file doesn\'t look like a photo — try again.')); };
-    img.src = url;
-  });
-}
 
 // Make sure we have a session the Edge Function will accept.
 async function ensureSession() {
@@ -77,6 +55,8 @@ export default function WaterTestScanner({ onClose, onComplete }) {
   const [notes, setNotes] = useState(null);
   const [scansLeft, setScansLeft] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [photoBlob, setPhotoBlob] = useState(null);
+  const [keepPhoto, setKeepPhoto] = useState(true);
   const fileRef = useRef(null);
 
   const handleFile = async (e) => {
@@ -87,8 +67,9 @@ export default function WaterTestScanner({ onClose, onComplete }) {
     setErrorMsg('');
 
     try {
-      const { dataUrl, base64, mediaType } = await compressImage(file);
+      const { dataUrl, base64, mediaType, blob } = await compressImage(file);
       setPreview(dataUrl);
+      setPhotoBlob(blob);
 
       const session = await ensureSession();
 
@@ -156,6 +137,8 @@ export default function WaterTestScanner({ onClose, onComplete }) {
       source: 'ocr',
     };
     if (values.salt !== '' && values.salt !== undefined) result.salt = num(values.salt);
+    // The photo is kept with the test as evidence, unless the owner unticked it.
+    if (keepPhoto && photoBlob) result.printout = photoBlob;
     onComplete(result);
     onClose();
   };
@@ -200,8 +183,8 @@ export default function WaterTestScanner({ onClose, onComplete }) {
               }}
             >
               <span style={{ display: 'flex' }}>{CameraIcon}</span>
-              <span style={{ fontSize: 14, fontWeight: 500 }}>Take a photo</span>
-              <span style={{ fontSize: 12, color: 'var(--gray-light)' }}>or choose one from your gallery</span>
+              <span style={{ fontSize: 17, fontWeight: 500 }}>Take a photo</span>
+              <span style={{ fontSize: 17, color: 'var(--gray-light)' }}>or choose one from your gallery</span>
             </div>
           </>
         )}
@@ -216,7 +199,7 @@ export default function WaterTestScanner({ onClose, onComplete }) {
                    style={{ maxHeight: 120, maxWidth: '100%', borderRadius: 'var(--r-md)', opacity: 0.85 }} />
             )}
             <div className="dot-loader"><span/><span/><span/></div>
-            <span style={{ fontSize: 13, color: 'var(--gray-mid)' }}>Reading your test results…</span>
+            <span style={{ fontSize: 17, color: 'var(--gray-mid)' }}>Reading your test results…</span>
           </div>
         )}
 
@@ -228,17 +211,21 @@ export default function WaterTestScanner({ onClose, onComplete }) {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16, alignItems: 'center' }}>
               <span className={`tag ${confidenceTag.cls}`}>{confidenceTag.text}</span>
               {scansLeft !== null && (
-                <span style={{ fontSize: 12, color: 'var(--gray-light)' }}>{scansLeft} scans left this hour</span>
+                <span style={{ fontSize: 17, color: 'var(--gray-light)' }}>{scansLeft} scans left this hour</span>
               )}
             </div>
             {notes && (
               <div style={{
-                fontSize: 13, color: 'var(--gray-mid)', background: 'var(--gray-bg)',
+                fontSize: 17, color: 'var(--gray-mid)', background: 'var(--gray-bg)',
                 borderRadius: 'var(--r-md)', padding: '10px 12px', marginBottom: 16,
               }}>
                 {notes}
               </div>
             )}
+            <label className="keep-photo">
+              <input type="checkbox" checked={keepPhoto} onChange={e => setKeepPhoto(e.target.checked)} />
+              <span>Keep this photo with the test. It is proof of the result, and only you can see it.</span>
+            </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
               {FIELD_MAP.filter(f => f.app !== 'salt' || values.salt !== '').map(f => (
                 <div key={f.app} className="input-group">
@@ -266,8 +253,8 @@ export default function WaterTestScanner({ onClose, onComplete }) {
             alignItems: 'center', justifyContent: 'center', gap: 12,
             marginBottom: 24, textAlign: 'center',
           }}>
-            <span style={{ fontSize: 14, color: 'var(--gray-dark)', maxWidth: 360 }}>{errorMsg}</span>
-            <span style={{ fontSize: 13, color: 'var(--gray-light)' }}>
+            <span style={{ fontSize: 17, color: 'var(--gray-dark)', maxWidth: 360 }}>{errorMsg}</span>
+            <span style={{ fontSize: 17, color: 'var(--gray-light)' }}>
               You can always type the readings in manually — it takes under a minute.
             </span>
           </div>

@@ -16,13 +16,13 @@
 }
 
 .text {
-  font-size: 0.875rem;
+  font-size: 1.0625rem;
   color: var(--color-text-secondary);
   flex: 1;
 }
 
 .cta {
-  font-size: 0.875rem;
+  font-size: 1.0625rem;
   font-weight: 600;
   color: var(--color-ocean);
   white-space: nowrap;

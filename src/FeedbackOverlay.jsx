@@ -19,11 +19,11 @@ const STORAGE_KEY = 'ypm_feedback_round';
 
 // ─────────────────────────────────────────────────────────────────
 // FEEDBACK OVERLAY
-// Floating panel for beta feedback rounds.
-// Notes accumulate across page navigation (localStorage) until
-// the user is ready to submit the full round to Supabase.
+// The same feedback panel, opened from the app menu (desktop sidebar
+// and the mobile More menu). Notes accumulate across page navigation
+// (localStorage) until the user submits the full round to Supabase.
 // ─────────────────────────────────────────────────────────────────
-export default function FeedbackOverlay({ activeView }) {
+export default function FeedbackOverlay({ activeView, openToken = 0, onNoteCount }) {
   const [open, setOpen]               = useState(false);
   const [notes, setNotes]             = useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
@@ -42,6 +42,15 @@ export default function FeedbackOverlay({ activeView }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
   }, [notes]);
+
+  // The menu bumps openToken each time Feedback is chosen.
+  useEffect(() => {
+    if (openToken > 0) setOpen(true);
+  }, [openToken]);
+
+  useEffect(() => {
+    onNoteCount?.(notes.length);
+  }, [notes.length, onNoteCount]);
 
   // Auto-focus textarea when panel opens
   useEffect(() => {
@@ -122,7 +131,7 @@ export default function FeedbackOverlay({ activeView }) {
       setSubmitted(true);
       setTimeout(() => { setSubmitted(false); setOpen(false); }, 2400);
     } catch {
-      alert('Could not submit — check your connection and try again.');
+      alert('Could not submit. Check your connection and try again.');
     } finally {
       setSubmitting(false);
     }
@@ -137,21 +146,6 @@ export default function FeedbackOverlay({ activeView }) {
 
   return (
     <>
-      {/* Floating action button */}
-      <button
-        className="feedback-fab"
-        onClick={() => setOpen(v => !v)}
-        aria-label="Open feedback panel"
-        title="Feedback"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-        {notes.length > 0 && (
-          <span className="feedback-fab-badge">{notes.length}</span>
-        )}
-      </button>
-
       {/* Placed-feedback pins for the current page (document-anchored) */}
       {pagePins.length > 0 && !placing && (
         <div style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 307 }}>
@@ -169,7 +163,7 @@ export default function FeedbackOverlay({ activeView }) {
                   width: 24, height: 24, borderRadius: '50%',
                   background: 'var(--water-deep)', color: 'var(--white)',
                   border: '2px solid var(--white)', boxShadow: 'var(--shadow-float)',
-                  fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  fontSize: 17, fontWeight: 700, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >
@@ -184,14 +178,14 @@ export default function FeedbackOverlay({ activeView }) {
                   border: 'var(--border)', borderRadius: 'var(--r-sm)',
                   boxShadow: 'var(--shadow-modal)', padding: '10px 12px', zIndex: 1,
                 }}>
-                  <div style={{ fontSize: 12, color: 'var(--gray-dark)', lineHeight: 1.5, marginBottom: 6 }}>
+                  <div style={{ fontSize: 17, color: 'var(--gray-dark)', lineHeight: 1.5, marginBottom: 6 }}>
                     {n.note}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 10, color: 'var(--gray-light)' }}>{n.x}, {n.y}</span>
+                    <span style={{ fontSize: 17, color: 'var(--gray-light)' }}>{n.x}, {n.y}</span>
                     <button
                       onClick={() => removeNote(n._idx)}
-                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: 11, padding: 0, textDecoration: 'underline' }}
+                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--red)', fontSize: 17, padding: 0, textDecoration: 'underline' }}
                     >
                       Remove
                     </button>
@@ -220,7 +214,7 @@ export default function FeedbackOverlay({ activeView }) {
               transform: 'translateX(-50%)', cursor: 'default',
               background: 'var(--water-deep)', color: 'var(--white)',
               borderRadius: 'var(--r-full)', padding: '8px 14px',
-              fontSize: 13, fontWeight: 500, boxShadow: 'var(--shadow-float)',
+              fontSize: 17, fontWeight: 500, boxShadow: 'var(--shadow-float)',
               display: 'flex', alignItems: 'center', gap: 12, whiteSpace: 'nowrap',
             }}
           >
@@ -229,7 +223,7 @@ export default function FeedbackOverlay({ activeView }) {
               onClick={cancelPlacing}
               style={{
                 border: 'none', background: 'rgba(255,255,255,0.2)', color: 'var(--white)',
-                borderRadius: 'var(--r-xs)', padding: '3px 8px', fontSize: 12, cursor: 'pointer',
+                borderRadius: 'var(--r-xs)', padding: '3px 8px', fontSize: 17, cursor: 'pointer',
               }}
             >
               Cancel
@@ -264,7 +258,7 @@ export default function FeedbackOverlay({ activeView }) {
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="4 12 10 18 20 6"/>
                 </svg>
-                <span>Round submitted — thank you!</span>
+                <span>Round submitted. Thank you!</span>
               </div>
             ) : (
               <div className="feedback-panel-body">
@@ -281,11 +275,11 @@ export default function FeedbackOverlay({ activeView }) {
                       display: 'flex', alignItems: 'center', gap: 8,
                       background: 'var(--water-pale)', color: 'var(--water-mid)',
                       borderRadius: 'var(--r-sm)', padding: '7px 10px', marginBottom: 8,
-                      fontSize: 12, fontWeight: 500,
+                      fontSize: 17, fontWeight: 500,
                     }}>
                       <PoolIcon name="pin" size={14} />
                       <span style={{ flex: 1 }}>
-                        Pinned at {pendingPin.x}, {pendingPin.y} — add your note below
+                        Pinned at {pendingPin.x}, {pendingPin.y}. Add your note below
                       </span>
                       <button
                         onClick={() => setPendingPin(null)}
@@ -319,7 +313,7 @@ export default function FeedbackOverlay({ activeView }) {
                     onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) addNote(); }}
                     rows={3}
                   />
-                  <div style={{ fontSize: 11, color: 'var(--gray-light)', marginTop: 4 }}>
+                  <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 4 }}>
                     ⌘↵ to add
                   </div>
                   <button
@@ -374,8 +368,8 @@ export default function FeedbackOverlay({ activeView }) {
                     <div className="feedback-submit-section">
                       <input
                         className="input"
-                        style={{ fontSize: 13, marginBottom: 8 }}
-                        placeholder="Round name (optional) — e.g. Beta round 1"
+                        style={{ fontSize: 17, marginBottom: 8 }}
+                        placeholder="Round name (optional), e.g. Beta round 1"
                         value={roundLabel}
                         onChange={e => setRoundLabel(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') submitRound(); }}
