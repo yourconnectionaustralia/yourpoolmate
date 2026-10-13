@@ -188,7 +188,20 @@ serve(async (req) => {
       "success_url": `${successUrl}${successUrl.includes("?") ? "&" : "?"}checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       "cancel_url": `${cancelUrl}${cancelUrl.includes("?") ? "&" : "?"}checkout=cancelled`,
       "client_reference_id": user.id,
+      // Checkout Studio settings (hosted page look + fields collected).
+      "ui_mode": "hosted_page",
+      "billing_address_collection": "auto",
+      "phone_number_collection[enabled]": "false",
+      "automatic_tax[enabled]": "false",
       "allow_promotion_codes": "true",
+      "integration_identifier": "hosted_web_0001",
+      "origin_context": "web",
+      "branding_settings[background_color]": "#ffffff",
+      "branding_settings[button_color]": "#0b7799",
+      "branding_settings[font_family]": "default",
+      "branding_settings[border_style]": "rounded",
+      "branding_settings[logo][type]": "file",
+      "branding_settings[logo][file]": "file_1UQ0SXDMRJHtujiuLpeUXL0O",
       // Carry the user id on the session so the webhook knows who paid.
       "metadata[user_id]": user.id,
       "metadata[plan]": tier.plan,
@@ -217,7 +230,13 @@ serve(async (req) => {
       params["customer_email"] = user.email
     }
 
+    if (tier.mode === "payment") {
+      params["submit_type"] = "pay" // Stripe only accepts submit_type in payment mode
+    }
+
     if (tier.mode === "subscription") {
+      params["payment_method_collection"] = "always"
+      params["line_items[0][price_data][recurring][interval]"] = tier.interval!
       // Copy the user id onto the subscription so lifecycle events
       // (renewals, cancellations) can be mapped back to the account.
       params["subscription_data[metadata][user_id]"] = user.id
