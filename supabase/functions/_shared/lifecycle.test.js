@@ -231,3 +231,13 @@ test("subjects stay on the locked lines", () => {
   assert.equal(renderTemplate("L6", { plan: "annual" }).subject, "Welcome aboard - here's what happens next")
   assert.equal(renderTemplate("L7", {}).subject, "Know another pool owner?")
 })
+
+test("test series only goes to addresses named one by one", async () => {
+  const { isExplicitTestRecipient } = await import("./lifecycle-rules.js")
+  assert.equal(isExplicitTestRecipient("yourconnectionaustralia@gmail.com", ""), true)
+  assert.equal(isExplicitTestRecipient("Tester+1@Gmail.com", "a@b.com, tester+1@gmail.com"), true)
+  assert.equal(isExplicitTestRecipient("someone@example.com", "*"), false)
+  assert.equal(isExplicitTestRecipient("someone@example.com", "ALL"), false)
+  assert.equal(isExplicitTestRecipient("someone@example.com", "other@example.com"), false)
+  assert.equal(isExplicitTestRecipient("", "*"), false)
+})
