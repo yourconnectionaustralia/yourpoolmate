@@ -33,7 +33,7 @@ These come from Checkout Studio and are already set.
 | submit_type | `pay` (payment mode only, because Stripe rejects it on subscriptions) |
 | integration_identifier | `hosted_web_0001` |
 | origin_context | `web` |
-| branding_settings | background `#ffffff`, button `#0b7799`, font `default`, border `rounded`, logo file `file_1UQ0SXDMRJHtujiuLpeUXL0O` |
+| branding_settings | background `#ffffff`, button `#0b7799`, font `default`, border `rounded` (logo removed, see below) |
 
 ### Two things to check on the first test checkout
 
@@ -41,9 +41,11 @@ These come from Checkout Studio and are already set.
    directly. It doesn't use an SDK and doesn't send a `Stripe-Version` header, so your Stripe account's
    default API version applies. If the test checkout fails with an error about `ui_mode`,
    change `"hosted_page"` to `"hosted"` (the older name for the same thing).
-2. **Logo file.** `file_1UQ0SXDMRJHtujiuLpeUXL0O` belongs to the Stripe account where Checkout
-   Studio was set up (test mode). When you switch to live keys, re-upload the logo in
-   live mode and update the file ID, or the live checkout will fail.
+2. **Logo (removed Oct 2026).** The Checkout Studio logo (`file_1UQ0SXDMRJHtujiuLpeUXL0O`) was
+   a sandbox file, and live mode can't see it, so it was taken out when Stripe went live.
+   Checkout now uses the logo set in Stripe Dashboard → Settings → Branding (live mode).
+   To set a logo on the checkout itself: upload it in live mode, then add
+   `branding_settings[logo][type]=file` and `branding_settings[logo][file]=<live file_… ID>` back.
 
 ### Kept on purpose (not part of Checkout Studio)
 
@@ -84,7 +86,7 @@ Then run the **Deploy Supabase** workflow manually. It deploys both functions an
 ## Next steps
 
 - Create promotion codes in the Dashboard if you want to use them (`allow_promotion_codes` is on).
-- Before going live: swap in the live keys, set up a live webhook endpoint and re-upload the live logo (see above).
+- Before going live: swap in the live keys, set up a live webhook endpoint and set your live Price IDs.
 
 ## Resources
 

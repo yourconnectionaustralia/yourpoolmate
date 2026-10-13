@@ -200,8 +200,6 @@ serve(async (req) => {
       "branding_settings[button_color]": "#0b7799",
       "branding_settings[font_family]": "default",
       "branding_settings[border_style]": "rounded",
-      "branding_settings[logo][type]": "file",
-      "branding_settings[logo][file]": "file_1UQ0SXDMRJHtujiuLpeUXL0O",
       // Carry the user id on the session so the webhook knows who paid.
       "metadata[user_id]": user.id,
       "metadata[plan]": tier.plan,
