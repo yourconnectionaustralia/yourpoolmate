@@ -41,14 +41,14 @@
 }
 
 .scoreOf {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
   font-weight: 500;
   margin-top: -2px;
 }
 
 .scoreLabel {
-  font-size: 0.8125rem;
+  font-size: 1.0625rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   text-transform: uppercase;
@@ -57,7 +57,7 @@
 }
 
 .caption {
-  font-size: 0.875rem;
+  font-size: 1.0625rem;
   color: var(--color-text-muted);
   font-weight: 500;
 }

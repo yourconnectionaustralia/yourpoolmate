@@ -19,6 +19,7 @@
 
 import { useState } from 'react';
 import styles from './WaterTrendChart.module.css';
+import { isCareEvent } from '../lib/equipmentCare.js';
 
 // ── Series config ────────────────────────────────────────────
 // lo/hi = ideal target band. decimals = display precision.
@@ -51,10 +52,13 @@ function eventStyle(type) {
   switch (type) {
     case 'green_treatment': return { color: 'var(--green)',      code: 'G', label: 'Green-pool treatment' };
     case 'shock':           return { color: 'var(--blue)',       code: 'S', label: 'Shock dose' };
+    case 'dose':            return { color: 'var(--amber)',      code: 'A', label: 'Dose added' };
     case 'new_equipment':   return { color: 'var(--color-sky)',  code: 'E', label: 'New equipment' };
     case 'drain_refill':    return { color: 'var(--blue)',       code: 'D', label: 'Drain / refill' };
     case 'treatment':       return { color: 'var(--green)',      code: 'T', label: 'Treatment' };
-    default:                return { color: 'var(--gray-mid)',   code: '•', label: 'Event' };
+    default:
+      if (isCareEvent(type)) return { color: 'var(--color-sky)', code: 'C', label: 'Equipment care' };
+      return { color: 'var(--gray-mid)',   code: '•', label: 'Event' };
   }
 }
 
@@ -69,12 +73,16 @@ const valOf = (h, s) => {
   return Number.isFinite(v) ? v : null;
 };
 
-export function WaterTrendChart({ history = [], events = [], gaps = [], saltRange = null }) {
-  // The salt "ideal" band follows the owner's chlorinator when known, so the
-  // chart matches the Health Score and readings table.
-  const seriesList = saltRange
-    ? SERIES.map(s => s.key === 'salt' ? { ...s, lo: saltRange.lo, hi: saltRange.hi } : s)
-    : SERIES;
+export function WaterTrendChart({ history = [], events = [], gaps = [], saltRange = null, calciumBand = null }) {
+  // Salt follows the owner's chlorinator. Calcium follows the surface band
+  // (vinyl has no low floor; hard surfaces stay 200–400).
+  const seriesList = SERIES.map(s => {
+    if (s.key === 'salt' && saltRange) return { ...s, lo: saltRange.lo, hi: saltRange.hi };
+    if (s.key === 'calciumHardness' && calciumBand) {
+      return { ...s, lo: calciumBand.lo, hi: calciumBand.hi, idealLabel: calciumBand.target };
+    }
+    return s;
+  });
   // Which series can actually be shown (has at least one data point).
   const hasSalt = history.some(h => Number.isFinite(h.salt) && h.salt > 0);
   const available = seriesList.filter(s => {
@@ -209,7 +217,7 @@ export function WaterTrendChart({ history = [], events = [], gaps = [], saltRang
           </span>
         ) : (
           <span className={styles.readoutHint}>
-            Ideal {series.label}: {fmtValFor(series, series.lo)}–{fmtValFor(series, series.hi)}{series.unit ? ` ${series.unit}` : ''} · tap a point for details
+            Ideal {series.label}: {series.idealLabel || `${fmtValFor(series, series.lo)}–${fmtValFor(series, series.hi)}`}{series.unit ? ` ${series.unit}` : ''} · tap a point for details
           </span>
         )}
       </div>
@@ -326,7 +334,7 @@ export function WaterTrendChart({ history = [], events = [], gaps = [], saltRang
           {available.map(s => (
             <span key={s.key} style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 12, color: 'var(--gray-mid)',
+              fontSize: 17, color: 'var(--gray-mid)',
             }}>
               <span style={{
                 width: 10, height: 10, borderRadius: '50%', flexShrink: 0,

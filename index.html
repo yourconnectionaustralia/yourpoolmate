@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- Google tag (gtag.js) — same measurement id as the marketing site.
+         Linker domains keep a visit that started on yourpoolmate.com.au in
+         one session. send_page_view is off because this is a single-page
+         app: App.jsx sends a page_view when the screen changes. The URL
+         never does. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ETWSG20K0R"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('set', 'linker', {'domains': ['yourpoolmate.com.au', 'app.yourpoolmate.com.au']});
+      gtag('js', new Date());
+      gtag('config', 'G-ETWSG20K0R', { 'send_page_view': false });
+    </script>
+
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0B7799" />

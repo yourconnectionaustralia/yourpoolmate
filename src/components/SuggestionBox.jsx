@@ -586,7 +586,7 @@ function SuggestionsPanel({ pins, submitting, onClose, onJump, onDelete, onClear
           {pins.length === 0 && (
             <div style={{ padding: 20, textAlign: 'center', color: '#5B7280' }}>
               <p style={{ margin: 0 }}>No pins yet.</p>
-              <p style={{ margin: '6px 0 0', fontSize: 13 }}>
+              <p style={{ margin: '6px 0 0', fontSize: 17 }}>
                 Close this panel and tap the <strong>+</strong> button to drop your first one.
               </p>
             </div>

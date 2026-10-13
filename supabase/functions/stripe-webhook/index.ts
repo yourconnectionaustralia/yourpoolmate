@@ -18,6 +18,9 @@
 //   invoice.paid                 → renewal: keep premium, extend period end
 //   invoice.payment_failed       → mark past_due (kept premium until Stripe cancels)
 //
+// After a paid checkout, L6 (paid thanks) is sent best-effort. Mail failure
+// does not change the premium grant and does not fail the webhook.
+//
 // Required secrets (Supabase dashboard → Edge Functions → Secrets):
 //   STRIPE_SECRET_KEY          — sk_live_… / sk_test_…
 //   STRIPE_WEBHOOK_SECRET      — whsec_… (from the Stripe webhook endpoint you create)
@@ -26,6 +29,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { sendPaidThanks } from "../_shared/lifecycle-email.ts"
 
 const SIGNATURE_TOLERANCE_SECONDS = 60 * 5 // reject events older than 5 min
 
@@ -139,6 +143,15 @@ serve(async (req) => {
         const { error } = await db.from("user_profiles").update(update).eq("id", userId)
         if (error) throw error
         console.log(`Granted premium (${plan}) to ${userId}`)
+        // L6 is best-effort. A mail failure must not make Stripe retry the grant.
+        await sendPaidThanks(db, {
+          userId,
+          plan,
+          amountCents: typeof s.amount_total === "number" ? s.amount_total : null,
+          currency: typeof s.currency === "string" ? s.currency : null,
+          sessionId: typeof s.id === "string" ? s.id : null,
+          paymentStatus: typeof s.payment_status === "string" ? s.payment_status : null,
+        })
         break
       }
 
@@ -190,6 +203,20 @@ serve(async (req) => {
           ...(periodEnd ? { current_period_end: new Date(periodEnd * 1000).toISOString() } : {}),
         }).eq("id", userId)
         if (error) throw error
+        // First subscription invoice only. Renewals (subscription_cycle) must
+        // not send another thanks email. Once-only also blocks a second L6
+        // if checkout.session.completed already sent it.
+        if (inv.billing_reason === "subscription_create") {
+          const hosted = inv.hosted_invoice_url
+          await sendPaidThanks(db, {
+            userId,
+            plan: "annual",
+            amountCents: typeof inv.amount_paid === "number" ? inv.amount_paid : null,
+            currency: typeof inv.currency === "string" ? inv.currency : null,
+            receiptUrl: typeof hosted === "string" ? hosted : null,
+            paymentStatus: "paid",
+          })
+        }
         break
       }
 

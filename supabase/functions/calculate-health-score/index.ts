@@ -87,9 +87,23 @@ function scoreParam(value: number, min: number, max: number): number {
   return Math.round(Math.max(0, 100 * (1 - penalty)))
 }
 
+// Setup stores surfaces as separate labels. Fibreglass is not grouped with
+// vinyl, so only a vinyl liner skips the low-calcium penalty. High calcium
+// still uses the 200–400 band, because scale matters on every surface.
+function isVinylLiner(surface?: string): boolean {
+  return /^vinyl(\s+liner)?$/i.test(String(surface ?? "").trim())
+}
+
+function scoreCalcium(value: number, surface?: string): number {
+  const { min, max } = RANGES.calcium
+  if (isVinylLiner(surface) && value <= max) return 100
+  return scoreParam(value, min, max)
+}
+
 export function calculateScore(
   readings: Record<string, unknown>,
   sanitiserType?: string,
+  poolSurface?: string,
 ): number {
   const weights = isSaltwater(sanitiserType) ? WEIGHTS_SALTWATER : WEIGHTS_DEFAULT
 
@@ -100,7 +114,10 @@ export function calculateScore(
     const range = RANGES[param]
     const value = sanitise(param, readings[param])
     if (value !== null) {
-      total += scoreParam(value, range.min, range.max) * weight
+      const scored = param === "calcium"
+        ? scoreCalcium(value, poolSurface)
+        : scoreParam(value, range.min, range.max)
+      total += scored * weight
       weightSum += weight
     }
   }
@@ -139,8 +156,8 @@ serve(async (req) => {
     }
 
     const body = await req.json()
-    const { sanitiser_type, ...readings } = body ?? {}
-    const score = calculateScore(readings, sanitiser_type)
+    const { sanitiser_type, pool_surface, ...readings } = body ?? {}
+    const score = calculateScore(readings, sanitiser_type, pool_surface)
 
     return new Response(
       JSON.stringify({ health_score: score }),

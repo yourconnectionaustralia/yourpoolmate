@@ -72,6 +72,14 @@ function PasswordField({ id, label, value, onChange, placeholder, autoComplete, 
 }
 
 export default function AuthScreen() {
+  // Set by Profile just after the account is deleted. Shown once.
+  const [accountDeleted] = useState(() => {
+    try {
+      const flag = sessionStorage.getItem('ypm.accountDeleted') === '1'
+      if (flag) sessionStorage.removeItem('ypm.accountDeleted')
+      return flag
+    } catch { return false }
+  })
   const {
     signInWithEmail,
     signUpWithEmail,
@@ -333,14 +341,14 @@ export default function AuthScreen() {
             We've sent a confirmation link to <strong>{email}</strong>.
             Click it to activate your account and start your free trial.
           </p>
-          <p className={styles.formSubtext} style={{ fontSize: '0.9rem', marginTop: 'var(--space-2)' }}>
+          <p className={styles.formSubtext} style={{ fontSize: '1.0625rem', marginTop: 'var(--space-2)' }}>
             Can't find it? Check your spam or junk folder — and make sure the
             address above is spelled correctly.
           </p>
 
           {error && <p className={styles.error} role="alert">{error}</p>}
           {resendNote && (
-            <p className={styles.formSubtext} role="status" style={{ fontSize: '0.9rem' }}>
+            <p className={styles.formSubtext} role="status" style={{ fontSize: '1.0625rem' }}>
               {resendNote}
             </p>
           )}
@@ -390,7 +398,7 @@ export default function AuthScreen() {
             If an account exists for <strong>{email}</strong>, we've sent a
             sign-in link. Tap it to get into your pool mate.
           </p>
-          <p className={styles.formSubtext} style={{ fontSize: '0.9rem', marginTop: 'var(--space-2)' }}>
+          <p className={styles.formSubtext} style={{ fontSize: '1.0625rem', marginTop: 'var(--space-2)' }}>
             Can't find it? Check your spam or junk folder.
           </p>
           <button
@@ -415,7 +423,7 @@ export default function AuthScreen() {
             If an account exists for <strong>{email}</strong>, we've sent a link to
             reset your password. Tap it to choose a new one.
           </p>
-          <p className={styles.formSubtext} style={{ fontSize: '0.9rem', marginTop: 'var(--space-2)' }}>
+          <p className={styles.formSubtext} style={{ fontSize: '1.0625rem', marginTop: 'var(--space-2)' }}>
             Can't find it? Check your spam or junk folder.
           </p>
           <button
@@ -450,6 +458,11 @@ export default function AuthScreen() {
             <h1 className={styles.heading}>Your Pool Mate</h1>
             <p className={styles.tagline}>Your pool. Your mate. Your water, sorted.</p>
           </div>
+          {accountDeleted && (
+            <p className={styles.formSubtext} role="status" style={{ textAlign: 'center', marginTop: 12 }}>
+              Your account and everything in it has been deleted. Thanks for giving Your Pool Mate a go.
+            </p>
+          )}
 
           <div className={styles.valueProps}>
             <div className={styles.prop}>

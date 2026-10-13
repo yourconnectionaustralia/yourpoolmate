@@ -20,7 +20,7 @@
   background: #fff;
   color: var(--gray-mid);
   font-family: var(--font-ui);
-  font-size: 0.875rem;
+  font-size: 1.0625rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
@@ -54,18 +54,18 @@
 }
 
 .readoutUnit {
-  font-size: 0.875rem;
+  font-size: 1.0625rem;
   font-weight: 600;
   color: var(--gray-mid);
 }
 
 .readoutDate {
-  font-size: 0.8125rem;
+  font-size: 1.0625rem;
   color: var(--gray-mid);
 }
 
 .readoutHint {
-  font-size: 0.8125rem;
+  font-size: 1.0625rem;
   color: var(--gray-mid);
 }
 
@@ -85,7 +85,7 @@
 .axisLabel {
   fill: var(--gray-mid);
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .targetBand {
@@ -95,7 +95,7 @@
 .targetLabel {
   fill: var(--green);
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.3px;
 }
@@ -141,6 +141,6 @@
 .eventCode {
   fill: #fff;
   font-family: var(--font-ui);
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
 }
