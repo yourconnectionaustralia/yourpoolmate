@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
+  CHECKOUT_PRICING_WAIT_MS,
+  awaitWithTimeout,
   checkoutErrorMessage,
   createCheckoutSession,
   fetchCheckoutPricing,
@@ -110,6 +112,43 @@ test('get_pricing result drives founding vs annual copy without a client plan', 
   assert.equal(annualCopy.claimLabel.includes('founding'), false)
 })
 
+test('get_pricing passes test_mode through and treats a missing flag as live', async () => {
+  const testMode = fakeClient(async () => ({
+    data: { plan: 'annual', price_aud: 49, interval: 'year', founding: false, test_mode: true },
+    error: null,
+  }))
+  const pricing = await fetchCheckoutPricing(testMode)
+  assert.equal(pricing.plan, 'annual')
+  assert.equal(pricing.price_aud, 49)
+  assert.equal(pricing.test_mode, true)
+  assert.equal(offerCopy(pricing).claimLabel, 'Continue for $49 a year')
+
+  const live = fakeClient(async () => ({
+    data: { plan: 'founding_lifetime', price_aud: 79, interval: null, founding: true },
+    error: null,
+  }))
+  const livePricing = await fetchCheckoutPricing(live)
+  assert.equal(livePricing.test_mode, false)
+  assert.equal(livePricing.plan, 'founding_lifetime')
+})
+
+test('get_pricing derives test_mode from the key prefix and does not return secrets', () => {
+  const src = readFileSync(new URL('../../supabase/functions/stripe-checkout/index.ts', import.meta.url), 'utf8')
+  const start = src.indexOf('if (action === "get_pricing")')
+  const end = src.indexOf('if (action !== "create_session")')
+  assert.equal(start > 0 && end > start, true)
+  const block = src.slice(start, end)
+  assert.equal(block.includes('test_mode: stripeSecretIsTestMode()'), true)
+  assert.equal(block.includes('STRIPE_SECRET_KEY'), false)
+  assert.equal(block.includes('STRIPE_PRICE'), false)
+  assert.equal(block.includes('sk_test_'), false)
+  assert.equal(block.includes('sk_live_'), false)
+  assert.match(src, /function stripeSecretIsTestMode\(\): boolean \{[\s\S]*?secretKeyIsTestMode\(Deno\.env\.get\("STRIPE_SECRET_KEY"\) \?\? ""\)/)
+  assert.equal(src.includes('from "./stripe-test-mode.js"'), true)
+  const session = src.slice(src.indexOf('if (action !== "create_session")'))
+  assert.equal(session.includes('test_mode'), false)
+})
+
 test('pricing failure stays price-neutral so checkout can still start', async () => {
   const client = fakeClient(async () => ({
     data: null,
@@ -120,6 +159,20 @@ test('pricing failure stays price-neutral so checkout can still start', async ()
   assert.equal(copy.known, false)
   assert.equal(copy.priceLabel, null)
   assert.equal(copy.claimLabel, 'Continue to checkout')
+})
+
+test('a pricing lookup that stalls resolves empty so checkout can move on', async () => {
+  assert.equal(CHECKOUT_PRICING_WAIT_MS, 1500)
+  const hung = awaitWithTimeout(new Promise(() => {}), 40, null)
+  const started = Date.now()
+  assert.equal(await hung, null)
+  assert.equal(Date.now() - started < 400, true)
+
+  const fast = await awaitWithTimeout(Promise.resolve({ plan: 'annual', price_aud: 49 }), 1000, null)
+  assert.equal(fast.plan, 'annual')
+
+  const failed = await awaitWithTimeout(Promise.reject(new Error('offline')), 1000, null)
+  assert.equal(failed, null)
 })
 
 test('live App.jsx founding CTAs call create_session, not the marketing hash', () => {
