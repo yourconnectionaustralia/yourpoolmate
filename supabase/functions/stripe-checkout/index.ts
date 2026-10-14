@@ -43,6 +43,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { FOUNDING, STANDARD, buildSessionParams } from "./session-params.js"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -51,25 +52,7 @@ const CORS_HEADERS = {
 }
 const JSON_HEADERS = { ...CORS_HEADERS, "Content-Type": "application/json" }
 
-// ── Pricing (server-authoritative) ───────────────────────────
-const FOUNDING = {
-  plan: "founding_lifetime",
-  price_aud: 79,
-  unit_amount: 7900, // cents
-  interval: null as string | null,
-  mode: "payment" as const,
-  product_name: "Your Pool Mate — Founding Member (Lifetime)",
-  price_env: "STRIPE_PRICE_FOUNDING",
-}
-const STANDARD = {
-  plan: "annual",
-  price_aud: 49,
-  unit_amount: 4900, // cents
-  interval: "year" as string | null,
-  mode: "subscription" as const,
-  product_name: "Your Pool Mate — Annual",
-  price_env: "STRIPE_PRICE_ANNUAL",
-}
+// Pricing tiers live in session-params.js (server-authoritative, unit-tested).
 
 const DEFAULT_APP_URL = "https://app.yourpoolmate.com.au"
 
@@ -183,62 +166,15 @@ serve(async (req) => {
     const cancelUrl = rawCancel.startsWith(appUrl) ? rawCancel : appUrl
 
     // ── 4. Build the Checkout Session ──────────────────────────────
-    const params: Record<string, string | number | undefined | null> = {
-      "mode": tier.mode,
-      "success_url": `${successUrl}${successUrl.includes("?") ? "&" : "?"}checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      "cancel_url": `${cancelUrl}${cancelUrl.includes("?") ? "&" : "?"}checkout=cancelled`,
-      "client_reference_id": user.id,
-      // Checkout Studio settings (hosted page look + fields collected).
-      "ui_mode": "hosted_page",
-      "billing_address_collection": "auto",
-      "phone_number_collection[enabled]": "false",
-      "automatic_tax[enabled]": "false",
-      "allow_promotion_codes": "true",
-      "integration_identifier": "hosted_web_0001",
-      "origin_context": "web",
-      "branding_settings[background_color]": "#ffffff",
-      "branding_settings[button_color]": "#0b7799",
-      "branding_settings[font_family]": "default",
-      "branding_settings[border_style]": "rounded",
-      // Carry the user id on the session so the webhook knows who paid.
-      "metadata[user_id]": user.id,
-      "metadata[plan]": tier.plan,
-      "line_items[0][quantity]": 1,
-    }
-
-    if (catalog.priceId) {
-      // Catalog Price already carries currency, amount, and (for annual) interval.
-      // Do not also send price_data — Stripe rejects a line that has both.
-      params["line_items[0][price]"] = catalog.priceId
-    } else {
-      // No catalog Price configured — inline amounts so a deploy without the
-      // new secrets still checks out at $79 once / $49 per year.
-      params["line_items[0][price_data][currency]"] = "aud"
-      params["line_items[0][price_data][unit_amount]"] = tier.unit_amount
-      params["line_items[0][price_data][product_data][name]"] = tier.product_name
-      if (tier.mode === "subscription") {
-        params["line_items[0][price_data][recurring][interval]"] = tier.interval!
-      }
-    }
-
     // Reuse an existing Stripe customer if we have one; else create by email.
-    if (profile.stripe_customer_id) {
-      params["customer"] = profile.stripe_customer_id
-    } else if (user.email) {
-      params["customer_email"] = user.email
-    }
-
-    if (tier.mode === "payment") {
-      params["submit_type"] = "pay" // Stripe only accepts submit_type in payment mode
-    }
-
-    if (tier.mode === "subscription") {
-      params["payment_method_collection"] = "always"
-      params["line_items[0][price_data][recurring][interval]"] = tier.interval!
-      // Copy the user id onto the subscription so lifecycle events
-      // (renewals, cancellations) can be mapped back to the account.
-      params["subscription_data[metadata][user_id]"] = user.id
-    }
+    const params = buildSessionParams(tier, {
+      priceId: catalog.priceId,
+      successUrl,
+      cancelUrl,
+      userId: user.id,
+      stripeCustomerId: profile.stripe_customer_id,
+      email: user.email,
+    })
 
     const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
