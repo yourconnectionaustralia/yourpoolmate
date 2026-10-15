@@ -38,11 +38,11 @@ test('expired trial screen offers the existing JSON download and sign out', () =
 
   // Resting card copy stays the trial offer. Status lines are the Profile ones.
   assert.match(screen, /Your free trial has ended/);
-  assert.match(screen, /\{copy\.expiredBody\}/);
-  assert.match(screen, /\{copy\.priceLabel \|\| '—\}/);
-  assert.match(screen, /\{copy\.priceNote\}/);
-  assert.match(screen, /\{copy\.claimLabel\}/);
-  assert.match(screen, /\{copy\.footnote\}/);
+  assert.ok(screen.includes('{copy.expiredBody}'));
+  assert.ok(screen.includes("{copy.priceLabel || '—'}"));
+  assert.ok(screen.includes('{copy.priceNote}'));
+  assert.ok(screen.includes('{copy.claimLabel}'));
+  assert.ok(screen.includes('{copy.footnote}'));
   assert.match(account, /Downloaded\. Check your Downloads folder\./);
   assert.match(screen, /Downloaded\. Check your Downloads folder\./);
   assert.match(screen, /We couldn't put your data together just now/);
@@ -89,7 +89,10 @@ test('owner select policies for the export tables do not require premium', () =>
     .join('\n');
   const tables = ['user_profiles', 'pool_profiles', 'water_tests', 'equipment', 'pool_events'];
   for (const table of tables) {
-    const re = new RegExp(`create policy[\\s\\S]*?on public\\.${table}\\s+for select[\\s\\S]*?;`, 'gi');
+    const re = new RegExp(
+      `create policy "(?:[^"]*)"\\s+on public\\.${table}\\s+for select\\s[\\s\\S]*?;`,
+      'gi',
+    );
     const policies = sql.match(re) || [];
     assert.ok(policies.length >= 1, `${table} has a select policy`);
     for (const policy of policies) {
