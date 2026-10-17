@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ETWSG20K0R"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-ETWSG20K0R');
+  </script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chlorine dose calculator — Your Pool Mate</title>
+  <meta name="description" content="How much liquid chlorine or calcium hypochlorite to add to raise free chlorine from your current ppm to a target, for your pool volume in litres." />
+
+  <script>
+    const CONFIG = {
+      APP_URL: "https://app.yourpoolmate.com.au",
+    };
+    function startFree() { window.location.href = CONFIG.APP_URL; }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/tools/tools.css" />
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">
+      <div class="logo-mark">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="5.6" fill="none" stroke="white" stroke-width="1.4"/>
+          <path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/>
+        </svg>
+      </div>
+      Your Pool Mate
+    </a>
+    <button class="nav-btn" type="button" onclick="startFree()">Start free →</button>
+  </div>
+</nav>
+
+<main class="tool">
+  <p class="section-eyebrow">Free tool</p>
+  <h1>Chlorine dose calculator</h1>
+  <p class="lede">From the free chlorine you have now to the free chlorine you want, for your pool's volume. Same amounts the app works out.</p>
+
+  <form class="card" id="dose-form">
+    <div class="fields">
+      <div class="field">
+        <label for="current">Current free chlorine (ppm)</label>
+        <input class="input" id="current" name="current" type="number" inputmode="decimal" min="0" step="any" required />
+      </div>
+      <div class="field">
+        <label for="target">Target free chlorine (ppm)</label>
+        <input class="input" id="target" name="target" type="number" inputmode="decimal" min="0" step="any" required />
+      </div>
+      <div class="field">
+        <label for="volume">Pool volume (litres)</label>
+        <input class="input" id="volume" name="volume" type="number" inputmode="numeric" min="1" step="1" required />
+        <p class="hint"><a href="/tools/pool-volume-calculator/">Don't know the volume? Work it out here.</a></p>
+      </div>
+      <div class="field">
+        <label for="product">Product</label>
+        <select class="select" id="product" name="product" required></select>
+      </div>
+    </div>
+
+    <button class="btn-calc" type="submit">Calculate dose</button>
+
+    <p id="error" class="problem" role="alert" hidden></p>
+    <div id="result" class="result" aria-live="polite" hidden>
+      <p id="result-amount" class="result-amount"></p>
+      <p id="result-detail" class="result-detail"></p>
+    </div>
+  </form>
+
+  <section class="explain">
+    <h2>How it works</h2>
+    <p>Enter the free chlorine you have now, the free chlorine you want, and the pool volume in litres. Pick the product you are adding.</p>
+    <p>The amount is the same figure the app gives when it raises chlorine. It scales with the volume (per 1,000 litres) and the gap in ppm. The app's usual target is 2.0 ppm, the middle of the 1.0–3.0 ppm range. You can aim somewhere else; the gap is worked out the same way.</p>
+    <p>Liquid chlorine (sodium hypochlorite) and granular chlorine (calcium hypochlorite) are the chlorine products the app calculates. It does not ask for a percentage strength — there is one figure for liquid chlorine.</p>
+    <p class="safety">Always follow the product label directions. <span id="app-safety"></span></p>
+  </section>
+
+  <section class="trial">
+    <h2>A dose plan for the whole test</h2>
+    <p>Your Pool Mate lines up chlorine with the rest of the water test, for your pool, and keeps the record. The trial is free for 30 days.</p>
+    <button class="btn-cta" type="button" onclick="startFree()">Start free — 30-day trial</button>
+  </section>
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <a class="footer-logo" href="/">
+      <div class="logo-mark">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="5.6" fill="none" stroke="white" stroke-width="1.4"/>
+          <path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/>
+        </svg>
+      </div>
+      Your Pool Mate
+    </a>
+    <span class="footer-copy">© 2026 Your Pool Mate. Australian owned.</span>
+    <div class="footer-links">
+      <a href="/tools/pool-volume-calculator/">Pool volume</a>
+      <a href="/tools/chlorine-dose-calculator/">Chlorine dose</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/terms.html">Terms</a>
+      <a href="mailto:hello@yourpoolmate.com.au">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+import { CHLORINE_RAISE_PRODUCTS, TARGET_MID, chlorineRaiseDose } from '/tools/lib/dosing.js';
+import { safetyLineFor } from '/tools/lib/dosingSafety.js';
+import { TOOL_CHLORINE, createToolUseGate, trackToolUsed } from '/tools/lib/toolAnalytics.js';
+
+const form = document.getElementById('dose-form');
+const product = document.getElementById('product');
+const currentInput = document.getElementById('current');
+const targetInput = document.getElementById('target');
+const volumeInput = document.getElementById('volume');
+const result = document.getElementById('result');
+const error = document.getElementById('error');
+const gate = createToolUseGate();
+
+targetInput.value = TARGET_MID.freeChlor.toFixed(1);
+document.getElementById('app-safety').textContent = safetyLineFor('freeChlor', 'low');
+
+for (const item of CHLORINE_RAISE_PRODUCTS) {
+  const option = document.createElement('option');
+  option.value = item.id;
+  option.textContent = item.label;
+  product.append(option);
+}
+
+form.addEventListener('input', () => {
+  result.hidden = true;
+});
+
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const current = currentInput.value;
+  const target = targetInput.value;
+  const volume = volumeInput.value;
+  const productId = product.value;
+  const dose = chlorineRaiseDose({
+    volumeLitres: volume,
+    currentPpm: current,
+    targetPpm: target,
+    productId,
+  });
+  if (!dose) {
+    result.hidden = true;
+    error.hidden = false;
+    const currentN = parseFloat(current);
+    const targetN = parseFloat(target);
+    const volumeN = parseFloat(volume);
+    const aboveTarget = Number.isFinite(currentN) && Number.isFinite(targetN)
+      && currentN >= 0 && targetN >= 0 && volumeN > 0 && targetN <= currentN;
+    error.textContent = aboveTarget
+      ? 'Nothing to add. Free chlorine is already at or above that target. The app does not add chlorine to bring it down.'
+      : 'Enter the current ppm, a higher target ppm, and your pool volume in litres.';
+    return;
+  }
+  error.hidden = true;
+  result.hidden = false;
+  const gap = dose.deltaPpm.toLocaleString('en-AU', { maximumFractionDigits: 2 });
+  const litres = dose.volumeLitres.toLocaleString('en-AU');
+  document.getElementById('result-amount').textContent = `Add about ${dose.amount}`;
+  document.getElementById('result-detail').textContent =
+    `${dose.name}. Raises free chlorine by ${gap} ppm in a ${litres} litre pool.`;
+  trackToolUsed(TOOL_CHLORINE, JSON.stringify({ current, target, volume, productId, amount: dose.amount }), {
+    gate,
+    gtag: window.gtag,
+    location: window.location,
+  });
+});
+</script>
+</body>
+</html>
