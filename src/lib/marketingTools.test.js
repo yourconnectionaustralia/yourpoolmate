@@ -66,9 +66,32 @@ test('the homepage footer links to both tools and the build copies every importe
   assert.match(homeHtml, /\$79 once, lifetime/);
   assert.match(homeHtml, /\$49\/year/);
   assert.match(buildScript, /TOOL_MODULES/);
+  assert.match(buildScript, /join\(root, 'src', 'lib', file\)/);
   for (const file of ['dosing.js', 'poolVolume.js', 'toolAnalytics.js', 'dosingSafety.js']) {
     assert.equal(TOOL_MODULES.includes(file), true);
     const imported = volumeHtml.includes(`/tools/lib/${file}`) || chlorineHtml.includes(`/tools/lib/${file}`);
     assert.equal(imported, true, file);
+    const source = readFileSync(new URL(`../../src/lib/${file}`, import.meta.url));
+    const mirror = readFileSync(new URL(`../../marketing/tools/lib/${file}`, import.meta.url));
+    assert.deepEqual(mirror, source);
   }
+});
+
+test('sitemap and robots ship with the marketing folder', () => {
+  const sitemap = readFileSync(new URL('../../marketing/sitemap.xml', import.meta.url), 'utf8');
+  const robots = readFileSync(new URL('../../marketing/robots.txt', import.meta.url), 'utf8');
+  for (const loc of [
+    'https://yourpoolmate.com.au/',
+    'https://yourpoolmate.com.au/privacy',
+    'https://yourpoolmate.com.au/terms',
+    'https://yourpoolmate.com.au/tools/pool-volume-calculator',
+    'https://yourpoolmate.com.au/tools/chlorine-dose-calculator',
+  ]) {
+    assert.match(sitemap, new RegExp(`<loc>${loc.replace(/[/.]/g, '\\$&')}</loc>`));
+  }
+  assert.equal((sitemap.match(/<loc>/g) || []).length, 5);
+  assert.match(robots, /User-agent: \*/);
+  assert.match(robots, /Allow: \//);
+  assert.match(robots, /Sitemap: https:\/\/yourpoolmate\.com\.au\/sitemap\.xml/);
+  assert.match(buildScript, /copyTree\(source, dest\)/);
 });

@@ -1,5 +1,12 @@
 // Copy the static marketing site, then place the shared app modules
 // where the tool pages import them (/tools/lib/*.js).
+//
+// marketing/tools/lib/ is a committed mirror of those modules so a Pages
+// project that publishes the marketing folder as-is still has them.
+// This step overwrites that mirror in marketing-dist from src/lib, so the
+// built output stays on the app source. sitemap.xml and robots.txt are
+// copied with the rest of the tree. The app build (npm run build → dist)
+// is not involved.
 
 import { cp, mkdir, readdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
