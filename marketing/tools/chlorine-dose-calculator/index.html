@@ -173,9 +173,10 @@ form.addEventListener('submit', (event) => {
   result.hidden = false;
   const gap = dose.deltaPpm.toLocaleString('en-AU', { maximumFractionDigits: 2 });
   const litres = dose.volumeLitres.toLocaleString('en-AU');
+  const shown = dose.name.charAt(0).toUpperCase() + dose.name.slice(1);
   document.getElementById('result-amount').textContent = `Add about ${dose.amount}`;
   document.getElementById('result-detail').textContent =
-    `${dose.name}. Raises free chlorine by ${gap} ppm in a ${litres} litre pool.`;
+    `${shown}. Raises free chlorine by ${gap} ppm in a ${litres} litre pool.`;
   trackToolUsed(TOOL_CHLORINE, JSON.stringify({ current, target, volume, productId, amount: dose.amount }), {
     gate,
     gtag: window.gtag,
