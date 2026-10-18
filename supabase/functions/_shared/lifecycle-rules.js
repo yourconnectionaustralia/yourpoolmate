@@ -199,6 +199,20 @@ export function isAllowlisted(email, raw) {
   return parsed.emails.has(String(email ?? "").trim().toLowerCase())
 }
 
+// The test series sends all seven emails at once, ignoring timing. It may
+// only go to an address named one by one: the default inbox or an address
+// listed in EMAIL_ALLOWLIST. "*" does not count, so an open allowlist can
+// never turn the test tool into a blast to real members.
+export function isExplicitTestRecipient(email, raw) {
+  const target = String(email ?? "").trim().toLowerCase()
+  if (!target.includes("@")) return false
+  if (target === DEFAULT_ALLOWLIST_EMAIL) return true
+  return String(raw ?? "")
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .some((part) => part === target)
+}
+
 // Resend is called only when this is true. No key, or an address outside the
 // allowlist, must not produce an API call.
 export function mayCallResend(email, allowlistRaw, hasKey) {
