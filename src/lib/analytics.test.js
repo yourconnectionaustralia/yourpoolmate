@@ -92,7 +92,13 @@ test('the app loads this measurement id once, with the cross-domain linker', () 
 });
 
 test('marketing pages keep the tag already on main and gain no second id', () => {
-  for (const file of ['index.html', 'privacy.html', 'terms.html']) {
+  for (const file of [
+    'index.html',
+    'privacy.html',
+    'terms.html',
+    'tools/pool-volume-calculator/index.html',
+    'tools/chlorine-dose-calculator/index.html',
+  ]) {
     const html = readFileSync(new URL(`../../marketing/${file}`, import.meta.url), 'utf8');
     assert.equal(html.includes(`https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`), true);
     assert.equal(html.includes(`gtag('config', '${MEASUREMENT_ID}');`), true);
