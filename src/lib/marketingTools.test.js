@@ -84,8 +84,8 @@ test('sitemap and robots ship with the marketing folder', () => {
     'https://yourpoolmate.com.au/',
     'https://yourpoolmate.com.au/privacy',
     'https://yourpoolmate.com.au/terms',
-    'https://yourpoolmate.com.au/tools/pool-volume-calculator',
-    'https://yourpoolmate.com.au/tools/chlorine-dose-calculator',
+    'https://yourpoolmate.com.au/tools/pool-volume-calculator/',
+    'https://yourpoolmate.com.au/tools/chlorine-dose-calculator/',
   ]) {
     assert.match(sitemap, new RegExp(`<loc>${loc.replace(/[/.]/g, '\\$&')}</loc>`));
   }
