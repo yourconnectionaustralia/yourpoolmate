@@ -28,6 +28,8 @@ import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
 import { testPrompt } from './lib/testPrompt.js';
 import { doseEventFor, retestPrompt } from './lib/doseLog.js';
 import { DOSE_PLAN_GUIDANCE, safetyLineFor } from './lib/dosingSafety.js';
+import { doseOptions } from './lib/dosing.js';
+import { rectangularVolumeLitres } from './lib/poolVolume.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
 import { createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
@@ -1477,11 +1479,7 @@ function SetupPage({ poolProfile, onSave }) {
 
   const set = (key, value) => { setForm(v => ({ ...v, [key]: value })); setSaved(false); };
 
-  const volumeEstimate = (() => {
-    const l = parseFloat(dims.length), w = parseFloat(dims.width), d = parseFloat(dims.depth);
-    if (l > 0 && w > 0 && d > 0) return Math.round(l * w * d * 1000);
-    return null;
-  })();
+  const volumeEstimate = rectangularVolumeLitres(dims.length, dims.width, dims.depth);
 
   const handleSave = () => {
     // Volume is held as a raw string while editing (so the field can sit
@@ -2402,15 +2400,8 @@ function hasVolume(pool) {
   return !!(pool && pool.volumeL && pool.volumeL > 0);
 }
 
-// Dose formatting
-const fmtMass = (g)  => (!g  || g  <= 0) ? null : (g  >= 1000 ? `${(g / 1000).toFixed(1)} kg` : `${Math.round(g / 5) * 5} g`);
-const fmtVol  = (ml) => (!ml || ml <= 0) ? null : (ml >= 1000 ? `${(ml / 1000).toFixed(1)} L`  : `${Math.round(ml / 10) * 10} mL`);
-
-// Midpoint each parameter is dosed toward
-const TARGET_MID = {
-  pH: 7.4, freeChlor: 2.0, alkalinity: 100, cyanuricAcid: 40,
-  calciumHardness: 300, salt: 3500, phosphates: 0, tds: 0,
-};
+// Dose amounts (including chlorine factors) live in src/lib/dosing.js.
+// The marketing chlorine calculator imports that same module.
 
 // Correct order to balance a pool: alkalinity buffers pH (first),
 // salt must be present before the chlorinator works, chlorine goes in last.
@@ -2426,63 +2417,6 @@ const ACTION_LABEL = {
   phosphates:      { low: 'Remove phosphates',      high: 'Remove phosphates' },
   tds:             { low: 'Reduce TDS',             high: 'Reduce TDS' },
 };
-
-// Dose options for one parameter. `kl` is pool volume in 1000-L units (0 = unknown).
-// `saltMid` overrides the salt target midpoint for the owner's chlorinator.
-function doseOptions(key, state, val, kl, saltPool, saltMid) {
-  const t = key === 'salt' && saltMid != null ? saltMid : TARGET_MID[key];
-  const d = state === 'low' ? (t - val) : (val - t);
-  switch (key) {
-    case 'pH':
-      return state === 'low'
-        ? [{ name: 'soda ash (sodium carbonate)', amount: fmtMass(kl * 60 * d) }]
-        // pH-down rates: HCl ~29 mL/kL per pH-unit (33% acid); dry acid ~38 g/kL
-        // per pH-unit (~1.3x HCl by acid equivalence). Verified against a Focus
-        // pool-shop analysis (526 mL HCl for a 45 kL pool, pH 7.8->7.4) and
-        // carbonate first-principles. Do NOT reset these to 80.
-        // Liquid acid is the preferred primary method, so it leads the list.
-        : [{ name: 'hydrochloric acid (liquid)',   amount: fmtVol(kl * 29 * d) },
-           { name: 'dry acid (sodium bisulphate)', amount: fmtMass(kl * 38 * d) }];
-    case 'freeChlor': {
-      if (state === 'low') {
-        const o = [
-          { name: 'liquid chlorine (sodium hypochlorite)',    amount: fmtVol(kl * 8 * d) },
-          { name: 'granular chlorine (calcium hypochlorite)', amount: fmtMass(kl * 1.4 * d) },
-        ];
-        if (saltPool) o.unshift({ name: 'increase chlorinator output or run time', amount: null });
-        return o;
-      }
-      return [
-        { name: 'let chlorine reduce naturally (sunlight)', amount: null },
-        { name: 'chlorine remover (sodium thiosulphate)',   amount: fmtMass(kl * 2.5 * d) },
-      ];
-    }
-    case 'alkalinity':
-      return state === 'low'
-        ? [{ name: 'buffer / bicarb soda (sodium bicarbonate)', amount: fmtMass(kl * 1.7 * d) }]
-        : [{ name: 'dry acid (sodium bisulphate)', amount: fmtMass(kl * 1.9 * d) },
-           { name: 'hydrochloric acid (liquid)',   amount: fmtVol(kl * 1.6 * d) }];
-    case 'cyanuricAcid':
-      return state === 'low'
-        ? [{ name: 'stabiliser / conditioner (cyanuric acid)', amount: fmtMass(kl * 1.0 * d) }]
-        : [{ name: 'partial drain & refill, or consult your pool professional', amount: null }];
-    case 'calciumHardness':
-      return state === 'low'
-        ? [{ name: 'calcium chloride (hardness increaser)', amount: fmtMass(kl * 1.5 * d) }]
-        : [{ name: 'partial drain & refill, or consult your pool professional', amount: null },
-           { name: 'scale inhibitor / sequestrant', amount: null }];
-    case 'salt':
-      return state === 'low'
-        ? [{ name: 'pool salt', amount: fmtMass(kl * 1.0 * d) }]
-        : [{ name: 'partial drain & refill, or consult your pool professional', amount: null }];
-    case 'phosphates':
-      return [{ name: 'phosphate remover (lanthanum-based) — dose per product label', amount: null }];
-    case 'tds':
-      return [{ name: 'partial drain & refill, or consult your pool professional', amount: null }];
-    default:
-      return [{ name: 'needs attention', amount: null }];
-  }
-}
 
 // One-line sequencing hint for the ordered plan.
 function planNote(key, state, statuses) {
@@ -2630,11 +2564,7 @@ function VolumeGateModal({ onCancel, onConfirm }) {
   const [litres, setLitres] = useState('');
   const [dims, setDims] = useState({ length: '', width: '', depth: '' });
 
-  const estimate = (() => {
-    const l = parseFloat(dims.length), w = parseFloat(dims.width), d = parseFloat(dims.depth);
-    if (l > 0 && w > 0 && d > 0) return Math.round(l * w * d * 1000);
-    return null;
-  })();
+  const estimate = rectangularVolumeLitres(dims.length, dims.width, dims.depth);
 
   const value = parseInt(litres, 10);
   const valid = Number.isFinite(value) && value > 0;
