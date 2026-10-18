@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ETWSG20K0R"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-ETWSG20K0R');
+  </script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pool volume calculator — Your Pool Mate</title>
+  <meta name="description" content="Work out your pool volume in litres from its shape, with shallow and deep end depths. Rectangle, round, oval, or a kidney approximation. Free for Australian pools." />
+
+  <script>
+    const CONFIG = {
+      APP_URL: "https://app.yourpoolmate.com.au",
+    };
+    function startFree() { window.location.href = CONFIG.APP_URL; }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/tools/tools.css" />
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">
+      <div class="logo-mark">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="5.6" fill="none" stroke="white" stroke-width="1.4"/>
+          <path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/>
+        </svg>
+      </div>
+      Your Pool Mate
+    </a>
+    <button class="nav-btn" type="button" onclick="startFree()">Start free →</button>
+  </div>
+</nav>
+
+<main class="tool">
+  <p class="section-eyebrow">Free tool</p>
+  <h1>Pool volume calculator</h1>
+  <p class="lede">Litres for a rectangle, round, oval, or kidney-shaped pool. Enter the shallow end and the deep end — average depth is worked out for you.</p>
+
+  <form class="card" id="volume-form">
+    <fieldset class="choices">
+      <legend class="legend">Pool shape</legend>
+      <div class="choice-grid" id="shapes"></div>
+    </fieldset>
+
+    <div class="fields">
+      <div class="field" id="length-field">
+        <label for="length">Length (metres)</label>
+        <input class="input" id="length" name="length" type="number" inputmode="decimal" min="0" step="any" required />
+      </div>
+      <div class="field" id="width-field">
+        <label for="width">Width (metres)</label>
+        <input class="input" id="width" name="width" type="number" inputmode="decimal" min="0" step="any" required />
+      </div>
+      <div class="field" id="diameter-field" hidden>
+        <label for="diameter">Diameter (metres)</label>
+        <input class="input" id="diameter" name="diameter" type="number" inputmode="decimal" min="0" step="any" />
+      </div>
+      <div class="field">
+        <label for="shallow">Shallow end depth (metres)</label>
+        <input class="input" id="shallow" name="shallow" type="number" inputmode="decimal" min="0" step="any" required />
+      </div>
+      <div class="field">
+        <label for="deep">Deep end depth (metres)</label>
+        <input class="input" id="deep" name="deep" type="number" inputmode="decimal" min="0" step="any" required />
+      </div>
+    </div>
+    <p class="hint">Average depth = (shallow end + deep end) ÷ 2. Measure the water, not the coping.</p>
+
+    <button class="btn-calc" type="submit">Calculate volume</button>
+
+    <p id="error" class="problem" role="alert" hidden></p>
+    <div id="result" class="result" aria-live="polite" hidden>
+      <p id="result-litres" class="result-amount"></p>
+      <p id="result-detail" class="result-detail"></p>
+      <p class="result-detail"><a href="/tools/chlorine-dose-calculator/">Work out a chlorine dose from this volume</a></p>
+    </div>
+  </form>
+
+  <section class="explain">
+    <h2>How it works</h2>
+    <p>Measure in metres. Average depth is the shallow end plus the deep end, divided by two — the same rule written on Pool setup in the app.</p>
+    <p>A rectangle then uses the app's own sum: length × width × that average depth × 1,000 = litres.</p>
+    <p>A round pool uses the area of a circle. An oval uses the area of an ellipse. A kidney or freeform pool is estimated as 85% of the rectangle it fits inside. The app does not calculate those three shapes; this page uses ordinary geometry for them.</p>
+    <p class="safety">Always follow the product label directions. This page only estimates volume. When you add chemicals, follow the label and re-test before adding more.</p>
+  </section>
+
+  <section class="trial">
+    <h2>Keep the number with your pool</h2>
+    <p>Your Pool Mate uses your volume for every dose, and keeps a record of each water test. The trial is free for 30 days.</p>
+    <button class="btn-cta" type="button" onclick="startFree()">Start free — 30-day trial</button>
+  </section>
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <a class="footer-logo" href="/">
+      <div class="logo-mark">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="5.6" fill="none" stroke="white" stroke-width="1.4"/>
+          <path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/>
+        </svg>
+      </div>
+      Your Pool Mate
+    </a>
+    <span class="footer-copy">© 2026 Your Pool Mate. Australian owned.</span>
+    <div class="footer-links">
+      <a href="/tools/pool-volume-calculator/">Pool volume</a>
+      <a href="/tools/chlorine-dose-calculator/">Chlorine dose</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/terms.html">Terms</a>
+      <a href="mailto:hello@yourpoolmate.com.au">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+import { VOLUME_SHAPES, averageDepthMetres, poolVolumeLitres } from '/tools/lib/poolVolume.js';
+import { TOOL_VOLUME, createToolUseGate, trackToolUsed } from '/tools/lib/toolAnalytics.js';
+
+const form = document.getElementById('volume-form');
+const shapes = document.getElementById('shapes');
+const lengthField = document.getElementById('length-field');
+const widthField = document.getElementById('width-field');
+const diameterField = document.getElementById('diameter-field');
+const lengthInput = document.getElementById('length');
+const widthInput = document.getElementById('width');
+const diameterInput = document.getElementById('diameter');
+const result = document.getElementById('result');
+const error = document.getElementById('error');
+const gate = createToolUseGate();
+
+VOLUME_SHAPES.forEach((shape, index) => {
+  const label = document.createElement('label');
+  label.className = 'choice';
+  const input = document.createElement('input');
+  input.type = 'radio';
+  input.name = 'shape';
+  input.value = shape.id;
+  input.checked = index === 0;
+  const text = document.createElement('span');
+  text.textContent = shape.label;
+  label.append(input, text);
+  shapes.append(label);
+});
+
+function selectedShape() {
+  const picked = form.querySelector('input[name="shape"]:checked');
+  return picked ? picked.value : 'rectangle';
+}
+
+function syncShape() {
+  const round = selectedShape() === 'round';
+  lengthField.hidden = round;
+  widthField.hidden = round;
+  diameterField.hidden = !round;
+  lengthInput.required = !round;
+  widthInput.required = !round;
+  diameterInput.required = round;
+}
+
+form.addEventListener('change', (event) => {
+  if (event.target && event.target.name === 'shape') {
+    syncShape();
+    result.hidden = true;
+  }
+});
+form.addEventListener('input', () => {
+  result.hidden = true;
+});
+syncShape();
+
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const shape = selectedShape();
+  const dims = {
+    lengthM: lengthInput.value,
+    widthM: widthInput.value,
+    diameterM: diameterInput.value,
+    shallowM: document.getElementById('shallow').value,
+    deepM: document.getElementById('deep').value,
+  };
+  const litres = poolVolumeLitres(shape, dims);
+  if (litres == null) {
+    result.hidden = true;
+    error.hidden = false;
+    error.textContent = 'Enter each measurement in metres, greater than zero.';
+    return;
+  }
+  error.hidden = true;
+  const depth = averageDepthMetres(dims.shallowM, dims.deepM);
+  const shapeLabel = VOLUME_SHAPES.find((item) => item.id === shape)?.label || shape;
+  const depthText = depth.toLocaleString('en-AU', { maximumFractionDigits: 2 });
+  result.hidden = false;
+  document.getElementById('result-litres').textContent = `${litres.toLocaleString('en-AU')} litres`;
+  document.getElementById('result-detail').textContent = `${shapeLabel}. Average depth ${depthText} m.`;
+  trackToolUsed(TOOL_VOLUME, JSON.stringify({ shape, dims, litres }), {
+    gate,
+    gtag: window.gtag,
+    location: window.location,
+  });
+});
+</script>
+</body>
+</html>
