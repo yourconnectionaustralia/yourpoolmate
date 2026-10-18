@@ -21,7 +21,7 @@ If Your Pool Mate has been useful for your water tests and next steps, you might
 No pressure. If it fits, send them this link:
 https://yourpoolmate.com.au
 
-They can try the 30-day free trial (no card to start). Founding is still $79 lifetime while under 300 paid members; after that it's $49/year.
+They can try the 30-day free trial (no card to start). The first 300 members get $79 lifetime; after that it's $49/year.
 
 If you'd rather not share, all good - just keep using the app.
 
