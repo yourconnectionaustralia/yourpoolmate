@@ -32,7 +32,14 @@ export const TOUR_STEPS = [
     view: 'tests',
     anchors: ['tests'],
     title: 'Test your water',
-    body: 'Tap Enter Test Results to type your readings in, or photograph a pool shop printout and let the scanner read it. You get exact doses for your pool volume — no guessing.',
+    body: 'Tap Test to type your readings in, speak them, or photograph a pool shop printout and let the scanner read it. You check every number before it is saved.',
+  },
+  {
+    id: 'plan',
+    view: 'plan',
+    anchors: ['plan'],
+    title: "Today's plan",
+    body: 'After a test, the plan lists what to add, in the right order, in grams and millilitres for your pool. Tap "I added it" as you go — each dose goes in your history, and anything you haven\'t bought yet goes on the shopping list.',
   },
   {
     id: 'history',

@@ -1,6 +1,6 @@
 # Your Pool Mate — Project Context
 **For Claude · Loaded at the start of every session**
-**Last updated: June 2026 (post cross-domain review)**
+**Last updated: October 2026 (v3 — staging features ported to live)**
 
 ---
 
@@ -158,6 +158,7 @@ B2B pitch threshold: **≥ 50 active users in the shop's postcode cluster.** Do 
 | 30-day hard-countdown free trial logic | ✅ Built (migration 004) |
 | Marketing site (HTML) — "Start free" CTA, no payment | ✅ Built (checkout moved in-app Sep 2026) |
 | Stripe payment processing — checkout + webhook Edge Functions, paywall wired | ✅ Built (Sep 2026, migration 014) — needs Stripe keys/secrets + webhook endpoint set |
+| v3 (Oct 2026): Plan tab, safe-to-swim call, one-tap next dose, My Shed, receipt scan, shopping list, Costs, share-a-report link, pinned shortcuts, pump/chlorinator settings | ✅ Built — ported from the staging Worker into the live stack. Needs migration 021 applied (Deploy Supabase → Run workflow). See `docs/V3_RELEASE.md` |
 
 **Highest-priority unwired item:**
 The guest onboarding trigger exists but is **not wired into the app flow**. New guests with no pool profile should automatically see the onboarding modal. This is the single highest-conversion-impact fix before launch.
@@ -205,6 +206,14 @@ The guest onboarding trigger exists but is **not wired into the app flow**. New 
 10. **Founding member launch** — Facebook Group soft launch; first 300 users lock in $79 lifetime (then $49/yr)
 
 ---
+
+## V3 CODE MAP (Oct 2026)
+
+- Dose plan logic: `src/lib/plan.js` (order, amounts, swim call, chlorine aim by state/month, chlorinator estimate, LSI). Dose factors stay in `src/lib/dosing.js` only.
+- Shed / shopping list / costs logic: `src/lib/shed.js`. Stock left is always computed (bought − dose draws), never stored.
+- Share link: `src/lib/reportLink.js` + `/report` route in `src/main.jsx` (report data after `#`, never sent to a server).
+- Screens: `PlanPage`, `ShedPage`, `ShopPage`, `CostsPage`, `HomeCards`, `ReportView`, `ShareReport` in `src/components/`.
+- The staging Worker (`yourpoolmate-x-staging`) is a separate Next.js prototype with browser storage. Do not deploy it as the live app.
 
 ## KNOWN RESOLVED BUGS (do not re-introduce)
 

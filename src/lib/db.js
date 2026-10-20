@@ -5,6 +5,21 @@
 import { memberProfilePayload, validateMemberProfile } from './memberProfile.js';
 import { supabase } from './supabase';
 
+// Migrations are applied by hand, so a new table or column can be missing
+// for a while after the app ships. These codes mean "not there yet", which
+// the app treats as a feature that is not switched on, never as lost data.
+const MISSING_CODES = new Set(['42P01', '42703', 'PGRST204', 'PGRST205', 'PGRST200']);
+export function isMissingSchema(err) {
+  return Boolean(err && (MISSING_CODES.has(err.code) || /does not exist|schema cache/i.test(err.message || '')));
+}
+
+export class FeatureNotReady extends Error {
+  constructor(feature) {
+    super(`${feature} is not switched on yet.`);
+    this.code = 'FEATURE_NOT_READY';
+  }
+}
+
 // ── Water tests ──────────────────────────────────────────────
 
 export function rowToTest(r) {
@@ -13,6 +28,7 @@ export function rowToTest(r) {
     // null = not tested (skipped by the Health Score), never coerced to 0 —
     // a 0 here is a real reading (e.g. no chlorine).
     freeChlor:       r.free_chlorine ?? null,
+    ...(r.total_chlorine != null ? { totalChlor: r.total_chlorine } : {}),
     pH:              r.ph ?? null,
     alkalinity:      r.alkalinity ?? null,
     cyanuricAcid:    r.cyanuric_acid ?? null,
@@ -50,6 +66,7 @@ export async function saveTest(userId, poolId, test, healthScore) {
     // ?? not || — a 0 reading (e.g. no chlorine) is real data, not "untested".
     ph:             test.pH ?? null,
     free_chlorine:  test.freeChlor ?? null,
+    total_chlorine: test.totalChlor ?? null,
     alkalinity:     test.alkalinity ?? null,
     cyanuric_acid:  test.cyanuricAcid ?? null,
     calcium:        test.calciumHardness ?? null,
@@ -71,6 +88,7 @@ function testToRow(test, healthScore) {
     // ?? not || — a 0 reading is real data, not "untested".
     ph:             test.pH ?? null,
     free_chlorine:  test.freeChlor ?? null,
+    total_chlorine: test.totalChlor ?? null,
     alkalinity:     test.alkalinity ?? null,
     cyanuric_acid:  test.cyanuricAcid ?? null,
     calcium:        test.calciumHardness ?? null,
@@ -143,6 +161,37 @@ export function rowToPool(r) {
     yearBuiltApprox: r.year_built_approx ?? false,
     hasCover:  r.has_cover ?? false,
     fenceCertDate: r.fence_cert_date ?? '',
+    // Migration 021. Null until the owner sets them.
+    pumpHoursPerDay: r.pump_hours_per_day ?? null,
+    pumpHoursSummer: r.pump_hours_summer ?? null,
+    pumpHoursAutumn: r.pump_hours_autumn ?? null,
+    pumpHoursWinter: r.pump_hours_winter ?? null,
+    pumpHoursSpring: r.pump_hours_spring ?? null,
+    pumpScheduleNote: r.pump_schedule_note ?? '',
+    chlorinatorOutputPercent: r.chlorinator_output_percent ?? null,
+    chlorinatorCellGPerHour: r.chlorinator_cell_g_per_hour != null ? Number(r.chlorinator_cell_g_per_hour) : null,
+  };
+}
+
+const hours = (v) => {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) && n >= 0 && n <= 24 ? n : null;
+};
+
+// Pump and chlorinator columns (migration 021). Sent only when the database
+// has them; see savePoolProfile.
+function poolSettingsRow(p) {
+  const pct = parseInt(p.chlorinatorOutputPercent, 10);
+  const cell = parseFloat(p.chlorinatorCellGPerHour);
+  return {
+    pump_hours_per_day: hours(p.pumpHoursPerDay),
+    pump_hours_summer:  hours(p.pumpHoursSummer),
+    pump_hours_autumn:  hours(p.pumpHoursAutumn),
+    pump_hours_winter:  hours(p.pumpHoursWinter),
+    pump_hours_spring:  hours(p.pumpHoursSpring),
+    pump_schedule_note: (p.pumpScheduleNote || '').trim().slice(0, 200) || null,
+    chlorinator_output_percent: Number.isFinite(pct) && pct >= 0 && pct <= 100 ? pct : null,
+    chlorinator_cell_g_per_hour: Number.isFinite(cell) && cell >= 1 && cell <= 100 ? cell : null,
   };
 }
 
@@ -172,11 +221,10 @@ export async function savePoolProfile(userId, p) {
     fence_cert_date: p.fenceCertDate || null,
     updated_at:     new Date().toISOString(),
   };
-  const { data, error } = await supabase
-    .from('pool_profiles')
-    .upsert(row, { onConflict: 'user_id' })
-    .select('id')
-    .single();
+  const upsert = (r) => supabase.from('pool_profiles').upsert(r, { onConflict: 'user_id' }).select('id').single();
+  let { data, error } = await upsert({ ...row, ...poolSettingsRow(p) });
+  // Before migration 021 the pump columns don't exist. Save the rest.
+  if (error && isMissingSchema(error)) ({ data, error } = await upsert(row));
   if (error) throw error;
   return data.id;
 }
@@ -232,6 +280,28 @@ export function rowToEvent(r) {
     notes: r.notes || '',
     date: r.occurred_at,
     source: 'manual',
+    // Dose detail (migration 021). Absent on older rows and older databases.
+    testId: r.test_id ?? null,
+    stepKey: r.step_key ?? null,
+    product: r.product ?? null,
+    grams: r.grams != null ? Number(r.grams) : null,
+    millilitres: r.millilitres != null ? Number(r.millilitres) : null,
+    costAud: r.cost_aud != null ? Number(r.cost_aud) : null,
+    shedDraw: Array.isArray(r.shed_draw) ? r.shed_draw : [],
+  };
+}
+
+function doseDetailRow(event) {
+  if (event.type !== 'dose') return {};
+  const n = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v) * 10) / 10 : null);
+  return {
+    test_id: event.testId || null,
+    step_key: event.stepKey || null,
+    product: event.product ? String(event.product).slice(0, 120) : null,
+    grams: n(event.grams),
+    millilitres: n(event.millilitres),
+    cost_aud: Number(event.costAud) > 0 ? Math.round(Number(event.costAud) * 100) / 100 : null,
+    shed_draw: Array.isArray(event.shedDraw) && event.shedDraw.length ? event.shedDraw : null,
   };
 }
 
@@ -246,18 +316,19 @@ export async function loadEvents(userId) {
 }
 
 export async function addEvent(userId, poolId, event) {
-  const { data, error } = await supabase
-    .from('pool_events')
-    .insert({
-      user_id:     userId,
-      pool_id:     poolId || null,
-      event_type:  event.type || 'custom',
-      title:       event.title,
-      notes:       event.notes || null,
-      occurred_at: event.date || new Date().toISOString(),
-    })
-    .select('*')
-    .single();
+  const row = {
+    user_id:     userId,
+    pool_id:     poolId || null,
+    event_type:  event.type || 'custom',
+    title:       event.title,
+    notes:       event.notes || null,
+    occurred_at: event.date || new Date().toISOString(),
+  };
+  const insert = (r) => supabase.from('pool_events').insert(r).select('*').single();
+  const detail = doseDetailRow(event);
+  let { data, error } = await insert({ ...row, ...detail });
+  // Before migration 021 a dose saves as a plain history line, as it always did.
+  if (error && Object.keys(detail).length && isMissingSchema(error)) ({ data, error } = await insert(row));
   if (error) throw error;
   return rowToEvent(data);
 }
@@ -273,6 +344,7 @@ export async function deleteEvent(id) {
 // does not have the newer columns yet (migrations 017 and 020 are applied by
 // hand), so the membership read keeps working and the rest of the app loads.
 const USER_PROFILE_COLUMN_SETS = [
+  'is_premium, trial_ends_at, plan, first_name, last_name, address, suburb, postcode, reminder_day, monthly_report, app_prefs',
   'is_premium, trial_ends_at, plan, first_name, last_name, address, suburb, postcode, reminder_day, monthly_report',
   'is_premium, trial_ends_at, plan, first_name, last_name, address, suburb, postcode',
   'is_premium, trial_ends_at, plan',
@@ -337,6 +409,130 @@ export async function saveUserProfile(userId, fields) {
   return data;
 }
 
+// Pinned shortcuts and other small settings (migration 021).
+export async function saveAppPrefs(userId, prefs) {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .update({ app_prefs: prefs })
+    .eq('id', userId)
+    .select('app_prefs')
+    .maybeSingle();
+  if (error && isMissingSchema(error)) throw new FeatureNotReady('Saving shortcuts');
+  if (error) throw error;
+  return data?.app_prefs ?? prefs;
+}
+
+// ── My Shed (migration 021) ──────────────────────────────────
+
+export function rowToShedItem(r) {
+  return {
+    id: r.id,
+    productKey: r.product_key,
+    label: r.label,
+    packAmount: Number(r.pack_amount),
+    packUnit: r.pack_unit,
+    packs: r.packs ?? 1,
+    priceAud: r.price_aud != null ? Number(r.price_aud) : null,
+    boughtAt: r.bought_at,
+    store: r.store ?? null,
+    source: r.source || 'typed',
+    receiptId: r.receipt_id ?? null,
+    createdAt: r.created_at,
+  };
+}
+
+// { available: false } until migration 021 is applied.
+export async function loadShed(userId) {
+  const { data, error } = await supabase.from('shed_items').select('*').eq('user_id', userId).order('bought_at', { ascending: true });
+  if (error && isMissingSchema(error)) return { available: false, items: [] };
+  if (error) throw error;
+  return { available: true, items: (data || []).map(rowToShedItem) };
+}
+
+export async function addShedItems(userId, items) {
+  const rows = items.map((i) => ({
+    user_id: userId,
+    product_key: i.productKey,
+    label: String(i.label || '').slice(0, 120),
+    pack_amount: Number(i.packAmount),
+    pack_unit: i.packUnit,
+    packs: Math.max(1, Math.min(100, parseInt(i.packs, 10) || 1)),
+    price_aud: Number(i.priceAud) > 0 ? Math.round(Number(i.priceAud) * 100) / 100 : null,
+    bought_at: i.boughtAt || new Date().toISOString().slice(0, 10),
+    store: i.store ? String(i.store).trim().slice(0, 80) || null : null,
+    source: i.source || 'typed',
+    receipt_id: i.receiptId || null,
+  }));
+  const { data, error } = await supabase.from('shed_items').insert(rows).select('*');
+  if (error && isMissingSchema(error)) throw new FeatureNotReady('My Shed');
+  if (error) throw error;
+  return (data || []).map(rowToShedItem);
+}
+
+export async function deleteShedItem(id) {
+  const { error } = await supabase.from('shed_items').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ── Shopping list (migration 021) ────────────────────────────
+
+export function rowToShopItem(r) {
+  return {
+    id: r.id,
+    product: r.product,
+    productKey: r.product_key ?? null,
+    quantity: Number(r.quantity) || 0,
+    quantityLabel: r.quantity_label || '',
+    form: r.form || 'other',
+    status: r.status || 'needed',
+    source: r.source || 'manual',
+    testId: r.test_id ?? null,
+    stepKey: r.step_key ?? null,
+    stepTitle: r.step_title ?? null,
+    boughtAt: r.bought_at ?? null,
+    createdAt: r.created_at,
+  };
+}
+
+export async function loadShop(userId) {
+  const { data, error } = await supabase.from('shop_items').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+  if (error && isMissingSchema(error)) return { available: false, items: [] };
+  if (error) throw error;
+  return { available: true, items: (data || []).map(rowToShopItem) };
+}
+
+export async function addShopItem(userId, item) {
+  const { data, error } = await supabase.from('shop_items').insert({
+    user_id: userId,
+    product: String(item.product || '').trim().slice(0, 120),
+    product_key: item.productKey || null,
+    quantity: Number(item.quantity) > 0 ? Math.round(Number(item.quantity) * 10) / 10 : 0,
+    quantity_label: item.quantityLabel ? String(item.quantityLabel).slice(0, 60) : null,
+    form: item.form || 'other',
+    status: 'needed',
+    source: item.source || 'manual',
+    test_id: item.testId || null,
+    step_key: item.stepKey || null,
+    step_title: item.stepTitle ? String(item.stepTitle).slice(0, 80) : null,
+  }).select('*').single();
+  if (error && isMissingSchema(error)) throw new FeatureNotReady('The shopping list');
+  if (error) throw error;
+  return rowToShopItem(data);
+}
+
+export async function setShopItemBought(id, bought) {
+  const { data, error } = await supabase.from('shop_items')
+    .update({ status: bought ? 'bought' : 'needed', bought_at: bought ? new Date().toISOString() : null })
+    .eq('id', id).select('*').single();
+  if (error) throw error;
+  return rowToShopItem(data);
+}
+
+export async function deleteShopItem(id) {
+  const { error } = await supabase.from('shop_items').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ── Your data: download everything, or delete the account ────
 
 export async function loadMyData(userId) {
@@ -348,12 +544,20 @@ export async function loadMyData(userId) {
     supabase.from('pool_events').select('*').eq('user_id', userId).order('occurred_at', { ascending: true }),
   ]);
   for (const r of [pool, tests, equipment, events]) if (r.error) throw r.error;
+  // Shed and shopping list only exist once migration 021 is applied.
+  const [shed, shop] = await Promise.all([
+    supabase.from('shed_items').select('*').eq('user_id', userId).order('bought_at', { ascending: true }),
+    supabase.from('shop_items').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+  ]);
+  for (const r of [shed, shop]) if (r.error && !isMissingSchema(r.error)) throw r.error;
   return {
     profile,
     pool: pool.data,
     tests: tests.data || [],
     equipment: equipment.data || [],
     events: events.data || [],
+    shed: shed.data || [],
+    shopping_list: shop.data || [],
   };
 }
 

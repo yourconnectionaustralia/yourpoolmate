@@ -21,14 +21,22 @@ import ProblemFixer from './components/ProblemFixer.jsx';
 import { careDueNow, careEventFor, careList, isCareEvent } from './lib/equipmentCare.js';
 import { prefsFromRow, wantsTestForm, withoutTestParam } from './lib/reminderPrefs.js';
 import RecordExport from './components/RecordExport.jsx';
-import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
+import { calculateScore, calciumBand, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
 import { analyticsScreen, trackPageView } from './lib/analytics.js';
 import { emptyTestHeadline } from './lib/emptyTestHeadline.js';
 import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
 import { testPrompt } from './lib/testPrompt.js';
 import { doseEventFor, retestPrompt } from './lib/doseLog.js';
-import { DOSE_PLAN_GUIDANCE, safetyLineFor } from './lib/dosingSafety.js';
-import { doseOptions } from './lib/dosing.js';
+import { buildPlan, optionAmount, planContext, readingProblem, turnoverHours } from './lib/plan.js';
+import { drawForDose, hasPrice, lowStock, planShortfall, productKeyForDose, shedWithStock } from './lib/shed.js';
+import PlanPage, { nextStep } from './components/PlanPage.jsx';
+import ShedPage from './components/ShedPage.jsx';
+import ShopPage from './components/ShopPage.jsx';
+import CostsPage from './components/CostsPage.jsx';
+import ShareReport from './components/ShareReport.jsx';
+import {
+  LowStock, Shortcuts, SwimCall, ThirtyDays, ThisMonth, SHORTCUTS, cleanPins, togglePin,
+} from './components/HomeCards.jsx';
 import { rectangularVolumeLitres } from './lib/poolVolume.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
@@ -147,7 +155,7 @@ function HealthScoreRing({ score, size = 88 }) {
   const dashoffset = circumference - (score / 100) * circumference;
   const ringClass =
     score >= 80 ? 'score-ring-fill score-good'
-    : score >= 50 ? 'score-ring-fill score-warn'
+    : score >= 60 ? 'score-ring-fill score-warn'
     : 'score-ring-fill score-critical';
 
   return (
@@ -347,7 +355,7 @@ const SEASONAL_TIPS = {
 // ─────────────────────────────────────────────────────────────────
 // SIDEBAR
 // ─────────────────────────────────────────────────────────────────
-function Sidebar({ activeView, onNav, pendingActions, onHelp, onFeedback, feedbackNoteCount = 0 }) {
+function Sidebar({ activeView, onNav, pendingActions, shopCount = 0, onHelp, onFeedback, feedbackNoteCount = 0 }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-section">
@@ -361,15 +369,23 @@ function Sidebar({ activeView, onNav, pendingActions, onHelp, onFeedback, feedba
           Health Score
         </div>
         <div
+          className={`sidebar-item ${activeView === 'plan' ? 'active' : ''}`}
+          onClick={() => onNav('plan')}
+          data-tour="plan"
+        >
+          <span className="sidebar-icon">{Icon.tip}</span>
+          Plan
+          {pendingActions > 0 && (
+            <span className="sidebar-badge">{pendingActions} to do</span>
+          )}
+        </div>
+        <div
           className={`sidebar-item ${activeView === 'tests' ? 'active' : ''}`}
           onClick={() => onNav('tests')}
           data-tour="tests"
         >
           <span className="sidebar-icon">{Icon.flask}</span>
           Water Tests
-          {pendingActions > 0 && (
-            <span className="sidebar-badge">{pendingActions} action</span>
-          )}
         </div>
         <div
           className={`sidebar-item ${activeView === 'history' ? 'active' : ''}`}
@@ -405,6 +421,28 @@ function Sidebar({ activeView, onNav, pendingActions, onHelp, onFeedback, feedba
         >
           <span className="sidebar-icon">{Icon.equipment}</span>
           Equipment
+        </div>
+        <div
+          className={`sidebar-item ${activeView === 'shed' ? 'active' : ''}`}
+          onClick={() => onNav('shed')}
+        >
+          <span className="sidebar-icon">{Icon.droplet}</span>
+          My Shed
+        </div>
+        <div
+          className={`sidebar-item ${activeView === 'shop' ? 'active' : ''}`}
+          onClick={() => onNav('shop')}
+        >
+          <span className="sidebar-icon">{Icon.check}</span>
+          Shopping list
+          {shopCount > 0 && <span className="sidebar-badge">{shopCount}</span>}
+        </div>
+        <div
+          className={`sidebar-item ${activeView === 'costs' ? 'active' : ''}`}
+          onClick={() => onNav('costs')}
+        >
+          <span className="sidebar-icon">{Icon.calendar}</span>
+          Costs
         </div>
         <div
           className={`sidebar-item ${activeView === 'schedule' ? 'active' : ''}`}
@@ -458,7 +496,7 @@ function Sidebar({ activeView, onNav, pendingActions, onHelp, onFeedback, feedba
 // MOBILE BOTTOM NAV
 // ─────────────────────────────────────────────────────────────────
 function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
-  const SECONDARY = ['fixer', 'setup', 'equipment', 'schedule', 'profile'];
+  const SECONDARY = ['fixer', 'setup', 'equipment', 'schedule', 'profile', 'shed', 'shop', 'costs'];
   const moreActive = SECONDARY.includes(activeView);
 
   return (
@@ -473,21 +511,25 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
         <span className="mobile-nav-label">Health</span>
       </button>
 
-      {/* Tests */}
+      {/* Plan — what to add, in order */}
       <button
-        className={`mobile-nav-item ${activeView === 'tests' ? 'active' : ''}`}
-        onClick={() => onNav('tests')}
-        data-tour="tests"
+        className={`mobile-nav-item ${activeView === 'plan' ? 'active' : ''}`}
+        onClick={() => onNav('plan')}
+        data-tour="plan"
       >
-        <span className="mobile-nav-icon">{Icon.flask}</span>
-        <span className="mobile-nav-label">Recent</span>
+        <span className="mobile-nav-icon">{Icon.tip}</span>
+        <span className="mobile-nav-label">Plan</span>
         {pendingActions > 0 && (
           <span className="mobile-nav-badge">{pendingActions}</span>
         )}
       </button>
 
       {/* Centre CTA — Test Water */}
-      <button className="mobile-nav-item mobile-nav-cta" onClick={onLogTest}>
+      <button
+        className={`mobile-nav-item mobile-nav-cta ${activeView === 'tests' ? 'active' : ''}`}
+        onClick={onLogTest}
+        data-tour="tests"
+      >
         <span className="mobile-nav-cta-icon">+</span>
         <span className="mobile-nav-label">Test</span>
       </button>
@@ -518,14 +560,19 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
 // ─────────────────────────────────────────────────────────────────
 // MOBILE MORE DRAWER (slide-up sheet)
 // ─────────────────────────────────────────────────────────────────
-function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feedbackNoteCount = 0 }) {
+function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feedbackNoteCount = 0, pins = [], onTogglePin, pinNotice, shopCount = 0 }) {
   const items = [
+    { view: 'shed',      icon: Icon.droplet,    label: 'My Shed' },
+    { view: 'shop',      icon: Icon.check,      label: 'Shopping list', badge: shopCount },
+    { view: 'costs',     icon: Icon.calendar,   label: 'Costs' },
     { view: 'fixer',     icon: Icon.tip,        label: 'Problem fixer' },
+    { view: 'tests',     icon: Icon.flask,      label: 'Water tests' },
     { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
     { view: 'equipment', icon: Icon.equipment,  label: 'Equipment' },
     { view: 'schedule',  icon: Icon.calendar,   label: SEASONAL_TIPS_LABEL },
     { view: 'profile',   icon: Icon.user,        label: 'Profile' },
   ];
+  const pinnable = new Set(SHORTCUTS.map((x) => x.view));
 
   return (
     <>
@@ -533,16 +580,30 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feed
       <div className="mobile-drawer">
         <div className="mobile-drawer-handle" />
         {items.map(item => (
-          <button
-            key={item.view}
-            className={`mobile-drawer-item ${activeView === item.view ? 'active' : ''}`}
-            onClick={() => { onNav(item.view); onClose(); }}
-            data-tour={`drawer-${item.view}`}
-          >
-            <span className="mobile-drawer-icon">{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
+          <div key={item.view} className="mobile-drawer-row">
+            <button
+              className={`mobile-drawer-item ${activeView === item.view ? 'active' : ''}`}
+              onClick={() => { onNav(item.view); onClose(); }}
+              data-tour={`drawer-${item.view}`}
+            >
+              <span className="mobile-drawer-icon">{item.icon}</span>
+              <span>{item.label}</span>
+              {item.badge > 0 && <span className="mobile-drawer-badge">{item.badge}</span>}
+            </button>
+            {onTogglePin && pinnable.has(item.view) && (
+              <button
+                type="button"
+                className={`pin-toggle${pins.includes(item.view) ? ' is-on' : ''}`}
+                aria-pressed={pins.includes(item.view)}
+                aria-label={`${pins.includes(item.view) ? 'Unpin' : 'Pin'} ${item.label} ${pins.includes(item.view) ? 'from' : 'to'} Home`}
+                onClick={() => onTogglePin(item.view)}
+              >
+                {pins.includes(item.view) ? '★' : '☆'}
+              </button>
+            )}
+          </div>
         ))}
+        {pinNotice && <p className="mobile-drawer-note" role="status">{pinNotice}</p>}
         <button
           className="mobile-drawer-item"
           onClick={() => { onClose(); onHelp?.(); }}
@@ -580,19 +641,23 @@ function useHomeGreeting(user) {
   return melbourneGreeting(user, now);
 }
 
-function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogFirst, onLogTest, user, reminderOffer = null, careDue = [], onOpenCare, onOpenFixer }) {
+function HealthScorePage({
+  testData, poolProfile, events = [], onLogFirst, onLogTest, user, reminderOffer = null, careDue = [], onOpenCare, onOpenFixer,
+  plan, next, doneCount = 0, shopCount = 0, onAdded, onOpen, ctx, tests = [], low = [], pins = [], badges = {},
+}) {
   const greeting = useHomeGreeting(user);
-  const surface = poolProfile?.surface;
-  const score = testData ? scoreFor(testData, poolProfile?.sanitiser, saltRange, surface) : null;
   const lastTest = testData?.createdAt;
   const poolLabel = poolProfile
     ? `${poolProfile.name} · ${(poolProfile.volumeL ?? (poolProfile.volumeKl || 0) * 1000).toLocaleString('en-AU')} L`
     : null;
+  const thisMonth = ctx && (
+    <ThisMonth climate={ctx.climate} pumpHours={ctx.pumpHours} volumeL={ctx.volumeL} turnover={turnoverHours(ctx.volumeL)} />
+  );
 
   // No test at all, or a saved test with no readings in it (a stored 0 that is
   // not bad water). Either way there is nothing to score, so no warning:
   // just offer the test.
-  if (!testData || emptyTestHeadline(testData, poolProfile?.sanitiser)) {
+  if (!testData || !plan || emptyTestHeadline(testData, poolProfile?.sanitiser)) {
     return (
       <div>
         <p className="page-title">{greeting}</p>
@@ -601,28 +666,28 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
         <div className="card">
           <div className="empty-state">
             <div className="empty-state-icon">{Icon.flask}</div>
-            <div className="empty-state-title">Log your first test</div>
+            <div className="empty-state-title">Let's check the water</div>
             <div className="empty-state-body">
-              Add your water test results and your Health Score will appear here within seconds.
+              Clear water can still be short of chlorine. A two-minute test gives you the score, the swim call and a plan in grams and millilitres for your pool.
             </div>
-            <button className="btn btn-primary btn-sm" onClick={onLogTest || onLogFirst}>Log a test now</button>
+            <button className="btn btn-primary" onClick={onLogTest || onLogFirst}>Log your first test</button>
           </div>
         </div>
+        <Shortcuts pins={pins} onOpen={onOpen} badges={badges} />
         {/* Green or cloudy before the first test? The fixer works without one. */}
         <button className="fixer-link" style={{ marginTop: 16 }} onClick={onOpenFixer}>
           <span className="fixer-link-title">Water looking off?</span>
           <span className="fixer-link-sub">Green, cloudy, stinging eyes, foam or stains: open the problem fixer.</span>
         </button>
+        {thisMonth}
       </div>
     );
   }
 
-  const params = buildParams(testData, saltRange, surface);
-  const headline = scoreHeadline(score, params);
-  const primaryAction = getPrimaryAction(testData, poolProfile, saltRange);
-  const recommendations = getRecommendations(testData, poolProfile, saltRange);
+  const score = plan.score;
+  const offRows = plan.rows.filter((r) => r.state === 'low' || r.state === 'high');
   // Green ring is 80+. The quiet line only shows when that score has nothing to add.
-  const showQuietLine = waterLooksGood(score, Boolean(primaryAction));
+  const showQuietLine = waterLooksGood(score, plan.steps.length > 0) && plan.swim.tone === 'good';
   // Overdue: a banner with a button. Otherwise a quiet "next test due" line,
   // unless the good-water line under the score already says it.
   const prompt = testPrompt(lastTest);
@@ -665,37 +730,35 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
         </div>
       )}
 
-      {/* Score card. The number is centred and is the focus of the screen.
-          Local conditions are not shown here. A saved postcode is not a
-          rainfall observation, and this app does not store weather. The
-          Bureau's api.weather.bom.gov.au forbids unauthorised use, and
-          Open-Meteo's free API is non-commercial only. Do not invent rain. */}
-      <div className="card score-hero-card">
+      {/* Score card. The number is centred and is the focus of the screen,
+          with the swim call and the next dose one tap underneath. Local
+          conditions are typical-month averages, labelled as such on the
+          "This month" card — this app does not store or invent weather. */}
+      <div className="card score-hero-card" data-tour="hero">
         <HealthScoreRing score={score} size={240} />
         {showQuietLine && <p className="score-quiet">{goodWaterLine(lastTest)}</p>}
-        {!showQuietLine && <div className="score-headline">{headline}</div>}
+        {!showQuietLine && <div className="score-headline">{plan.headline}</div>}
         {!showQuietLine && !retest && prompt?.kind === 'upcoming' && <p className="score-next-test">{prompt.text}</p>}
         <div className="param-tag-row score-hero-tags">
-          {params.map(p => (
-            <span key={p.key} className={`tag ${p.tagClass}`}>
-              {p.label}
+          {plan.rows.map(r => (
+            <span key={r.key} className={`tag ${r.state === 'ok' ? 'tag-good' : r.state === 'none' ? 'tag-neutral' : 'tag-warn'}`}>
+              {r.state === 'ok' ? '✓' : r.state === 'low' ? '↓' : r.state === 'high' ? '↑' : '?'} {r.short}
             </span>
           ))}
         </div>
-
-        {primaryAction && (
-          <div className="score-hero-action">
-            <div className="callout callout-action">
-              <span className="callout-icon" style={{ color: 'var(--amber)', display: 'inline-flex' }}>
-                {Icon.tip}
-              </span>
-              <div className="callout-body">
-                <strong>{primaryAction.dose}</strong> {primaryAction.reason}
-              </div>
-            </div>
-          </div>
-        )}
+        <SwimCall
+          plan={plan}
+          next={next}
+          doneCount={doneCount}
+          shopCount={shopCount}
+          onAdded={onAdded}
+          onOpenPlan={() => onOpen('plan')}
+          onOpenShop={() => onOpen('shop')}
+          onLogTest={onLogTest || onLogFirst}
+        />
       </div>
+
+      <LowStock items={low} onOpen={onOpen} />
 
       {careDue.length > 0 && (
         <div className="callout callout-action care-due-callout">
@@ -711,58 +774,51 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
 
       {reminderOffer}
 
+      <Shortcuts pins={pins} onOpen={onOpen} badges={badges} />
+
+      {/* Readings that need attention, then the full table */}
+      <div className="card-section stack-lg">
+        <div className="eyebrow" style={{ marginBottom: 12 }}>
+          {offRows.length ? `${offRows.length} reading${offRows.length === 1 ? '' : 's'} off target` : 'Water readings — all in range'}
+        </div>
+        <table className="data-table readings-table">
+          <thead>
+            <tr>
+              <th>Reading</th>
+              <th>Result</th>
+              <th>Target</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {plan.rows.map(r => (
+              <tr key={r.key}>
+                <td>{r.name}</td>
+                <td style={{ fontWeight: 500, color: 'var(--black)' }}>{fmtReading(r.value, r.unit)}</td>
+                <td className="col-muted">{r.target}</td>
+                <td>
+                  <span className={`tag ${r.state === 'ok' ? 'tag-good' : r.state === 'none' ? 'tag-neutral' : 'tag-warn'}`}>
+                    {r.state === 'ok' ? '✓ Good' : r.state === 'low' ? '↓ Low' : r.state === 'high' ? '↑ High' : '— No data'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {plan.combined != null && (
+          <p className="plan-small" style={{ marginTop: 8 }}>Combined chlorine (total minus free): {plan.combined} ppm.</p>
+        )}
+      </div>
+
+      <ThirtyDays tests={tests} events={events} onOpen={onOpen} />
+      {thisMonth}
+
       <button className="fixer-link" onClick={onOpenFixer}>
         <span className="fixer-link-title">Water looking off?</span>
         <span className="fixer-link-sub">Green, cloudy, stinging eyes, foam or stains: open the problem fixer.</span>
       </button>
 
       <InstallGuide />
-
-      {/* Readings table */}
-      <div className="card-section stack-lg">
-        <div className="eyebrow" style={{ marginBottom: 12 }}>Water Readings</div>
-        <table className="data-table readings-table">
-          <thead>
-            <tr>
-              <th>Parameter</th>
-              <th>Reading</th>
-              <th>Target</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {params.map(p => (
-              <tr key={p.key}>
-                <td>{p.name}</td>
-                <td style={{ fontWeight: 500, color: 'var(--black)' }}>{p.reading}</td>
-                <td className="col-muted">{p.target}</td>
-                <td><span className={`tag ${p.tagClass}`}>{p.status}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Secondary recommendations. A good result already has its one quiet
-          line under the score, so the green success callout stays off. */}
-      {!showQuietLine && recommendations.length > 0 && (
-        <div className="card-section" style={{ marginTop: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 12 }}>What to do — in order</div>
-          <div className="stack">
-            {recommendations.map((r, i) => (
-              <div key={i} className={`callout callout-${r.type}`}>
-                <span className="callout-icon" style={{ color: r.iconColor, display: 'inline-flex' }}>
-                  {r.icon}
-                </span>
-                <div className="callout-body">
-                  {r.text}
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="dose-guidance">{DOSE_PLAN_GUIDANCE}</p>
-        </div>
-      )}
     </div>
   );
 }
@@ -770,48 +826,9 @@ function HealthScorePage({ testData, poolProfile, saltRange, events = [], onLogF
 // ─────────────────────────────────────────────────────────────────
 // WATER TESTS PAGE
 // ─────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────
-// ACTIONS CHECKLIST — the corrective steps for the latest test, with
-// tickable "done" boxes. Completion persists in localStorage keyed by
-// the test, so ticks survive tab-switches and reloads. A new test is a
-// new key, so its checklist starts fresh.
-// ─────────────────────────────────────────────────────────────────
-const ACTIONS_STORE = 'ypm.actionsDone.v1';
-
-function readActionsDone(testKey) {
-  try {
-    const all = JSON.parse(localStorage.getItem(ACTIONS_STORE) || '{}');
-    return new Set(all[testKey] || []);
-  } catch { return new Set(); }
-}
-
-function writeActionsDone(testKey, keys) {
-  try {
-    const all = JSON.parse(localStorage.getItem(ACTIONS_STORE) || '{}');
-    all[testKey] = [...keys];
-    localStorage.setItem(ACTIONS_STORE, JSON.stringify(all));
-  } catch { /* storage unavailable / full — non-fatal, ticks just won't persist */ }
-}
-
-// When the checklist is fully ticked we stamp the completion time — that
-// marks the point the re-test prompt ("within the next week or so") appears.
-const ACTIONS_DONE_AT_STORE = 'ypm.actionsDoneAt.v1';
-
-function readCompletedAt(testKey) {
-  try {
-    return JSON.parse(localStorage.getItem(ACTIONS_DONE_AT_STORE) || '{}')[testKey] || null;
-  } catch { return null; }
-}
-
-function writeCompletedAt(testKey, iso) {
-  try {
-    const all = JSON.parse(localStorage.getItem(ACTIONS_DONE_AT_STORE) || '{}');
-    if (iso) all[testKey] = iso; else delete all[testKey];
-    localStorage.setItem(ACTIONS_DONE_AT_STORE, JSON.stringify(all));
-  } catch { /* non-fatal */ }
-}
-
-// Which logged dose belongs to which step, so "Undo" can take it back out.
+// Which logged dose belongs to which step of which test, for databases from
+// before migration 021 (the dose row there can't carry its test and step).
+// Newer doses carry testId + stepKey and don't need this.
 const DOSE_IDS_STORE = 'ypm.doseEvents.v1';
 
 function readDoseIds(testKey) {
@@ -826,192 +843,13 @@ function writeDoseIds(testKey, ids) {
   } catch { /* non-fatal */ }
 }
 
-function ActionsChecklist({ test, poolProfile, saltRange, onLogRetest, onRecordDose, onUndoDose }) {
-  const testKey = test.id || test.createdAt;
-  const steps = buildSteps(test, poolProfile, saltRange);
-  const [done, setDone] = useState(() => readActionsDone(testKey));
-  const [completedAt, setCompletedAt] = useState(() => readCompletedAt(testKey));
-  const [doseIds, setDoseIds] = useState(() => readDoseIds(testKey));
-  const [choosing, setChoosing] = useState(null); // step key waiting for "which one did you add?"
-  const [doseNote, setDoseNote] = useState('');
-
-  const setStepDone = (k, on) => {
-    setDone(prev => {
-      const next = new Set(prev);
-      if (on) next.add(k); else next.delete(k);
-      writeActionsDone(testKey, next);
-      // Stamp/clear the completion time as the checklist crosses fully-done.
-      // Ticking actions never changes the Health Score — it only starts the
-      // re-test clock; the score updates when the confirming test is logged.
-      const nowAll = steps.length > 0 && steps.every(s => next.has(s.key));
-      if (nowAll && !completedAt) {
-        const iso = new Date().toISOString();
-        setCompletedAt(iso); writeCompletedAt(testKey, iso);
-      } else if (!nowAll && completedAt) {
-        setCompletedAt(null); writeCompletedAt(testKey, null);
-      }
-      return next;
-    });
-  };
-
-  // "I added it": mark the step and write the chemical and amount to the history.
-  const added = async (step, option) => {
-    setChoosing(null);
-    setDoseNote('');
-    setStepDone(step.key, true);
-    if (!onRecordDose) return;
-    try {
-      const id = await onRecordDose(step, option);
-      if (id) {
-        const next = { ...readDoseIds(testKey), [step.key]: id };
-        writeDoseIds(testKey, next); setDoseIds(next);
-      }
-    } catch {
-      setDoseNote("Ticked off, but that dose didn't save to your history. You can add it as an event in the Chemistry log.");
-    }
-  };
-
-  const undo = (step) => {
-    setChoosing(null);
-    setStepDone(step.key, false);
-    const id = doseIds[step.key];
-    if (id) {
-      onUndoDose?.(id);
-      const next = { ...doseIds }; delete next[step.key];
-      writeDoseIds(testKey, next); setDoseIds(next);
-    }
-  };
-
-  const tap = (step) => {
-    if (step.options.length > 1) setChoosing(step.key);
-    else added(step, step.options[0]);
-  };
-
-  // Nothing to correct — celebrate the win.
-  if (steps.length === 0) {
-    return (
-      <div className="card-section" style={{ marginTop: 16 }}>
-        <div className="eyebrow" style={{ marginBottom: 12 }}>Actions</div>
-        <div className="callout callout-success">
-          <span className="callout-icon" style={{ color: 'var(--green)', display: 'inline-flex' }}>
-            {Icon.check}
-          </span>
-          <div className="callout-body">
-            <strong>All balanced — nothing to add.</strong> Your water's on target. Test again within the next week or so.
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const doneCount = steps.filter(s => done.has(s.key)).length;
-  const allDone = doneCount === steps.length;
-
-  return (
-    <div className="card-section" style={{ marginTop: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div className="eyebrow" style={{ margin: 0 }}>Actions — in order</div>
-        <span
-          className={`tag ${allDone ? 'tag-good' : 'tag-neutral'}`}
-          style={{ flexShrink: 0 }}
-        >
-          {allDone ? 'All done' : `${doneCount} of ${steps.length} done`}
-        </span>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {steps.map((s, i) => {
-          const isDone = done.has(s.key);
-          return (
-            <div
-              key={s.key}
-              className="dose-step"
-              style={{ borderBottom: i < steps.length - 1 ? 'var(--border)' : 'none' }}
-            >
-              <div style={{ opacity: isDone ? 0.65 : 1 }}>
-                <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--black)' }}>
-                  {steps.length > 1 ? `${i + 1}. ` : ''}{s.action}
-                </div>
-                <div style={{ fontSize: 17, color: 'var(--gray-mid)', marginTop: 3 }}>
-                  {s.options.map((opt, j) => (
-                    <span key={j}>
-                      {j > 0 ? <span style={{ color: 'var(--gray-light)' }}> — or — </span> : null}
-                      {opt.amount ? <><strong>{opt.amount}</strong> {opt.name}</> : opt.name}
-                    </span>
-                  ))}
-                </div>
-                {!s.volumeKnown && (
-                  <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 3 }}>
-                    Set your pool volume in Setup to see exact quantities.
-                  </div>
-                )}
-                {s.notes[0] && (
-                  <div style={{ fontSize: 17, color: 'var(--gray-mid)', marginTop: 3 }}>{s.notes[0]}</div>
-                )}
-                <div className="dose-safety">{s.safety}</div>
-              </div>
-
-              <div className="dose-step-actions">
-                {isDone ? (
-                  <>
-                    <span className="tag tag-good">{Icon.check} Added</span>
-                    <button className="btn btn-ghost btn-sm" onClick={() => undo(s)}>Undo</button>
-                  </>
-                ) : choosing === s.key ? (
-                  <div className="dose-choice">
-                    <div className="dose-choice-label">Which one did you add?</div>
-                    {s.options.map((opt, j) => (
-                      <button key={j} className="btn btn-primary btn-sm dose-choice-btn" onClick={() => added(s, opt)}>
-                        {opt.amount ? `${opt.amount} ${opt.name}` : opt.name}
-                      </button>
-                    ))}
-                    <button className="btn btn-ghost btn-sm" onClick={() => setChoosing(null)}>Cancel</button>
-                  </div>
-                ) : (
-                  <button className="btn btn-primary btn-sm" onClick={() => tap(s)}>I added it</button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {doseNote && <p role="alert" className="test-editor-problem">{doseNote}</p>}
-
-      {/* Re-test prompt — chemicals are in, the balance needs time to settle. */}
-      {allDone && (
-        <div className="callout callout-info" style={{ marginTop: 14 }}>
-          <span className="callout-icon" style={{ color: 'var(--blue)', display: 'inline-flex' }}>
-            {Icon.info}
-          </span>
-          <div className="callout-body">
-            <strong>Chemicals added.</strong> Give them time to circulate, then test again{' '}
-            <strong>in about 24 hours</strong> to confirm the new balance.
-            {onLogRetest && (
-              <div style={{ marginTop: 10 }}>
-                <button className="btn btn-primary btn-sm" onClick={onLogRetest}>
-                  Log the re-test
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      <p className="dose-guidance">{DOSE_PLAN_GUIDANCE}</p>
-      <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 12 }}>
-        Tap "I added it" after each step. It goes in your history with the amount. Your Health Score updates when you log the confirming test.
-      </div>
-    </div>
-  );
-}
-
-function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, onRecordDose, onUndoDose, poolProfile, saltRange, autoOpenForm, onAutoOpened }) {
+function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProfile, saltRange, autoOpenForm, onAutoOpened, stepsLeft = 0, onOpenPlan, rows = [] }) {
   const [showForm, setShowForm] = useState(false);
   const EMPTY_FORM = {
-    freeChlor: '', pH: '', alkalinity: '', cyanuricAcid: '', calciumHardness: '',
+    freeChlor: '', totalChlor: '', pH: '', alkalinity: '', cyanuricAcid: '', calciumHardness: '',
     salt: '', phosphates: '', tds: '',
   };
+  const [problem, setProblem] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
 
@@ -1033,13 +871,17 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, onRecord
     { key: 'cyanuricAcid',    label: 'Cyanuric acid',    unit: 'ppm', placeholder: '30–50' },
     { key: 'calciumHardness', label: 'Calcium hardness', unit: 'ppm', placeholder: '200–400' },
     ...(saltPool ? [{ key: 'salt', label: 'Salt', unit: 'ppm', placeholder: saltRange ? `${saltRange.lo}–${saltRange.hi}` : '3000–4500' }] : []),
+    { key: 'totalChlor', label: 'Total chlorine', unit: 'ppm', placeholder: 'optional' },
     { key: 'phosphates', label: 'Phosphates', unit: 'ppb', placeholder: 'optional' },
     { key: 'tds',        label: 'Total dissolved solids', unit: 'ppm', placeholder: 'optional' },
   ];
 
   const handleSubmit = async () => {
+    // Catch typos (pH 74) before they become a dose for the wrong water.
+    const issue = readingProblem(form);
+    if (issue) { setProblem(issue.message); return; }
+    setProblem('');
     setSubmitting(true);
-    await new Promise(r => setTimeout(r, 800)); // simulate save
     // Untested fields stay null — they're skipped by the Health Score
     // (weights renormalise) instead of being scored as a 0 reading.
     const num = (s) => { const n = parseFloat(s); return Number.isFinite(n) ? n : null; };
@@ -1052,6 +894,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, onRecord
       createdAt: new Date().toISOString(),
     };
     if (form.salt !== '')       data.salt = num(form.salt);
+    if (form.totalChlor !== '') data.totalChlor = num(form.totalChlor);
     if (form.phosphates !== '') data.phosphates = num(form.phosphates);
     if (form.tds !== '')        data.tds = num(form.tds);
     onLogTest(data);
@@ -1098,6 +941,8 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, onRecord
               </div>
             ))}
           </div>
+          <p className="plan-small">Total chlorine is optional. With it, the plan spots chloramines — the cause of the "chlorine smell" — and adds a shock step.</p>
+          {problem && <p role="alert" className="test-editor-problem">{problem}</p>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
             <button
@@ -1130,12 +975,16 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, onRecord
                 </tr>
               </thead>
               <tbody>
-                {buildParams(testData, saltRange, poolProfile?.surface).map(p => (
-                  <tr key={p.key}>
-                    <td>{p.name}</td>
-                    <td style={{ fontWeight: 500, color: 'var(--black)' }}>{p.reading}</td>
-                    <td className="col-muted">{p.target}</td>
-                    <td><span className={`tag ${p.tagClass}`}>{p.status}</span></td>
+                {rows.map(r => (
+                  <tr key={r.key}>
+                    <td>{r.name}</td>
+                    <td style={{ fontWeight: 500, color: 'var(--black)' }}>{fmtReading(r.value, r.unit)}</td>
+                    <td className="col-muted">{r.target}</td>
+                    <td>
+                      <span className={`tag ${r.state === 'ok' ? 'tag-good' : r.state === 'none' ? 'tag-neutral' : 'tag-warn'}`}>
+                        {r.state === 'ok' ? '✓ Good' : r.state === 'low' ? '↓ Low' : r.state === 'high' ? '↑ High' : '— No data'}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1145,16 +994,18 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, onRecord
             </div>
           </div>
 
-          {/* Corrective actions with tickable "done" boxes */}
-          <ActionsChecklist
-            key={testData.id || testData.createdAt}
-            test={testData}
-            poolProfile={poolProfile}
-            saltRange={saltRange}
-            onLogRetest={() => setShowForm(true)}
-            onRecordDose={onRecordDose}
-            onUndoDose={onUndoDose}
-          />
+          {/* The steps live on the Plan page, ticked from the history. */}
+          <div className="card-section" style={{ marginTop: 16 }}>
+            <div className="eyebrow" style={{ marginBottom: 12 }}>What to do</div>
+            {stepsLeft > 0 ? (
+              <p style={{ fontSize: 17, marginBottom: 12 }}>
+                <strong>{stepsLeft} step{stepsLeft === 1 ? '' : 's'} to do</strong>, in order, with amounts for your pool.
+              </p>
+            ) : (
+              <p style={{ fontSize: 17, marginBottom: 12 }}>Nothing left to add for this test.</p>
+            )}
+            <button className="btn btn-primary" onClick={onOpenPlan}>Open today's plan</button>
+          </div>
         </>
       ) : (
         <div className="card">
@@ -1398,6 +1249,14 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
         getPhotoUrl={getPhotoUrl}
       />
 
+      <ShareReport
+        saltRange={saltRange}
+        pool={poolProfile}
+        tests={history}
+        events={events}
+        scoreFn={(t) => scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface)}
+      />
+
       {/* All tests: each can be edited or deleted from here */}
       <div className="card-section">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
@@ -1409,7 +1268,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
         <div className="test-list">
           {history.slice().sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).map((t) => {
             const score = scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface);
-            const scoreClass = score >= 80 ? 'tag-good' : score >= 50 ? 'tag-warn' : 'tag-bad';
+            const scoreClass = score >= 80 ? 'tag-good' : score >= 60 ? 'tag-warn' : 'tag-bad';
             return (
               <div className="test-row" key={t.id || t.createdAt}>
                 <div className="test-row-date">
@@ -1471,9 +1330,18 @@ function SetupPage({ poolProfile, onSave }) {
     yearBuiltApprox: false,
     hasCover: false,
     fenceCertDate: '',
-    ...poolProfile,
+    pumpHoursPerDay: '',
+    pumpHoursSummer: '',
+    pumpHoursAutumn: '',
+    pumpHoursWinter: '',
+    pumpHoursSpring: '',
+    pumpScheduleNote: '',
+    chlorinatorOutputPercent: '',
+    chlorinatorCellGPerHour: '',
+    ...Object.fromEntries(Object.entries(poolProfile || {}).map(([k, v]) => [k, v ?? (k === 'id' ? null : '')])),
   }));
   const [saved, setSaved] = useState(false);
+  const saltPool = isSaltPool(form.sanitiser);
   // Volume estimator inputs (metres)
   const [dims, setDims] = useState({ length: '', width: '', depth: '' });
 
@@ -1685,6 +1553,71 @@ function SetupPage({ poolProfile, onSave }) {
             })}
           </div>
         </div>
+
+        {/* Pump run and chlorinator — they turn the chlorine step into
+            "turn the chlorinator up" before "buy liquid chlorine". */}
+        <div className="eyebrow" style={{ margin: '24px 0 12px' }}>Pump and chlorinator</div>
+        <div className="input-group">
+          <span className="input-label" id="pump-hours-label">Daily pump hours</span>
+          <div className="chip-row" role="group" aria-labelledby="pump-hours-label">
+            {[4, 6, 8, 10, 12].map(h => (
+              <button
+                key={h}
+                type="button"
+                className={`chip${Number(form.pumpHoursPerDay) === h ? ' is-on' : ''}`}
+                aria-pressed={Number(form.pumpHoursPerDay) === h}
+                onClick={() => set('pumpHoursPerDay', Number(form.pumpHoursPerDay) === h ? '' : h)}
+              >
+                {h} h
+              </button>
+            ))}
+          </div>
+          <details style={{ marginTop: 8 }}>
+            <summary className="details-summary">Different hours each season?</summary>
+            <div className="season-hours">
+              {[['pumpHoursSummer', 'Summer'], ['pumpHoursAutumn', 'Autumn'], ['pumpHoursWinter', 'Winter'], ['pumpHoursSpring', 'Spring']].map(([k, label]) => (
+                <div key={k} className="input-group" style={{ marginBottom: 0 }}>
+                  <label className="input-label" htmlFor={`setup-${k}`}>{label}</label>
+                  <input id={`setup-${k}`} className="input" type="number" inputMode="numeric" min={0} max={24} placeholder="hours"
+                         value={form[k]} onChange={e => set(k, e.target.value)} />
+                </div>
+              ))}
+            </div>
+          </details>
+        </div>
+        <div className="input-group">
+          <label className="input-label" htmlFor="setup-pump-note">Pump timer note (optional)</label>
+          <input id="setup-pump-note" className="input" maxLength={200} placeholder="e.g. mornings in summer, shorter run in winter"
+                 value={form.pumpScheduleNote} onChange={e => set('pumpScheduleNote', e.target.value)} />
+        </div>
+        {saltPool && (
+          <>
+            <div className="input-group">
+              <span className="input-label" id="chl-output-label">Chlorinator output</span>
+              <div className="chip-row" role="group" aria-labelledby="chl-output-label">
+                {[40, 60, 80, 100].map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    className={`chip${Number(form.chlorinatorOutputPercent) === p ? ' is-on' : ''}`}
+                    aria-pressed={Number(form.chlorinatorOutputPercent) === p}
+                    onClick={() => set('chlorinatorOutputPercent', Number(form.chlorinatorOutputPercent) === p ? '' : p)}
+                  >
+                    {p}%
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="input-group">
+              <label className="input-label" htmlFor="setup-cell">Cell size, grams an hour at 100% (optional)</label>
+              <input id="setup-cell" className="input" type="number" inputMode="decimal" min={1} max={100} placeholder="from the chlorinator's manual"
+                     value={form.chlorinatorCellGPerHour} onChange={e => set('chlorinatorCellGPerHour', e.target.value)} />
+              <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 4 }}>
+                Leave blank and we use the model on your equipment list.
+              </div>
+            </div>
+          </>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
           {saved && (
@@ -2299,238 +2232,18 @@ function TrialExpiredScreen({ pricing, checkoutReturn }) {
 const scoreFor = (test, sanitiser, saltRange, surface) =>
   test?.healthScore ?? calculateScore(test, sanitiser, saltRange, surface);
 
-// Acceptable ranges (Australian residential pool standards).
-const PARAM_RANGES = {
-  freeChlor:       { lo: 1,    hi: 3 },
-  pH:              { lo: 7.2,  hi: 7.6 },
-  alkalinity:      { lo: 80,   hi: 120 },
-  cyanuricAcid:    { lo: 30,   hi: 50 },
-  calciumHardness: { lo: 200,  hi: 400 },
-  salt:            { lo: 3000, hi: 4500 },
-  phosphates:      { lo: 0,    hi: 200 },
-  tds:             { lo: 0,    hi: 2000 },
-};
-
 // Reading display — untested values render as a dash, never "null ppm".
 function fmtReading(v, unit) {
   if (v === null || v === undefined || v === '') return '—';
   return unit ? `${v} ${unit}` : `${v}`;
 }
 
-// Resolve the active range for a parameter — salt is overridden by the
-// owner's chlorinator band (saltRange) when one is known.
-function rangeFor(key, saltRange, surface) {
-  if (key === 'salt' && saltRange) return { lo: saltRange.lo, hi: saltRange.hi };
-  if (key === 'calciumHardness') {
-    const band = calciumBand(surface);
-    return { lo: band.lo, hi: band.hi };
-  }
-  return PARAM_RANGES[key];
-}
-
-function buildParams(test, saltRange, surface) {
-  const calcium = calciumBand(surface);
-  const params = [
-    { key: 'freeChlor',       name: 'Free Chlorine',    reading: fmtReading(test.freeChlor, 'ppm'),       target: '1.0–3.0', ...statusForParam('freeChlor', test.freeChlor) },
-    { key: 'pH',              name: 'pH',               reading: fmtReading(test.pH, ''),                 target: '7.2–7.6', ...statusForParam('pH', test.pH) },
-    { key: 'alkalinity',      name: 'Total Alkalinity', reading: fmtReading(test.alkalinity, 'ppm'),      target: '80–120',  ...statusForParam('alkalinity', test.alkalinity) },
-    { key: 'cyanuricAcid',    name: 'Cyanuric Acid',    reading: fmtReading(test.cyanuricAcid, 'ppm'),    target: '30–50',   ...statusForParam('cyanuricAcid', test.cyanuricAcid) },
-    { key: 'calciumHardness', name: 'Calcium Hardness', reading: fmtReading(test.calciumHardness, 'ppm'), target: calcium.target, ...statusForParam('calciumHardness', test.calciumHardness, saltRange, surface) },
-  ];
-  if (test.salt != null && test.salt !== '') {
-    const sr = rangeFor('salt', saltRange);
-    params.push({
-      key: 'salt', name: 'Salt', reading: fmtReading(test.salt, 'ppm'),
-      target: `${sr.lo}–${sr.hi}`,
-      ...statusForParam('salt', test.salt, saltRange),
-    });
-  }
-  if (test.phosphates != null && test.phosphates !== '')
-    params.push({ key: 'phosphates', name: 'Phosphates', reading: fmtReading(test.phosphates, 'ppb'), target: '< 200', ...statusForParam('phosphates', test.phosphates) });
-  if (test.tds != null && test.tds !== '')
-    params.push({ key: 'tds', name: 'Total Dissolved Solids', reading: fmtReading(test.tds, 'ppm'), target: '< 2000', ...statusForParam('tds', test.tds) });
-  return params;
-}
-
-function statusForParam(key, val, saltRange, surface) {
-  const r = rangeFor(key, saltRange, surface);
-  if (val === null || val === undefined || val === '' || !r) {
-    return { tagClass: 'tag-neutral', status: '— No data', label: `? ${key}`, state: 'none' };
-  }
-  const n = Number(val);
-  if (!Number.isFinite(n)) return { tagClass: 'tag-neutral', status: '— No data', label: `? ${key}`, state: 'none' };
-  if (n >= r.lo && n <= r.hi) return { tagClass: 'tag-good', status: '✓ Good', label: `✓ ${paramShort(key)}`, state: 'ok' };
-  if (n < r.lo)               return { tagClass: 'tag-warn', status: '↓ Low',  label: `↓ ${paramShort(key)}`, state: 'low' };
-  return                             { tagClass: 'tag-warn', status: '↑ High', label: `↑ ${paramShort(key)}`, state: 'high' };
-}
-
-function paramShort(key) {
-  return {
-    freeChlor: 'Chlorine', pH: 'pH', alkalinity: 'Alkalinity', cyanuricAcid: 'Cyanuric',
-    calciumHardness: 'Calcium', salt: 'Salt', phosphates: 'Phosphate', tds: 'TDS',
-  }[key] || key;
-}
-
-function scoreHeadline(score, params) {
-  if (score >= 80) {
-    const issues = params.filter(p => p.state === 'low' || p.state === 'high');
-    return issues.length === 0
-      ? 'Your pool is in great shape — all readings on target.'
-      : `Your pool is in great shape — ${issues.length === 1 ? 'one minor tweak' : `${issues.length} minor tweaks`}.`;
-  }
-  if (score >= 50) return 'A few readings need attention before your next swim.';
-  return 'Chemistry needs urgent correction. Hold off swimming for now.';
-}
-
-// Resolve pool volume in kilolitres (kL) for dosing maths.
-// Volume is now captured in litres; older profiles may still carry volumeKl.
-function poolKl(pool) {
-  if (pool?.volumeL) return pool.volumeL / 1000;
-  if (pool?.volumeKl) return pool.volumeKl;
-  return 30;
-}
-
-// ─────────────────────────────────────────────────────────────────
-// RECOMMENDATION ENGINE
-// Volume-scaled doses, "or" alternatives, correct balancing order,
-// and cross-parameter interaction notes.
-// ─────────────────────────────────────────────────────────────────
+// The dose plan (order, amounts, notes, safety, swim call) is in
+// src/lib/plan.js; dose factors are in src/lib/dosing.js, which the
+// marketing chlorine calculator imports too.
 
 function hasVolume(pool) {
   return !!(pool && pool.volumeL && pool.volumeL > 0);
-}
-
-// Dose amounts (including chlorine factors) live in src/lib/dosing.js.
-// The marketing chlorine calculator imports that same module.
-
-// Correct order to balance a pool: alkalinity buffers pH (first),
-// salt must be present before the chlorinator works, chlorine goes in last.
-const BALANCE_ORDER = ['alkalinity', 'pH', 'calciumHardness', 'cyanuricAcid', 'salt', 'freeChlor', 'phosphates', 'tds'];
-
-const ACTION_LABEL = {
-  pH:              { low: 'Raise pH',                high: 'Lower pH' },
-  freeChlor:       { low: 'Raise chlorine',         high: 'Lower chlorine' },
-  alkalinity:      { low: 'Raise Total Alkalinity', high: 'Lower Total Alkalinity' },
-  cyanuricAcid:    { low: 'Raise stabiliser',       high: 'Lower stabiliser' },
-  calciumHardness: { low: 'Raise calcium hardness', high: 'Lower calcium hardness' },
-  salt:            { low: 'Raise salt',             high: 'Lower salt' },
-  phosphates:      { low: 'Remove phosphates',      high: 'Remove phosphates' },
-  tds:             { low: 'Reduce TDS',             high: 'Reduce TDS' },
-};
-
-// One-line sequencing hint for the ordered plan.
-function planNote(key, state, statuses) {
-  const alkOff = statuses.alkalinity === 'low' || statuses.alkalinity === 'high';
-  if (key === 'alkalinity') return 'Start here — correct alkalinity first so pH holds steady.';
-  if (key === 'pH' && alkOff) return 'Do this after alkalinity, and re-test pH first — it often shifts once alkalinity is right.';
-  if (key === 'freeChlor' && state === 'low') return 'Add chlorine last — it can nudge pH up, so re-check pH afterwards.';
-  if (key === 'salt' && state === 'low') return 'Add salt before relying on the chlorinator.';
-  return null;
-}
-
-// Cross-parameter interaction notes.
-function interactionNotes(key, state, statuses) {
-  const out = [];
-  const alkOff = statuses.alkalinity === 'low' || statuses.alkalinity === 'high';
-  if (key === 'pH') {
-    if (state === 'low') {
-      if (alkOff) out.push('Balance Total Alkalinity first — unstable alkalinity makes pH swing. Re-test pH afterwards; it often corrects itself.');
-      out.push('Soda ash lifts alkalinity slightly as well.');
-    } else {
-      out.push(statuses.alkalinity === 'high'
-        ? 'Bonus: acid brings pH and alkalinity down together.'
-        : 'Acid lowers alkalinity too. If it drops low, aerate the water to lift pH back up without chemicals.');
-    }
-  } else if (key === 'alkalinity') {
-    if (state === 'low') out.push('Fix alkalinity before pH — it buffers pH swings. Bicarb nudges pH up a little.');
-    else out.push(statuses.pH === 'high'
-      ? 'Acid will bring pH down at the same time — adjust both and re-test.'
-      : 'Acid lowers pH as well; aerate afterwards to bring pH back up.');
-  } else if (key === 'freeChlor' && state === 'low') {
-    out.push('Add chlorine last. Liquid chlorine is alkaline and nudges pH up; cal hypo also raises pH and adds calcium. Re-check pH after dosing.');
-  } else if (key === 'cyanuricAcid' && state === 'low') {
-    out.push('Stabiliser is mildly acidic and can lower pH slightly as it dissolves.');
-  } else if (key === 'salt' && state === 'low') {
-    out.push('Salt must fully dissolve before the chlorinator can use it.');
-  }
-  return out;
-}
-
-// Ordered list of corrective steps for the current test.
-function buildSteps(test, pool, saltRange) {
-  if (!test) return [];
-  const kl = hasVolume(pool) ? pool.volumeL / 1000 : 0;
-  const saltPool = isSaltPool(pool?.sanitiser);
-  // Dose salt toward the middle of the owner's chlorinator band when known.
-  const saltMid = saltRange ? (saltRange.lo + saltRange.hi) / 2 : null;
-  const statuses = {};
-  BALANCE_ORDER.forEach(key => { statuses[key] = statusForParam(key, test[key], saltRange, pool?.surface).state; });
-
-  return BALANCE_ORDER
-    .filter(key => key === 'calciumHardness'
-      ? includeCalciumInActions(statuses[key], pool?.surface)
-      : (statuses[key] === 'low' || statuses[key] === 'high'))
-    .map(key => {
-      const state = statuses[key];
-      const note = planNote(key, state, statuses);
-      return {
-        key,
-        action: ACTION_LABEL[key]?.[state] || key,
-        options: doseOptions(key, state, Number(test[key]), kl, saltPool, saltMid),
-        notes: [note, ...interactionNotes(key, state, statuses)].filter(Boolean),
-        safety: safetyLineFor(key, state),
-        volumeKnown: kl > 0,
-      };
-    });
-}
-
-const optionText = (opt) => (opt.amount ? `add about ${opt.amount} ${opt.name}` : opt.name);
-
-function getPrimaryAction(test, pool, saltRange) {
-  const steps = buildSteps(test, pool, saltRange);
-  if (!steps.length) return null;
-  const s = steps[0];
-  const primary = s.options[0];
-  return {
-    dose: s.action,
-    reason: <>— {optionText(primary)}{s.options[1] ? <>, or {optionText(s.options[1])}</> : null}. {s.notes[0] || 'Re-test before adding more.'}</>,
-  };
-}
-
-function getRecommendations(test, pool, saltRange) {
-  const steps = buildSteps(test, pool, saltRange);
-  if (!steps.length) {
-    return [{
-      type: 'success', iconColor: 'var(--green)', icon: Icon.check,
-      text: <><strong>All readings on target.</strong> No action needed — test again within the next week or so.</>,
-    }];
-  }
-  const multi = steps.length > 1;
-  return steps.map((s, i) => ({
-    type: 'action', iconColor: 'var(--amber)', icon: Icon.tip,
-    text: (
-      <>
-        <strong>{multi ? `${i + 1}. ` : ''}{s.action}</strong>
-        <div style={{ marginTop: 4 }}>
-          {s.options.map((opt, j) => (
-            <span key={j}>
-              {j > 0 ? <span style={{ color: 'var(--gray-light)' }}> — or — </span> : null}
-              {opt.amount ? <><strong>{opt.amount}</strong> {opt.name}</> : opt.name}
-            </span>
-          ))}
-        </div>
-        {!s.volumeKnown && (
-          <div style={{ marginTop: 4, fontSize: 17, color: 'var(--gray-light)' }}>
-            Set your pool volume in Setup to see exact quantities.
-          </div>
-        )}
-        {s.notes.map((n, k) => (
-          <div key={k} style={{ marginTop: 4, fontSize: 17, color: 'var(--gray-mid)' }}>{n}</div>
-        ))}
-        <div className="dose-safety">{s.safety}</div>
-      </>
-    ),
-  }));
 }
 
 function formatRelative(iso) {
@@ -2648,7 +2361,8 @@ function HelpSheet({ onClose, onReplayTour }) {
   const steps = [
     { n: '1', title: 'Enter your test results', body: 'Type the readings in, or scan your pool shop\'s printout with your camera. It fills the numbers in for you.' },
     { n: '2', title: 'Check your Health Score', body: 'One number out of 100 tells you where your water stands. Green is swim-ready.' },
-    { n: '3', title: 'Follow the plan, in order', body: 'The "what to do" list gives exact doses for your pool\'s volume. Re-test a day after dosing.' },
+    { n: '3', title: 'Follow the plan, in order', body: 'Plan lists what to add, in grams and millilitres for your pool. Tap "I added it" as you go. Re-test a day after dosing.' },
+    { n: '4', title: 'Keep the shed stocked', body: 'Add what you buy to My Shed and the plan uses it first, tells you when not to buy more, and adds what you\'re short of to the shopping list.' },
   ];
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -2743,6 +2457,16 @@ export default function App() {
   const [openTestForm, setOpenTestForm] = useState(false); // one-shot: open the log form on the Tests page
   const [openEquipmentForm, setOpenEquipmentForm] = useState(false); // one-shot: open the add-equipment form
   const [tourActive, setTourActive] = useState(false); // post-onboarding walkthrough
+  // My Shed and the shopping list (migration 021). `available` is false until
+  // the database has the tables; those screens then say so and nothing breaks.
+  const [shed, setShed] = useState({ available: false, items: [] });
+  const [shop, setShop] = useState({ available: false, items: [] });
+  // Pinned shortcuts: saved to the account when the database allows it,
+  // otherwise kept on this device.
+  const [pins, setPins] = useState(() => {
+    try { return cleanPins(JSON.parse(localStorage.getItem('ypm.pins.v1') || 'null') ?? undefined); } catch { return cleanPins(); }
+  });
+  const [pinNotice, setPinNotice] = useState(null);
 
   // The shell never changes the URL, so Analytics only sees a new screen
   // when activeView (or an auth/trial gate) changes. Same measurement id
@@ -2798,13 +2522,19 @@ export default function App() {
   // Load everything from Supabase once signed in (and again after onboarding)
   const loadAll = async (uid) => {
     try {
-      const [profile, pool, tests, equip, evts] = await Promise.all([
+      const [profile, pool, tests, equip, evts, shedRes, shopRes] = await Promise.all([
         db.loadUserProfile(uid),
         db.loadPoolProfile(uid),
         db.loadTests(uid),
         db.loadEquipment(uid),
         db.loadEvents(uid),
+        // Shed and shopping list never block the rest of the app.
+        db.loadShed(uid).catch((err) => { console.error('Failed to load shed:', err); return { available: false, items: [] }; }),
+        db.loadShop(uid).catch((err) => { console.error('Failed to load shopping list:', err); return { available: false, items: [] }; }),
       ]);
+      setShed(shedRes);
+      setShop(shopRes);
+      if (profile?.app_prefs && Array.isArray(profile.app_prefs.pins)) setPins(cleanPins(profile.app_prefs.pins));
       if (profile) {
         setIsPremium(!!profile.is_premium);
         setPlan(profile.plan ?? null);
@@ -2889,12 +2619,42 @@ export default function App() {
   // Salt/mineral target band from the owner's chlorinator (null = app default).
   const saltRange = saltRangeForEquipment(equipment);
 
-  // Count parameters out of range as pending actions.
-  // Untested parameters (state 'none') are not actions — only real
-  // low/high readings count.
-  const pendingActions = testData
-    ? buildParams(testData, saltRange, poolProfile?.surface).filter(p => p.state === 'low' || p.state === 'high').length
-    : 0;
+  // ── The plan for the latest test ──────────────────────────
+  // Climate comes from the member's postcode (state) and the month.
+  const ctx = planContext({ pool: poolProfile, equipment, saltRange, postcode: memberDetails?.postcode });
+  const dosePlan = testData ? buildPlan(testData, ctx) : null;
+  const doseEvents = events.filter((e) => e.type === 'dose');
+  const stock = shedWithStock(shed.items, doseEvents);
+  const testKey = testData ? (testData.id || testData.createdAt) : null;
+
+  // Steps marked as added for this test: from the history (migration 021),
+  // or the per-device map older databases needed.
+  const done = {};
+  if (testData?.id) {
+    for (const e of doseEvents) if (e.testId === testData.id && e.stepKey) done[e.stepKey] = e;
+  }
+  if (testKey) {
+    for (const [stepKey, id] of Object.entries(readDoseIds(testKey))) {
+      const e = events.find((x) => x.id === id);
+      if (e && !done[stepKey]) done[stepKey] = e;
+    }
+  }
+  // Steps put on the shopping list instead.
+  const skipped = {};
+  if (testData?.id) {
+    for (const i of shop.items) {
+      if (i.status === 'needed' && i.source === 'skip' && i.testId === testData.id && i.stepKey) skipped[i.stepKey] = i;
+    }
+  }
+  const next = dosePlan ? nextStep(dosePlan, done, skipped) : null;
+  const doneCount = dosePlan ? dosePlan.steps.filter((st) => done[st.key]).length : 0;
+  // Steps still to do — shown on the Plan tab badge.
+  const pendingActions = dosePlan ? dosePlan.steps.filter((st) => !done[st.key]).length : 0;
+  const shopCount = shop.items.filter((i) => i.status !== 'bought').length;
+  const low = shed.available ? lowStock(stock, doseEvents) : [];
+  const shopSuggestions = dosePlan && shop.available
+    ? planShortfall({ plan: dosePlan, stock, doneKeys: new Set([...Object.keys(done), ...Object.keys(skipped)]), testId: testData?.id ?? null }).filter((r) => !r.covered)
+    : [];
 
   // Show the test straight away, then confirm it reached the database. If the
   // save fails, take it back out of the history and offer a retry — a test
@@ -3081,12 +2841,98 @@ export default function App() {
         });
       });
   };
-  // "I added it" on a dose step: save it as an event and hand back its id so
-  // the step can take it out again on Undo.
+  // "I added it" on a plan step. The dose goes in the history with the test
+  // and step it was for, the amount, what it drew from the shed and its cost
+  // from the owner's own prices. Throws so the step can say it didn't save.
   const recordDose = async (step, option) => {
-    const saved = await db.addEvent(user.id, poolProfile?.id, doseEventFor(step, option, poolProfile?.volumeL));
+    const amount = optionAmount(option);
+    const draw = shed.available ? drawForDose(stock, option.name, amount) : { draws: [], costAud: null };
+    const event = {
+      ...doseEventFor(step, option, poolProfile?.volumeL),
+      testId: testData?.id ?? null,
+      stepKey: step.key,
+      product: option.name,
+      grams: option.grams ?? null,
+      millilitres: option.millilitres ?? null,
+      costAud: draw.costAud,
+      shedDraw: draw.draws,
+    };
+    const saved = await db.addEvent(user.id, poolProfile?.id, event);
     setEvents(e => [...e, saved]);
+    // Older databases don't keep the test and step on the row: remember it here.
+    if (!saved.stepKey && testKey) writeDoseIds(testKey, { ...readDoseIds(testKey), [step.key]: saved.id });
+    // A step done from the shopping list comes off the list.
+    const listed = skipped[step.key];
+    if (listed) {
+      db.deleteShopItem(listed.id)
+        .then(() => setShop((sh) => ({ ...sh, items: sh.items.filter((i) => i.id !== listed.id) })))
+        .catch((err) => console.error('Failed to clear shopping item:', err));
+    }
     return saved.id;
+  };
+  const undoDose = async (record) => {
+    await db.deleteEvent(record.id);
+    setEvents(e => e.filter(x => x.id !== record.id));
+    if (testKey) {
+      const ids = readDoseIds(testKey);
+      const k = Object.keys(ids).find((key) => ids[key] === record.id);
+      if (k) { delete ids[k]; writeDoseIds(testKey, ids); }
+    }
+  };
+  // "I haven't bought it yet": the step goes on the shopping list for this test.
+  const skipStep = async (step, option) => {
+    const need = optionAmount(option);
+    const key = productKeyForDose(option.name);
+    const row = planShortfall({ plan: { steps: [{ ...step, options: [option] }] }, stock }).find(() => true);
+    const item = await db.addShopItem(user.id, {
+      product: option.name,
+      productKey: key,
+      quantity: row?.buy?.quantity ?? need,
+      quantityLabel: row?.buy?.label ?? option.amount ?? '',
+      form: option.grams > 0 ? 'mass' : option.millilitres > 0 ? 'volume' : 'other',
+      source: 'skip',
+      testId: testData?.id ?? null,
+      stepKey: step.key,
+      stepTitle: step.action,
+    });
+    setShop((sh) => ({ ...sh, items: [item, ...sh.items] }));
+  };
+  const removeShopItem = async (item) => {
+    await db.deleteShopItem(item.id);
+    setShop((sh) => ({ ...sh, items: sh.items.filter((i) => i.id !== item.id) }));
+  };
+  const addShopItem = async (fields) => {
+    const item = await db.addShopItem(user.id, fields);
+    setShop((sh) => ({ ...sh, items: [item, ...sh.items] }));
+  };
+  const toggleShopItem = async (item, bought) => {
+    const saved = await db.setShopItemBought(item.id, bought);
+    setShop((sh) => ({ ...sh, items: sh.items.map((i) => (i.id === saved.id ? saved : i)) }));
+  };
+  const addShedItems = async (items) => {
+    const saved = await db.addShedItems(user.id, items);
+    setShed((sh) => ({ ...sh, items: [...sh.items, ...saved] }));
+  };
+  const deleteShedItem = (id) => {
+    const prev = shed.items;
+    setShed((sh) => ({ ...sh, items: sh.items.filter((i) => i.id !== id) }));
+    db.deleteShedItem(id).catch((err) => {
+      console.error('Failed to delete shed item:', err);
+      setShed((sh) => ({ ...sh, items: prev }));
+    });
+  };
+  const handleTogglePin = (view) => {
+    const result = togglePin(pins, view);
+    setPinNotice(result.notice);
+    if (result.pins === pins) return;
+    setPins(result.pins);
+    try { localStorage.setItem('ypm.pins.v1', JSON.stringify(result.pins)); } catch { /* private mode */ }
+    db.saveAppPrefs(user.id, { pins: result.pins }).catch(() => { /* kept on this device */ });
+  };
+  const openView = (view) => {
+    setActiveView(view);
+    setMobileDrawerOpen(false);
+    window.scrollTo?.({ top: 0 });
   };
   // "Done" on an equipment care job: save it as an event, so it is in the history and the record.
   const handleCareDone = async (task) => {
@@ -3142,6 +2988,7 @@ export default function App() {
           activeView={activeView}
           onNav={setActiveView}
           pendingActions={pendingActions}
+          shopCount={shopCount}
           onHelp={() => setShowHelp(true)}
           onFeedback={openFeedback}
           feedbackNoteCount={feedbackNoteCount}
@@ -3152,11 +2999,21 @@ export default function App() {
             <HealthScorePage
               testData={testData}
               poolProfile={poolProfile}
-              saltRange={saltRange}
               onLogFirst={goLogTest}
               onLogTest={goLogTest}
               events={events}
               user={user}
+              plan={dosePlan}
+              next={next}
+              doneCount={doneCount}
+              shopCount={Object.keys(skipped).length}
+              onAdded={recordDose}
+              onOpen={openView}
+              ctx={ctx}
+              tests={testHistory.map((t) => ({ ...t, healthScore: scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface) }))}
+              low={low}
+              pins={pins}
+              badges={{ shop: shopCount, plan: pendingActions }}
               careDue={careDueNow(equipment, poolProfile, events)}
               onOpenCare={() => setActiveView('equipment')}
               onOpenFixer={() => setActiveView('fixer')}
@@ -3169,12 +3026,65 @@ export default function App() {
               onLogTest={handleLogTest}
               onScanTest={() => setShowScan(true)}
               onSpeakTest={() => setShowVoice(true)}
-              onRecordDose={recordDose}
-              onUndoDose={handleDeleteEvent}
               poolProfile={poolProfile}
               saltRange={saltRange}
               autoOpenForm={openTestForm}
               onAutoOpened={() => setOpenTestForm(false)}
+              stepsLeft={pendingActions}
+              onOpenPlan={() => openView('plan')}
+              rows={dosePlan?.rows ?? []}
+            />
+          )}
+          {activeView === 'plan' && (
+            <PlanPage
+              test={testData}
+              plan={dosePlan}
+              ctx={ctx}
+              done={done}
+              skipped={skipped}
+              stock={stock}
+              shopAvailable={shop.available}
+              onAdded={recordDose}
+              onUndo={undoDose}
+              onSkip={skipStep}
+              onUnskip={removeShopItem}
+              onOpen={openView}
+              onLogTest={goLogTest}
+              onOpenFixer={() => openView('fixer')}
+              retest={retestPrompt(events, testData?.createdAt)}
+            />
+          )}
+          {activeView === 'shed' && (
+            <ShedPage
+              available={shed.available}
+              stock={stock}
+              low={low}
+              onAdd={addShedItems}
+              onDelete={deleteShedItem}
+              onOpen={openView}
+            />
+          )}
+          {activeView === 'shop' && (
+            <ShopPage
+              available={shop.available}
+              list={shop.items}
+              suggestions={shopSuggestions}
+              low={low}
+              shedItems={shed.items}
+              shedAvailable={shed.available}
+              onAdd={addShopItem}
+              onToggle={toggleShopItem}
+              onDelete={removeShopItem}
+              onAddShed={addShedItems}
+            />
+          )}
+          {activeView === 'costs' && (
+            <CostsPage
+              events={events}
+              hasTests={testHistory.length > 0}
+              hasPrices={shed.items.some(hasPrice)}
+              onOpen={openView}
+              onLogTest={goLogTest}
             />
           )}
           {activeView === 'history' && (
@@ -3347,6 +3257,10 @@ export default function App() {
           onHelp={() => setShowHelp(true)}
           onFeedback={openFeedback}
           feedbackNoteCount={feedbackNoteCount}
+          pins={pins}
+          onTogglePin={handleTogglePin}
+          pinNotice={pinNotice}
+          shopCount={shopCount}
         />
       )}
 

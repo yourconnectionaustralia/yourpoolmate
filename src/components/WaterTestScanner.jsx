@@ -26,6 +26,7 @@ const FIELD_MAP = [
   { ocr: 'cyanuric_acid', app: 'cyanuricAcid',    label: 'Cyanuric acid',    unit: 'ppm' },
   { ocr: 'calcium',       app: 'calciumHardness', label: 'Calcium hardness', unit: 'ppm' },
   { ocr: 'salt',          app: 'salt',            label: 'Salt',             unit: 'ppm' },
+  { ocr: 'total_chlorine', app: 'totalChlor',     label: 'Total chlorine',   unit: 'ppm' },
 ];
 
 const CameraIcon = (
@@ -137,6 +138,7 @@ export default function WaterTestScanner({ onClose, onComplete }) {
       source: 'ocr',
     };
     if (values.salt !== '' && values.salt !== undefined) result.salt = num(values.salt);
+    if (values.totalChlor !== '' && values.totalChlor !== undefined) result.totalChlor = num(values.totalChlor);
     // The photo is kept with the test as evidence, unless the owner unticked it.
     if (keepPhoto && photoBlob) result.printout = photoBlob;
     onComplete(result);

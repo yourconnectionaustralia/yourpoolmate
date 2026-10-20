@@ -9,17 +9,20 @@ import {
 } from './dosing.js';
 
 const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
+const plan = readFileSync(new URL('./plan.js', import.meta.url), 'utf8');
 
 function optionAmount(options, name) {
   return options.find((option) => option.name === name)?.amount;
 }
 
 test('the live dose plan uses this module and does not keep a second chlorine formula', () => {
-  assert.match(app, /import \{ doseOptions \} from '\.\/lib\/dosing\.js'/);
-  assert.match(app, /options: doseOptions\(key, state, Number\(test\[key\]\), kl, saltPool, saltMid\)/);
-  assert.doesNotMatch(app, /function doseOptions/);
-  assert.doesNotMatch(app, /kl \* 8 \* d/);
-  assert.doesNotMatch(app, /kl \* 1\.4 \* d/);
+  assert.match(plan, /import \{ doseOptions \} from '\.\/dosing\.js'/);
+  assert.match(plan, /const options = doseOptions\(key, state, num\(test\[key\]\), kl, saltPool, saltMid, target\)/);
+  for (const source of [app, plan]) {
+    assert.doesNotMatch(source, /function doseOptions/);
+    assert.doesNotMatch(source, /kl \* 8 \* d/);
+    assert.doesNotMatch(source, /kl \* 1\.4 \* d/);
+  }
 });
 
 test('raising chlorine lists only the products the app calculates', () => {
