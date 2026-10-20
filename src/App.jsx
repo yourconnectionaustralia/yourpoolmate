@@ -22,7 +22,19 @@ import { careDueNow, careEventFor, careList, isCareEvent } from './lib/equipment
 import { prefsFromRow, wantsTestForm, withoutTestParam } from './lib/reminderPrefs.js';
 import RecordExport from './components/RecordExport.jsx';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
-import { analyticsScreen, trackPageView } from './lib/analytics.js';
+import {
+  analyticsScreen,
+  armCheckoutPending,
+  consumeCheckoutPending,
+  readCheckoutPending,
+  createTestSaveTracker,
+  rememberCheckoutOffer,
+  testEntry,
+  trackCheckoutStarted,
+  trackEvent,
+  trackPageView,
+  trackTrialStartOnce,
+} from './lib/analytics.js';
 import { emptyTestHeadline } from './lib/emptyTestHeadline.js';
 import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
 import { testPrompt } from './lib/testPrompt.js';
@@ -32,7 +44,7 @@ import { doseOptions } from './lib/dosing.js';
 import { rectangularVolumeLitres } from './lib/poolVolume.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
-import { createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
+import { awaitWithTimeout, CHECKOUT_PRICING_WAIT_MS, createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM ICONS — inline SVG only, no library dependency
@@ -2200,7 +2212,7 @@ function CheckoutReturnNote({ status }) {
   );
 }
 
-function CheckoutButton({ label, className, style, block }) {
+function CheckoutButton({ label, className, style, block, pricing }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -2214,6 +2226,23 @@ function CheckoutButton({ label, className, style, block }) {
         successUrl: origin,
         cancelUrl: origin,
       });
+      // Plan comes from get_pricing, never a hardcoded price. Fetch only
+      // when the paywall has not already loaded it, and only for a
+      // moment — a slow price lookup must not delay Stripe.
+      let offer = pricing;
+      if (!offer?.plan) {
+        offer = await awaitWithTimeout(
+          fetchCheckoutPricing(supabase),
+          CHECKOUT_PRICING_WAIT_MS,
+          null,
+        );
+      }
+      try {
+        rememberCheckoutOffer(offer);
+        trackCheckoutStarted(offer);
+      } catch (analyticsErr) {
+        console.error('checkout analytics failed:', analyticsErr);
+      }
       window.location.assign(url);
     } catch (err) {
       console.error('stripe-checkout create_session failed:', err);
@@ -2276,6 +2305,7 @@ function TrialExpiredScreen({ pricing, checkoutReturn }) {
         </div>
         <CheckoutButton
           block
+          pricing={pricing}
           label={copy.claimLabel}
           className="btn btn-primary"
           style={{ width: '100%', marginBottom: 10 }}
@@ -2746,19 +2776,64 @@ export default function App() {
 
   // The shell never changes the URL, so Analytics only sees a new screen
   // when activeView (or an auth/trial gate) changes. Same measurement id
-  // and linker as index.html; this only sends page_view.
+  // and linker as index.html. The first page_view keeps utm_* and gclid;
+  // later screens and custom events use the clean virtual path.
   const signedIn = Boolean(session);
+  const screenNow = analyticsScreen({
+    loading,
+    recoveryMode,
+    signedIn,
+    trialExpired,
+    isPremium,
+    dataReady,
+    activeView,
+  });
   useEffect(() => {
-    trackPageView(analyticsScreen({
-      loading,
-      recoveryMode,
-      signedIn,
-      trialExpired,
+    trackPageView(screenNow);
+  }, [screenNow]);
+
+  // One successful-save counter for this page load. Server history marks
+  // returning members so they do not emit first_test_saved.
+  const testSavesRef = useRef(null);
+  if (testSavesRef.current == null) testSavesRef.current = createTestSaveTracker();
+
+  // trial_start: once per account, when a recent confirmed user first
+  // reaches the signed-in app. The marker lives on auth user_metadata.
+  useEffect(() => {
+    if (loading || recoveryMode || !signedIn || !user || !dataReady) return;
+    if (trialExpired || isPremium) return;
+    trackTrialStartOnce(user, {
       isPremium,
-      dataReady,
-      activeView,
-    }));
-  }, [loading, recoveryMode, signedIn, trialExpired, isPremium, dataReady, activeView]);
+      screen: screenNow,
+      updateUser: (attrs) => supabase.auth.updateUser(attrs),
+    });
+  }, [loading, recoveryMode, signedIn, user, dataReady, trialExpired, isPremium, screenNow]);
+
+  // checkout_completed: after a success return, once the profile shows
+  // is_premium. The return flag itself is cleared on mount, so the offer
+  // is copied to a pending marker that survives a refresh until premium
+  // is seen or the marker expires. A cancelled return does not arm it.
+  useEffect(() => {
+    if (checkoutReturn === 'success') armCheckoutPending();
+    else readCheckoutPending();
+    if (!isPremium || !screenNow) return undefined;
+    const pending = readCheckoutPending();
+    if (!pending) return undefined;
+    if (pending.plan || pricing) {
+      consumeCheckoutPending(pricing, { screen: screenNow });
+      return undefined;
+    }
+    let cancelled = false;
+    fetchCheckoutPricing(supabase)
+      .then((data) => {
+        if (!cancelled) consumeCheckoutPending(data, { screen: screenNow });
+      })
+      .catch((err) => {
+        console.error('stripe-checkout get_pricing failed:', err);
+        if (!cancelled) consumeCheckoutPending(null, { screen: screenNow });
+      });
+    return () => { cancelled = true; };
+  }, [checkoutReturn, isPremium, pricing, screenNow]);
 
   // Walkthrough drives the view so each popup describes the page in front of
   // the user. Stable identity so AppTour's effects don't re-fire every render.
@@ -2817,6 +2892,7 @@ export default function App() {
       setReminderPrefs(prefsFromRow(profile));
       if (pool) setPoolProfile(pool);
       setTestHistory(tests);
+      testSavesRef.current.noteServerCount(tests.length);
       setTestData(tests.length ? tests[tests.length - 1] : null);
       setEquipment(equip);
       setEvents(evts || []);
@@ -2854,6 +2930,12 @@ export default function App() {
 
   // Server-authoritative price for the paywall and profile CTA.
   // Failure leaves the button price-neutral; create_session still works.
+  // Drop a previous account's plan as soon as the user changes, so a
+  // checkout event cannot inherit it.
+  useEffect(() => {
+    setPricing(null);
+  }, [user?.id]);
+
   useEffect(() => {
     if (!user?.id || isPremium) return undefined;
     let cancelled = false;
@@ -2901,8 +2983,11 @@ export default function App() {
   // that only exists on screen would vanish on the next launch.
   const persistTest = (data, pool = poolProfile) => {
     const score = calculateScore(data, pool?.sanitiser, saltRange, pool?.surface);
+    const attempt = testSavesRef.current.begin();
     return db.saveTest(user.id, pool?.id, data, score)
       .then((id) => {
+        const name = attempt.finish();
+        if (name) trackEvent(name, { entry: testEntry(data?.source) });
         setSaveProblem(null);
         // Give the on-screen copy its database id so it can be edited or deleted
         // straight away, without a reload.
@@ -2911,6 +2996,7 @@ export default function App() {
         if (data.printout) attachPrintout(id, data.printout);
       })
       .catch(err => {
+        attempt.cancel();
         console.error('Failed to save test:', err);
         setTestHistory(h => {
           const next = h.filter(t => t !== data);
@@ -3054,7 +3140,18 @@ export default function App() {
   };
   const handleAddPastTest = async (data, { photo } = {}) => {
     const test = { ...data, source: 'shop_import' };
-    const id = await db.saveTest(user.id, poolProfile?.id, test, scoreOne(test));
+    // Same tracker as a normal save. The event waits until the row is stored,
+    // and a failed save does not use up "first".
+    const attempt = testSavesRef.current.begin();
+    let id;
+    try {
+      id = await db.saveTest(user.id, poolProfile?.id, test, scoreOne(test));
+    } catch (err) {
+      attempt.cancel();
+      throw err;
+    }
+    const name = attempt.finish();
+    if (name) trackEvent(name, { entry: testEntry(test.source) });
     let printoutPath = null;
     if (photo) {
       // The result is saved. If only the photo fails, say so and keep the test.
@@ -3267,6 +3364,7 @@ export default function App() {
                 <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   {!isPremium && (
                     <CheckoutButton
+                      pricing={pricing}
                       label={membershipCopy.profileLabel}
                       className="btn btn-primary btn-sm"
                     />
@@ -3357,6 +3455,10 @@ export default function App() {
           next app launch until a pool profile exists. */}
       {hasPoolProfile === false && !onboardingDismissed && (
         <GuestOnboarding
+          onTestSaved={() => {
+            const name = testSavesRef.current.savedNow();
+            if (name) trackEvent(name, { entry: 'manual' });
+          }}
           onComplete={() => {
             loadAll(user.id);
             // Straight into the walkthrough — unless they've already had it.
