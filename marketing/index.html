@@ -1,30 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-AU">
 <head>
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ETWSG20K0R"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-ETWSG20K0R');
-  </script>
-
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Your Pool Mate — Pool water management for Australian homeowners</title>
   <meta name="description" content="Your Pool Mate gives Australian pool owners a live Health Score, exact chemical doses, and a complete water test history — so you always know your pool is safe and balanced." />
-
-  <script>
-    // Sep 2026 model: no payment on this page. Everyone starts a 30-day free
-    // trial in the app; payment happens in-app when the trial ends (first 300
-    // members lock in $79 lifetime, everyone after pays $49/year). This site's
-    // only job is to send people to the app to start free.
-    const CONFIG = {
-      APP_URL: "https://app.yourpoolmate.com.au",
-    };
-    function startFree() { window.location.href = CONFIG.APP_URL; }
-  </script>
+  <link rel="canonical" href="https://yourpoolmate.com.au/" />
+  <meta property="og:title" content="Your Pool Mate — Pool water management for Australian homeowners" />
+  <meta property="og:description" content="Your Pool Mate gives Australian pool owners a live Health Score, exact chemical doses, and a complete water test history — so you always know your pool is safe and balanced." />
+  <meta property="og:url" content="https://yourpoolmate.com.au/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Your Pool Mate" />
+  <meta property="og:locale" content="en_AU" />
+  <meta property="og:image" content="https://yourpoolmate.com.au/og-image.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Your Pool Mate. Your pool, looked after properly." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Your Pool Mate — Pool water management for Australian homeowners" />
+  <meta name="twitter:description" content="Your Pool Mate gives Australian pool owners a live Health Score, exact chemical doses, and a complete water test history — so you always know your pool is safe and balanced." />
+  <meta name="twitter:image" content="https://yourpoolmate.com.au/og-image.jpg" />
+  <link rel="preload" as="image" href="/app-health-score.webp" type="image/webp" fetchpriority="high" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -132,6 +128,59 @@
       { "@type": "HowToStep", "name": "Log your first water test", "text": "Type in your readings, or photograph your test strip or pool shop printout — our OCR fills everything in automatically. If you haven't had a test done recently, most local pool shops will test your water for free." },
       { "@type": "HowToStep", "name": "Get your Health Score and action plan", "text": "Instant analysis. If anything needs attention, you'll see exactly what to add, how much, and why — in plain English." },
       { "@type": "HowToStep", "name": "Follow the plan and swim confidently", "text": "Log what you added, tick it off, and let Your Pool Mate track whether it worked. Over time, your pool becomes predictable." }
+    ]
+  }
+  </script>
+
+  <!-- Structured data: Organization + the web app, with the live prices -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://yourpoolmate.com.au/#organization",
+        "name": "Your Pool Mate",
+        "url": "https://yourpoolmate.com.au/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://yourpoolmate.com.au/logo.png",
+          "width": 512,
+          "height": 512
+        },
+        "email": "hello@yourpoolmate.com.au"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "Your Pool Mate",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "Web",
+        "url": "https://app.yourpoolmate.com.au",
+        "publisher": { "@id": "https://yourpoolmate.com.au/#organization" },
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "30-day free trial",
+            "price": "0",
+            "priceCurrency": "AUD",
+            "description": "Every account starts with a 30-day free trial. No card required to start."
+          },
+          {
+            "@type": "Offer",
+            "name": "Founding member lifetime access",
+            "price": "79",
+            "priceCurrency": "AUD",
+            "description": "The first 300 members pay $79 AUD once and keep lifetime access."
+          },
+          {
+            "@type": "Offer",
+            "name": "Annual access",
+            "price": "49",
+            "priceCurrency": "AUD",
+            "description": "After the first 300 members, access is $49 AUD per year. Cancel anytime."
+          }
+        ]
+      }
     ]
   }
   </script>
@@ -350,7 +399,7 @@
     .feature-row:last-child { border-bottom: none; }
     .feature-row:hover { background: var(--gray-bg); }
     .feature-num { font-family: var(--font-read); font-size: 22px; font-weight: 300; color: var(--gray-line); user-select: none; }
-    .feature-body h4 { font-size: 15px; font-weight: 500; color: var(--black); margin-bottom: 4px; }
+    .feature-body h3 { font-size: 15px; font-weight: 500; color: var(--black); margin-bottom: 4px; }
     .feature-body p { font-size: 13px; color: var(--gray-mid); line-height: 1.55; }
     .feature-meta { display: flex; justify-content: flex-end; }
     .feature-chip { font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 4px; background: var(--blue-light); color: var(--blue); }
@@ -381,7 +430,7 @@
     }
     .how-step-body { padding: 18px 24px; transition: background 0.1s; }
     .how-step:hover .how-step-body { background: var(--gray-bg); }
-    .how-step-body h4 { font-size: 15px; font-weight: 500; color: var(--black); margin-bottom: 5px; }
+    .how-step-body h3 { font-size: 15px; font-weight: 500; color: var(--black); margin-bottom: 5px; }
     .how-step-body p { font-size: 13px; color: var(--gray-mid); line-height: 1.6; }
     .step-note { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 12px; color: var(--water-mid); font-weight: 500; }
 
@@ -625,6 +674,7 @@
     width="1256"
     height="1158"
     alt="Your Pool Mate Health Score in the browser: 88 out of 100. Alkalinity is low at 68 ppm — add about 2.2 kg of buffer. Chlorine, pH, cyanuric acid and calcium hardness are in range."
+    fetchpriority="high"
   >
 </div>
 
@@ -675,32 +725,32 @@
     <div class="feature-list reveal reveal-d1">
       <div class="feature-row">
         <div class="feature-num">01</div>
-        <div class="feature-body"><h4>Live Health Score</h4><p>Your pool's overall condition, expressed as a single number from 0 to 100. Green means everything is in order. Yellow means one or two things need attention soon. Red means act now. It takes into account your chlorine level, pH, total alkalinity, stabiliser, and other relevant parameters — so you can see at a glance whether your pool is safe to swim in, before the grandkids arrive or before a party.</p></div>
+        <div class="feature-body"><h3>Live Health Score</h3><p>Your pool's overall condition, expressed as a single number from 0 to 100. Green means everything is in order. Yellow means one or two things need attention soon. Red means act now. It takes into account your chlorine level, pH, total alkalinity, stabiliser, and other relevant parameters — so you can see at a glance whether your pool is safe to swim in, before the grandkids arrive or before a party.</p></div>
         <div class="feature-meta"><span class="feature-chip chip-green">Real-time</span></div>
       </div>
       <div class="feature-row">
         <div class="feature-num">02</div>
-        <div class="feature-body"><h4>Scan your test results</h4><p>Photograph your pool shop printout or test strip and the numbers populate automatically — chlorine, pH, alkalinity, stabiliser, calcium hardness and more. No manual entry, no typos.</p></div>
+        <div class="feature-body"><h3>Scan your test results</h3><p>Photograph your pool shop printout or test strip and the numbers populate automatically — chlorine, pH, alkalinity, stabiliser, calcium hardness and more. No manual entry, no typos.</p></div>
         <div class="feature-meta"><span class="feature-chip">AI-powered</span></div>
       </div>
       <div class="feature-row">
         <div class="feature-num">03</div>
-        <div class="feature-body"><h4>Exact chemical doses</h4><p>Not "add some chlorine." Exactly how many grams of which product, calculated for your pool volume, your current readings, your sanitisation type, and your target levels — with a plain-English explanation of why.</p></div>
+        <div class="feature-body"><h3>Exact chemical doses</h3><p>Not "add some chlorine." Exactly how many grams of which product, calculated for your pool volume, your current readings, your sanitisation type, and your target levels — with a plain-English explanation of why.</p></div>
         <div class="feature-meta"><span class="feature-chip chip-amber">Personalised</span></div>
       </div>
       <div class="feature-row">
         <div class="feature-num">04</div>
-        <div class="feature-body"><h4>Full test history and trends</h4><p>Every reading logged, every chemical addition recorded. Over time you'll start to recognise patterns — how your pool behaves after rain, after heavy use, across seasons — and catch problems before they're visible.</p></div>
+        <div class="feature-body"><h3>Full test history and trends</h3><p>Every reading logged, every chemical addition recorded. Over time you'll start to recognise patterns — how your pool behaves after rain, after heavy use, across seasons — and catch problems before they're visible.</p></div>
         <div class="feature-meta"><span class="feature-chip">Historical</span></div>
       </div>
       <div class="feature-row">
         <div class="feature-num">05</div>
-        <div class="feature-body"><h4>Warranty-ready water records</h4><p>Australian pool and equipment warranties expect documented water chemistry. Every test you log is timestamped and exportable — the paper trail builds itself, automatically.</p></div>
+        <div class="feature-body"><h3>Warranty-ready water records</h3><p>Australian pool and equipment warranties expect documented water chemistry. Every test you log is timestamped and exportable — the paper trail builds itself, automatically.</p></div>
         <div class="feature-meta"><span class="feature-chip chip-green">Always on</span></div>
       </div>
       <div class="feature-row">
         <div class="feature-num">06</div>
-        <div class="feature-body"><h4>No app store. Works on everything.</h4><p>A Progressive Web App — open in any browser, add to your home screen in one tap. iPhone, Android, desktop. Always the latest version, no updates to manage.</p></div>
+        <div class="feature-body"><h3>No app store. Works on everything.</h3><p>A Progressive Web App — open in any browser, add to your home screen in one tap. iPhone, Android, desktop. Always the latest version, no updates to manage.</p></div>
         <div class="feature-meta"><span class="feature-chip">PWA</span></div>
       </div>
     </div>
@@ -718,23 +768,23 @@
   <div class="how-steps reveal reveal-d1">
     <div class="how-step">
       <div class="how-step-n">01</div>
-      <div class="how-step-body"><h4>Set up your pool</h4><p>Enter your pool volume, sanitisation type (chlorine, salt, mineral) and any equipment. Two minutes, done once.</p></div>
+      <div class="how-step-body"><h3>Set up your pool</h3><p>Enter your pool volume, sanitisation type (chlorine, salt, mineral) and any equipment. Two minutes, done once.</p></div>
     </div>
     <div class="how-step">
       <div class="how-step-n">02</div>
       <div class="how-step-body">
-        <h4>Log your first water test</h4>
+        <h3>Log your first water test</h3>
         <p>Type in your readings, or photograph your test strip or pool shop printout — our OCR fills everything in automatically. If you haven't had a test done recently, most local pool shops will test your water for free. Bring the printout back and scan it straight in.</p>
         <span class="step-note">📸 Photo scanning saves ~3 minutes per test</span>
       </div>
     </div>
     <div class="how-step">
       <div class="how-step-n">03</div>
-      <div class="how-step-body"><h4>Get your Health Score and action plan</h4><p>Instant analysis. If anything needs attention, you'll see exactly what to add, how much, and why — in plain English.</p></div>
+      <div class="how-step-body"><h3>Get your Health Score and action plan</h3><p>Instant analysis. If anything needs attention, you'll see exactly what to add, how much, and why — in plain English.</p></div>
     </div>
     <div class="how-step">
       <div class="how-step-n">04</div>
-      <div class="how-step-body"><h4>Follow the plan. Swim confidently.</h4><p>Log what you added, tick it off, and let Your Pool Mate track whether it worked. Over time, your pool becomes predictable.</p></div>
+      <div class="how-step-body"><h3>Follow the plan. Swim confidently.</h3><p>Log what you added, tick it off, and let Your Pool Mate track whether it worked. Over time, your pool becomes predictable.</p></div>
     </div>
   </div>
 </section>
@@ -872,14 +922,24 @@
     <div class="footer-links">
       <a href="/tools/pool-volume-calculator/">Pool volume</a>
       <a href="/tools/chlorine-dose-calculator/">Chlorine dose</a>
-      <a href="/privacy.html">Privacy</a>
-      <a href="/terms.html">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
       <a href="mailto:hello@yourpoolmate.com.au">Contact</a>
     </div>
   </div>
 </footer>
 
 
+<script>
+// Sep 2026 model: no payment on this page. Everyone starts a 30-day free
+// trial in the app; payment happens in-app when the trial ends (first 300
+// members lock in $79 lifetime, everyone after pays $49/year). This site's
+// only job is to send people to the app to start free.
+const CONFIG = {
+  APP_URL: "https://app.yourpoolmate.com.au",
+};
+function startFree() { window.location.href = CONFIG.APP_URL; }
+</script>
 <script>
 // Scroll reveal
 const ro = new IntersectionObserver(entries => {
@@ -896,7 +956,15 @@ function toggleFaq(btn) {
 }
 
 // Payment happens inside the app when the 30-day trial ends — this page
-// only sends people to the app to start free (see startFree() in <head>).
+// only sends people to the app to start free (see startFree() above).
+</script>
+<!-- Google tag (gtag.js) — after the page content so it does not block first paint -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETWSG20K0R"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETWSG20K0R');
 </script>
 </body>
 </html>

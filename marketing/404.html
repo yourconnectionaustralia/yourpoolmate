@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page not found — Your Pool Mate</title>
+  <meta name="description" content="That page isn't on Your Pool Mate. Go home, or use the pool volume and chlorine dose calculators." />
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --black: #063B4C;
+      --gray-dark: #13262E;
+      --gray-mid: #4E6671;
+      --gray-line: #DCE9EE;
+      --white: #FFFFFF;
+      --water-mid: #0B7799;
+      --grad-water: linear-gradient(135deg, #0B7799 0%, #085E78 100%);
+      --font: 'Albert Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      color: var(--gray-dark);
+      background: var(--white);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    a { color: inherit; }
+    nav {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--gray-line);
+    }
+    .nav-inner {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--black);
+      text-decoration: none;
+      min-height: 44px;
+    }
+    .logo-mark {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: var(--grad-water);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-mark svg { width: 16px; height: 16px; }
+    main {
+      flex: 1;
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 72px 24px 48px;
+    }
+    h1 {
+      font-size: clamp(36px, 6vw, 52px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: var(--black);
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+    p { font-size: 17px; line-height: 1.6; color: var(--gray-mid); margin-bottom: 28px; }
+    .actions { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+    .actions a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 10px 18px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .primary { color: var(--white); background: var(--grad-water); }
+    .primary:hover { background: #085E78; }
+    .secondary { color: var(--black); border: 1px solid var(--gray-line); }
+    .secondary:hover { border-color: var(--black); }
+    footer {
+      border-top: 1px solid var(--gray-line);
+      padding: 24px;
+      font-size: 13px;
+      color: var(--gray-mid);
+    }
+    .footer-inner { max-width: 1100px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">
+      <span class="logo-mark">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="5.6" fill="none" stroke="white" stroke-width="1.4"/>
+          <path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/>
+        </svg>
+      </span>
+      Your Pool Mate
+    </a>
+  </div>
+</nav>
+<main>
+  <h1>That page isn't here.</h1>
+  <p>The link may be out of date, or the address may have been typed wrong. The home page and the two free calculators are below.</p>
+  <div class="actions">
+    <a class="primary" href="/">Back to Your Pool Mate</a>
+    <a class="secondary" href="/tools/pool-volume-calculator/">Pool volume calculator</a>
+    <a class="secondary" href="/tools/chlorine-dose-calculator/">Chlorine dose calculator</a>
+  </div>
+</main>
+<footer>
+  <div class="footer-inner">© 2026 Your Pool Mate. Australian owned.</div>
+</footer>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ETWSG20K0R"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ETWSG20K0R');
+</script>
+</body>
+</html>

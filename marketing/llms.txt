@@ -1,0 +1,40 @@
+# Your Pool Mate
+
+> Your Pool Mate is a web app for Australian residential pool owners. It shows a Pool Health Score out of 100, calculates chemical doses for the pool's volume, and keeps a timestamped water-test history.
+
+The marketing site is https://yourpoolmate.com.au/. The app is https://app.yourpoolmate.com.au. Your Pool Mate is Australian owned. Contact: hello@yourpoolmate.com.au.
+
+## Pricing
+
+- 30-day free trial. No card required to start.
+- The first 300 members pay $79 AUD once for lifetime access.
+- After the first 300 members, access is $49 AUD per year. Cancel anytime.
+- Founding-member purchases have a 30-day no-questions-asked refund. Email hello@yourpoolmate.com.au.
+
+## What it does
+
+- Live Health Score from 0 to 100. Green means in order, yellow means something needs attention soon, red means act now.
+- Photograph a pool-shop printout or a test strip and the readings fill in.
+- Chemical doses for the pool's volume, current readings, and sanitiser type.
+- Timestamped, exportable water-test history. Australian pool and equipment warranties expect documented water chemistry.
+- A progressive web app: open it in the browser and add it to the home screen. iPhone, Android, and desktop. No app store.
+- Pool types on the site: chlorine, saltwater/chlorinator, mineral, and freshwater.
+
+## Water ranges stated on the site
+
+- Free chlorine: 1.0–3.0 ppm. Combined chlorine should stay below 0.2 ppm.
+- pH: 7.2–7.6.
+- Total alkalinity: 80–120 ppm.
+- Stabiliser (cyanuric acid): 30–50 ppm.
+
+## Pages
+
+- [Home](https://yourpoolmate.com.au/): product overview, pricing, and common pool-water answers
+- [Privacy policy](https://yourpoolmate.com.au/privacy): what is collected, and how to access or delete it
+- [Terms of service](https://yourpoolmate.com.au/terms): trial, founding access, refunds, and the limits of the guidance
+- [Pool volume calculator](https://yourpoolmate.com.au/tools/pool-volume-calculator/): litres from the shape, with shallow-end and deep-end depth
+- [Chlorine dose calculator](https://yourpoolmate.com.au/tools/chlorine-dose-calculator/): liquid chlorine or calcium hypochlorite to raise free chlorine
+
+## Contact
+
+hello@yourpoolmate.com.au
