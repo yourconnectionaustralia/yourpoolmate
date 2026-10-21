@@ -80,7 +80,7 @@ test('steps come in balancing order: alkalinity, pH, then chlorine last', () => 
   const plan = buildPlan({ freeChlor: 0.5, pH: 7.9, alkalinity: 60, cyanuricAcid: 40, calciumHardness: 300 }, ctx, APR);
   assert.deepEqual(plan.steps.map((s) => s.key), ['alkalinity', 'pH', 'freeChlor']);
   assert.match(plan.steps[0].notes[0], /Start here/);
-  assert.match(plan.steps[2].notes[0], /chlorine last/);
+  assert.ok(plan.steps[2].notes.some((n) => /chlorine last/.test(n)));
   for (const s of plan.steps) {
     assert.ok(s.safety.includes('gloves'));
     assert.ok(s.wait.length > 10);
@@ -108,6 +108,48 @@ test('a high-UV month aims chlorine higher and explains why', () => {
   assert.equal(fc.options[0].millilitres, 720);
   assert.match(fc.notes[0], /Aimed at 2\.5 ppm because UV/);
   assert.equal(plan.fcAim, 2.5);
+});
+
+test('stabilised water aims chlorine at 3 ppm, without touching the score', () => {
+  assert.equal(chlorineAim(climateFor('VIC', APR), { cya: 40 }), 3);
+  assert.equal(chlorineAim(climateFor('VIC', JUL), { cya: 30, hasCover: true }), 3);
+  const ctx = planContext({ pool: POOL, postcode: '3186', now: APR });
+  const low = buildPlan({ freeChlor: 0.5, cyanuricAcid: 40 }, ctx, APR);
+  const fc = low.steps.find((s) => s.key === 'freeChlor');
+  // 45 kL × 8 mL × 2.5 ppm gap
+  assert.equal(fc.options[0].millilitres, 900);
+  assert.match(fc.notes[0], /Aimed at 3\.0 ppm because stabiliser/);
+  const at2 = buildPlan({ ...BALANCED, freeChlor: 2, cyanuricAcid: 40 }, ctx, APR);
+  const at3 = buildPlan({ ...BALANCED, freeChlor: 3, cyanuricAcid: 40 }, ctx, APR);
+  assert.equal(at2.score, at3.score);
+  assert.equal(at2.steps.some((s) => s.key === 'freeChlor'), false);
+  assert.ok(at2.watchouts.some((w) => /toward 3 ppm/.test(w) && /score is fine/.test(w)));
+  assert.equal(at3.watchouts.some((w) => /toward 3 ppm/.test(w)), false);
+});
+
+test('a covered pool with no stabiliser aims 1.5–2 ppm, even in summer', () => {
+  const covered = { ...POOL, hasCover: true };
+  assert.equal(planContext({ pool: covered, postcode: '3186', now: JAN }).hasCover, true);
+  assert.equal(chlorineAim(climateFor('VIC', JAN), { hasCover: true }), 2);
+  assert.equal(chlorineAim(climateFor('VIC', JUL), { hasCover: true }), 1.5);
+  assert.equal(chlorineAim(climateFor('VIC', JAN), { cya: 0, hasCover: true }), 2);
+  const ctx = planContext({ pool: covered, postcode: '3186', now: JAN });
+  const low = buildPlan({ freeChlor: 0.5, cyanuricAcid: 0 }, ctx, JAN);
+  const fc = low.steps.find((s) => s.key === 'freeChlor');
+  // 45 kL × 8 mL × 1.5 ppm gap
+  assert.equal(fc.options[0].millilitres, 540);
+  assert.match(fc.notes[0], /cover/);
+  assert.equal(low.fcAim, 2);
+  // About 2 ppm in a covered pool: no top-up nag, same score as 3.
+  const at2 = buildPlan({ ...BALANCED, freeChlor: 2, cyanuricAcid: 0 }, ctx, JAN);
+  const at3 = buildPlan({ ...BALANCED, freeChlor: 3, cyanuricAcid: 0 }, ctx, JAN);
+  assert.equal(at2.watchouts.some((w) => /low side for this much sun/.test(w)), false);
+  assert.equal(at2.score, at3.score);
+  assert.equal(at2.score, 100);
+  // No stabiliser under a cover is fine: no step to add it.
+  assert.equal(at2.steps.length, 0);
+  assert.equal(at2.rows.find((r) => r.key === 'cyanuricAcid').state, 'ok');
+  assert.ok(at3.watchouts.some((w) => /helps your cover last/.test(w)));
 });
 
 test('combined chlorine of 0.5 or more swaps the chlorine step for a shock', () => {

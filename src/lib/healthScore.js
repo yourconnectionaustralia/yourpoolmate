@@ -111,10 +111,20 @@ function scoreCalcium(value, surface) {
   return scoreParam(value, min, max);
 }
 
+// Covered pools: stabiliser only protects chlorine from the sun, and a cover
+// already does that, so no stabiliser is a fine way to run a covered pool.
+// Anything up to the high cap scores full marks; high stabiliser still counts.
+function scoreStabiliser(value, hasCover) {
+  const { min, max } = SCORE_RANGES.cyanuricAcid;
+  if (hasCover && value <= max) return 100;
+  return scoreParam(value, min, max);
+}
+
 // `saltRange` ({ lo, hi }, optional) overrides the default salt band — it
 // comes from the owner's chlorinator via saltRangeForEquipment() below.
 // `surface` is the pool profile surface. Omitted = hard-surface calcium band.
-export function calculateScore(test, sanitiserType, saltRange, surface) {
+// `hasCover` true = low or no stabiliser is not a fault (see scoreStabiliser).
+export function calculateScore(test, sanitiserType, saltRange, surface, { hasCover = false } = {}) {
   if (!test) return 0;
   const weights = isSaltPool(sanitiserType) ? WEIGHTS_SALTWATER : WEIGHTS_DEFAULT;
 
@@ -127,6 +137,8 @@ export function calculateScore(test, sanitiserType, saltRange, surface) {
       let scored;
       if (param === 'calciumHardness') {
         scored = scoreCalcium(value, surface);
+      } else if (param === 'cyanuricAcid') {
+        scored = scoreStabiliser(value, hasCover);
       } else {
         const { min, max } = param === 'salt' && saltRange
           ? { min: saltRange.lo, max: saltRange.hi }

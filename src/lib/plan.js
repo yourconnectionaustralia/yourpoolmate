@@ -108,13 +108,38 @@ export function climateFor(state, date = new Date()) {
   };
 }
 
-// Free chlorine the plan aims for. The acceptable band is always 1–3 ppm;
-// only the aim inside it moves with the sun.
-export function chlorineAim(climate) {
-  if (!climate) return 2;
-  if (climate.season === 'Winter' && climate.uv < 6) return 1.5;
-  if (climate.uv >= 7 || climate.season === 'Summer') return 2.5;
-  return 2;
+// Free chlorine the plan aims for. The acceptable band is always 1–3 ppm and
+// the Health Score scores the whole band the same; only the aim inside it moves.
+//   Stabilised (CYA ≥ 20): 3 ppm. Stabiliser holds chlorine back, which is why
+//     NSW public-pool rules set 3 ppm for stabilised outdoor pools.
+//   Covered, no stabiliser: 1.5–2 ppm. The cover keeps the sun off, and
+//     stronger chlorine shortens the cover's life.
+//   Otherwise the aim moves with the sun.
+export const STABILISED_CYA = 20;
+
+export function chlorineAim(climate, { cya = null, hasCover = false } = {}) {
+  return chlorineAimFor(climate, { cya, hasCover }).ppm;
+}
+
+export function chlorineAimFor(climate, { cya = null, hasCover = false } = {}) {
+  if (cya != null && cya >= STABILISED_CYA) return { ppm: 3, reason: 'stabilised' };
+  const cool = climate?.season === 'Winter' && climate?.uv < 6;
+  if (hasCover) return { ppm: cool ? 1.5 : 2, reason: 'cover' };
+  if (!climate) return { ppm: 2, reason: 'default' };
+  if (cool) return { ppm: 1.5, reason: 'cool' };
+  if (climate.uv >= 7 || climate.season === 'Summer') return { ppm: 2.5, reason: 'sun' };
+  return { ppm: 2, reason: 'default' };
+}
+
+function aimNote(aim, climate) {
+  const ppm = aim.ppm.toFixed(1);
+  switch (aim.reason) {
+    case 'stabilised': return `Aimed at ${ppm} ppm because stabiliser holds chlorine back — NSW public-pool rules set 3 ppm for stabilised outdoor pools. Anything from 1–3 still scores full marks.`;
+    case 'cover': return `Aimed at ${ppm} ppm. With a cover and no stabiliser the sun isn't burning chlorine off, and 1.5–2 ppm is kinder to the cover.`;
+    case 'sun': return `Aimed at ${ppm} ppm because UV is typically ${climate.uv} this month. The acceptable band is still 1–3.`;
+    case 'cool': return `Aimed at ${ppm} ppm because the water is cool. The acceptable band is still 1–3.`;
+    default: return null;
+  }
 }
 
 // One turnover at about 200 L/min.
@@ -296,12 +321,13 @@ const thousands = (n) => n.toLocaleString('en-AU');
 // Active range for one reading. Salt follows the owner's chlorinator,
 // calcium follows the surface, TDS allows for the salt in a salt pool.
 export function rangeFor(key, ctx = {}, test = {}) {
-  const { saltRange, surface, sanitiser } = ctx;
+  const { saltRange, surface, sanitiser, hasCover } = ctx;
   switch (key) {
     case 'freeChlor': return { lo: 1, hi: 3, target: '1.0–3.0' };
     case 'pH': return { lo: 7.2, hi: 7.6, target: '7.2–7.6' };
     case 'alkalinity': return { lo: 80, hi: 120, target: '80–120' };
-    case 'cyanuricAcid': return { lo: 30, hi: 50, target: '30–50' };
+    // A cover keeps the sun off, so stabiliser is optional under one.
+    case 'cyanuricAcid': return hasCover ? { lo: 0, hi: 50, target: 'up to 50' } : { lo: 30, hi: 50, target: '30–50' };
     case 'calciumHardness': return calciumBand(surface);
     case 'salt': {
       const r = saltRange || { lo: 3000, hi: 4500 };
@@ -514,6 +540,7 @@ export function planContext({ pool, equipment = [], saltRange = null, postcode =
     pumpHours: pumpHoursFor(pool, climate.season),
     chlorinatorOutputPercent: pool?.chlorinatorOutputPercent ?? null,
     chlorinatorCellGPerHour: pool?.chlorinatorCellGPerHour ?? null,
+    hasCover: !!pool?.hasCover,
   };
 }
 
@@ -539,7 +566,9 @@ function chlorinatorFor(test, ctx, aim) {
 export function buildPlan(test, ctx, now = new Date()) {
   const kl = ctx.volumeL > 0 ? ctx.volumeL / 1000 : 0;
   const saltPool = isSaltPool(ctx.sanitiser);
-  const aim = chlorineAim(ctx.climate);
+  const cya = num(test?.cyanuricAcid);
+  const aimInfo = chlorineAimFor(ctx.climate, { cya, hasCover: ctx.hasCover });
+  const aim = aimInfo.ppm;
   const saltMid = ctx.saltRange ? (ctx.saltRange.lo + ctx.saltRange.hi) / 2 : null;
   const statuses = {};
   for (const key of BALANCE_ORDER) statuses[key] = stateFor(key, test?.[key], ctx, test);
@@ -559,10 +588,9 @@ export function buildPlan(test, ctx, now = new Date()) {
       const target = key === 'freeChlor' ? aim : TARGET[key];
       const options = doseOptions(key, state, num(test[key]), kl, saltPool, saltMid, target);
       const notes = [orderNote(key, statuses), ...interactionNotes(key, state, statuses)].filter(Boolean);
-      if (key === 'freeChlor' && state === 'low' && aim !== 2) {
-        notes.unshift(aim > 2
-          ? `Aimed at ${aim.toFixed(1)} ppm because UV is typically ${ctx.climate.uv} this month. The acceptable band is still 1–3.`
-          : `Aimed at ${aim.toFixed(1)} ppm because the water is cool. The acceptable band is still 1–3.`);
+      if (key === 'freeChlor' && state === 'low') {
+        const note = aimNote(aimInfo, ctx.climate);
+        if (note) notes.unshift(note);
       }
       if (key === 'freeChlor' && state === 'low' && saltPool && options[0] && isChlorinatorStep(options[0].name)) {
         const advice = chlorinatorFor(test, ctx, aim);
@@ -600,8 +628,16 @@ export function buildPlan(test, ctx, now = new Date()) {
   }
 
   const watchouts = [];
-  if (fc != null && statuses.freeChlor === 'ok' && fc < aim - 0.4 && (ctx.climate.uv >= 7 || ctx.climate.season === 'Summer')) {
+  // Tips inside the 1–3 band. None of these change the Health Score.
+  const fcOk = fc != null && statuses.freeChlor === 'ok';
+  if (fcOk && aimInfo.reason === 'sun' && fc < aim - 0.4) {
     watchouts.push('Free chlorine is in range but on the low side for this much sun. A small top-up keeps you ahead of the afternoon.');
+  }
+  if (fcOk && aimInfo.reason === 'stabilised' && fc < aim - 0.4 && cya <= 50) {
+    watchouts.push(`Free chlorine is in range, so your score is fine. With stabiliser at ${cya} ppm, topping up toward 3 ppm keeps the chlorine working as hard as it should.`);
+  }
+  if (fcOk && aimInfo.reason === 'cover' && fc > 2.5) {
+    watchouts.push('Free chlorine is in range. With the cover on and no stabiliser, 1.5–2 ppm is plenty — holding it lower helps your cover last.');
   }
   if (combined != null && combined >= 0.2 && combined < 0.5) {
     watchouts.push(`Combined chlorine is ${combined} ppm. If swimmers notice a strong smell or stinging eyes, plan a shock once pH is in range.`);
@@ -616,7 +652,7 @@ export function buildPlan(test, ctx, now = new Date()) {
   if (!kl) watchouts.push('Add the pool volume in Pool setup to turn these steps into grams and millilitres.');
 
   // A saved test keeps the score it had when it was logged, like the history.
-  const score = test?.healthScore ?? calculateScore(test, ctx.sanitiser, ctx.saltRange, ctx.surface);
+  const score = test?.healthScore ?? calculateScore(test, ctx.sanitiser, ctx.saltRange, ctx.surface, { hasCover: ctx.hasCover });
   const rows = readingRows(test, ctx);
   const swim = swimVerdict(test, score, ctx.climate.season, now);
   const lsi = lsiView(langelier({
