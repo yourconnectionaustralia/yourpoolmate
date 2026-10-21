@@ -1127,7 +1127,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
     );
   }
 
-  const scored = history.map(t => ({ ...t, score: scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface) }));
+  const scored = history.map(t => ({ ...t, score: scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface, poolProfile?.hasCover) }));
   const equipEvents = deriveEquipmentEvents(equipment);
   const allEvents = [...events, ...equipEvents].sort((a, b) => +new Date(a.date) - +new Date(b.date));
   const gaps = deriveGaps(history);
@@ -1245,7 +1245,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
         equipment={equipment}
         tests={history}
         events={events}
-        scoreFn={(t) => scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface)}
+        scoreFn={(t) => scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface, poolProfile?.hasCover)}
         getPhotoUrl={getPhotoUrl}
       />
 
@@ -1254,7 +1254,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
         pool={poolProfile}
         tests={history}
         events={events}
-        scoreFn={(t) => scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface)}
+        scoreFn={(t) => scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface, poolProfile?.hasCover)}
       />
 
       {/* All tests: each can be edited or deleted from here */}
@@ -1267,7 +1267,7 @@ function ChemistryLogPage({ history, events = [], equipment = [], poolProfile, s
         </div>
         <div className="test-list">
           {history.slice().sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).map((t) => {
-            const score = scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface);
+            const score = scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface, poolProfile?.hasCover);
             const scoreClass = score >= 80 ? 'tag-good' : score >= 60 ? 'tag-warn' : 'tag-bad';
             return (
               <div className="test-row" key={t.id || t.createdAt}>
@@ -2229,8 +2229,9 @@ function TrialExpiredScreen({ pricing, checkoutReturn }) {
 // history stays as recorded. Surface is used only when a score is calculated
 // fresh: a new test, or a row with no stored score. No history rewrite.
 // saltRange (from the owner's chlorinator) overrides the default salt band.
-const scoreFor = (test, sanitiser, saltRange, surface) =>
-  test?.healthScore ?? calculateScore(test, sanitiser, saltRange, surface);
+// A cover makes stabiliser optional, so hasCover is passed through too.
+const scoreFor = (test, sanitiser, saltRange, surface, hasCover = false) =>
+  test?.healthScore ?? calculateScore(test, sanitiser, saltRange, surface, { hasCover });
 
 // Reading display — untested values render as a dash, never "null ppm".
 function fmtReading(v, unit) {
@@ -2660,7 +2661,7 @@ export default function App() {
   // save fails, take it back out of the history and offer a retry — a test
   // that only exists on screen would vanish on the next launch.
   const persistTest = (data, pool = poolProfile) => {
-    const score = calculateScore(data, pool?.sanitiser, saltRange, pool?.surface);
+    const score = calculateScore(data, pool?.sanitiser, saltRange, pool?.surface, { hasCover: pool?.hasCover });
     return db.saveTest(user.id, pool?.id, data, score)
       .then((id) => {
         setSaveProblem(null);
@@ -2797,7 +2798,7 @@ export default function App() {
     setTestHistory(sorted);
     setTestData(sorted.length ? sorted[sorted.length - 1] : null);
   };
-  const scoreOne = (t) => calculateScore(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface);
+  const scoreOne = (t) => calculateScore(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface, { hasCover: poolProfile?.hasCover });
 
   const handleUpdateTest = async (data, { photo, removePhoto } = {}) => {
     const saved = await db.updateTest(data.id, data, scoreOne(data));
@@ -3010,7 +3011,7 @@ export default function App() {
               onAdded={recordDose}
               onOpen={openView}
               ctx={ctx}
-              tests={testHistory.map((t) => ({ ...t, healthScore: scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface) }))}
+              tests={testHistory.map((t) => ({ ...t, healthScore: scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface, poolProfile?.hasCover) }))}
               low={low}
               pins={pins}
               badges={{ shop: shopCount, plan: pendingActions }}

@@ -76,11 +76,11 @@ test('live app greets only on the Health Score header and softens vinyl calcium'
   assert.match(app, /<h1 className="page-title">Pool setup<\/h1>/);
   assert.match(app, /<h1 className="page-title">Profile<\/h1>/);
   assert.match(app, /<HealthScorePage[\s\S]*?user=\{user\}/);
-  assert.match(app, /test\?\.healthScore \?\? calculateScore\(test, sanitiser, saltRange, surface\)/);
+  assert.match(app, /test\?\.healthScore \?\? calculateScore\(test, sanitiser, saltRange, surface, \{ hasCover \}\)/);
   assert.doesNotMatch(app, /isVinylLiner\(surface\)\) return calculateScore/);
   const plan = readFileSync(new URL('./plan.js', import.meta.url), 'utf8');
   assert.match(plan, /includeCalciumInActions\(statuses\[key\], ctx\.surface\)/);
-  assert.match(app, /calculateScore\(data, pool\?\.sanitiser, saltRange, pool\?\.surface\)/);
+  assert.match(app, /calculateScore\(data, pool\?\.sanitiser, saltRange, pool\?\.surface, \{ hasCover: pool\?\.hasCover \}\)/);
   assert.match(app, /Enter Test Results/);
   assert.match(app, /Scan test results/);
   assert.match(app, /Speak results/);
@@ -91,4 +91,28 @@ test('calcium alone: vinyl low is full marks, hard surface is not', () => {
   const only = { calciumHardness: 50 };
   assert.equal(calculateScore(only, null, null, 'Vinyl liner'), 100);
   assert.equal(calculateScore(only, null, null, 'Pebble / pebblecrete'), 0);
+});
+
+test('a cover makes stabiliser optional; high stabiliser still counts', () => {
+  const noCya = { ...BALANCED, cyanuricAcid: 0 };
+  assert.equal(calculateScore(noCya, 'Chlorine', null, 'Pebblecrete', { hasCover: true }), 100);
+  assert.ok(calculateScore(noCya, 'Chlorine', null, 'Pebblecrete') < 100);
+  const high = { ...BALANCED, cyanuricAcid: 90 };
+  assert.equal(
+    calculateScore(high, 'Chlorine', null, 'Pebblecrete', { hasCover: true }),
+    calculateScore(high, 'Chlorine', null, 'Pebblecrete'),
+  );
+  // Chlorine anywhere in 1–3 scores the same, covered or not.
+  for (const hasCover of [false, true]) {
+    assert.equal(
+      calculateScore({ ...BALANCED, freeChlor: 2 }, 'Chlorine', null, 'Pebblecrete', { hasCover }),
+      calculateScore({ ...BALANCED, freeChlor: 3 }, 'Chlorine', null, 'Pebblecrete', { hasCover }),
+    );
+  }
+});
+
+test('the edge function mirrors the covered-pool stabiliser rule', () => {
+  const src = readFileSync(new URL('../../supabase/functions/calculate-health-score/index.ts', import.meta.url), 'utf8');
+  assert.match(src, /function scoreStabiliser\(value: number, hasCover\?: boolean\)/);
+  assert.match(src, /has_cover === true/);
 });
