@@ -157,7 +157,7 @@ export function callout(title, bodyHtml, { dark = false } = {}) {
 }
 
 // Numbered steps on a pale panel. Items are trusted copy.
-function steps(title, items) {
+export function steps(title, items) {
   const rows = items.map((item, i) => `<tr>
                   <td width="40" valign="top" style="width:40px;padding:0 0 14px;">
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" bgcolor="${OCEAN}" width="28" height="28" style="width:28px;height:28px;background:${OCEAN};border-radius:14px;font-family:${FONT};font-size:14px;line-height:28px;font-weight:800;color:#FFFFFF;">${i + 1}</td></tr></table>
