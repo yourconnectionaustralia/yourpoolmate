@@ -24,32 +24,36 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/site.css" />
   <link rel="stylesheet" href="/tools/tools.css" />
+  <meta name="theme-color" content="#085E78" />
 </head>
 <body>
 
-<nav>
-  <div class="nav-inner">
-    <a class="nav-logo" href="/">
-      <div class="logo-mark">
-        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <circle cx="8" cy="8" r="5.6" fill="none" stroke="white" stroke-width="1.4"/>
-          <path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/>
-        </svg>
-      </div>
-      Your Pool Mate
-    </a>
-    <button class="nav-btn" type="button" onclick="startFree()">Start free →</button>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-nav" id="site-nav">
+  <div class="inner">
+    <a class="brand" href="/"><span class="brand-mark"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.6" stroke="white" stroke-width="1.4"/><path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/></svg></span>Your Pool Mate</a>
+    <button class="btn btn-sun" type="button" onclick="startFree()">Start free</button>
   </div>
-</nav>
+</header>
 
-<main class="tool">
-  <p class="section-eyebrow">Free tool</p>
-  <h1>Pool volume calculator</h1>
-  <p class="lede">Litres for a rectangle, round, oval, or kidney-shaped pool. Enter the shallow end and the deep end — average depth is worked out for you.</p>
+<main id="main">
+<section class="band">
+  <div class="inner">
+    <ol class="crumbs"><li><a href="/">Home</a></li><li>Free tools</li><li aria-current="page">Pool volume</li></ol>
+    <span class="eyebrow-chip">Free tool · no sign-up</span>
+    <h1>Pool volume calculator</h1>
+    <p class="lede">How many litres is your pool? Pick the shape, enter the shallow and deep end, and get the number every dose depends on.</p>
+  </div>
+  <svg class="band-wave" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true"><path fill="currentColor" d="M0 34c120 15 240 22 360 18C540 46 660 18 840 15s300 26 420 32c80 3 140-1 180-7v20H0z"/></svg>
+</section>
 
-  <form class="card" id="volume-form">
+<div class="tool">
+  <form class="card" aria-labelledby="calc-title" id="volume-form">
+    <h2 class="card-title" id="calc-title">Your pool</h2>
     <fieldset class="choices">
       <legend class="legend">Pool shape</legend>
       <div class="choice-grid" id="shapes"></div>
@@ -85,7 +89,7 @@
     <div id="result" class="result" aria-live="polite" hidden>
       <p id="result-litres" class="result-amount"></p>
       <p id="result-detail" class="result-detail"></p>
-      <p class="result-detail"><a href="/tools/chlorine-dose-calculator/">Work out a chlorine dose from this volume</a></p>
+      <p class="result-detail"><a id="dose-link" href="/tools/chlorine-dose-calculator/">Work out a chlorine dose for these litres →</a></p>
     </div>
   </form>
 
@@ -97,34 +101,42 @@
     <p class="safety">Always follow the product label directions. This page only estimates volume. When you add chemicals, follow the label and re-test before adding more.</p>
   </section>
 
-  <section class="trial">
-    <h2>Keep the number with your pool</h2>
-    <p>Your Pool Mate uses your volume for every dose, and keeps a record of each water test. The trial is free for 30 days.</p>
-    <button class="btn-cta" type="button" onclick="startFree()">Start free — 30-day trial</button>
-  </section>
+<section class="related" aria-labelledby="related-title">
+  <h2 id="related-title">Got your litres? Next step</h2>
+  <a href="/tools/chlorine-dose-calculator/"><span aria-hidden="true" style="font-size:30px">🧪</span><div>Chlorine dose calculator<span>How much chlorine to add for your pool</span></div><span class="arrow" aria-hidden="true">→</span></a>
+</section>
+
+<section class="trial" aria-labelledby="trial-title">
+  <h2 id="trial-title">Keep the number with your pool</h2>
+  <p>Your Pool Mate uses your volume for every dose, in the right order, and keeps a dated record of each water test. The trial is free for 30 days.</p>
+  <button class="btn-cta" type="button" onclick="startFree()">Start free — 30-day trial</button>
+</section>
+</div>
 </main>
 
-<footer>
-  <div class="footer-inner">
-    <a class="footer-logo" href="/">
-      <div class="logo-mark">
-        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <circle cx="8" cy="8" r="5.6" fill="none" stroke="white" stroke-width="1.4"/>
-          <path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/>
-        </svg>
-      </div>
-      Your Pool Mate
-    </a>
-    <span class="footer-copy">© 2026 Your Pool Mate. Australian owned.</span>
-    <div class="footer-links">
-      <a href="/tools/pool-volume-calculator/">Pool volume</a>
+<footer class="site-footer">
+  <div class="inner">
+    <a class="brand" href="/"><span class="brand-mark"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.6" stroke="white" stroke-width="1.4"/><path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/></svg></span>Your Pool Mate</a>
+    <span>© 2026 Your Pool Mate · Australian owned</span>
+    <nav class="footer-links" aria-label="Footer">
+      <a href="/tools/pool-volume-calculator/" aria-current="page">Pool volume</a>
       <a href="/tools/chlorine-dose-calculator/">Chlorine dose</a>
       <a href="/privacy.html">Privacy</a>
       <a href="/terms.html">Terms</a>
       <a href="mailto:hello@yourpoolmate.com.au">Contact</a>
-    </div>
+    </nav>
   </div>
 </footer>
+
+<script>
+  // Nav turns white once the header band scrolls away.
+  (() => {
+    const nav = document.getElementById('site-nav');
+    const onScroll = () => nav.classList.toggle('solid', window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
 
 <script type="module">
 import { VOLUME_SHAPES, averageDepthMetres, poolVolumeLitres } from '/tools/lib/poolVolume.js';
@@ -206,6 +218,8 @@ form.addEventListener('submit', (event) => {
   result.hidden = false;
   document.getElementById('result-litres').textContent = `${litres.toLocaleString('en-AU')} litres`;
   document.getElementById('result-detail').textContent = `${shapeLabel}. Average depth ${depthText} m.`;
+  // Carry the litres over so the chlorine calculator starts filled in.
+  document.getElementById('dose-link').href = `/tools/chlorine-dose-calculator/?litres=${litres}`;
   trackToolUsed(TOOL_VOLUME, JSON.stringify({ shape, dims, litres }), {
     gate,
     gtag: window.gtag,
