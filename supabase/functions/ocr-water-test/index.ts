@@ -5,6 +5,11 @@
 // Accepts a base64 image, sends it to Claude Vision, returns structured
 // chemical readings ready to pre-fill the water test form.
 //
+// With { kind: "receipt" } it reads a pool shop receipt instead and returns
+// the product lines (name, pack size, quantity, price) for My Shed. Same
+// auth, same rate limit, same image rules. Nothing is saved here: the owner
+// checks every line in the app before anything goes in the shed.
+//
 // Security:
 //   - Auth required (valid Supabase JWT)
 //   - Rate limited: 10 calls per user per hour (tracked in public.ocr_calls — migration 005,
@@ -68,6 +73,61 @@ Rules:
 - If you cannot find any water test data in the image, return all readings as null with confidence "low" and explain in notes.
 - Never guess a value you cannot actually read.`
 
+const RECEIPT_PROMPT = `You are reading a photo of a receipt from a pool shop or hardware store. List the pool chemical products on it.
+
+Return ONLY a JSON object, no other text, in this shape:
+
+{
+  "store": string | null,               // shop name as printed
+  "date": string | null,                // purchase date as YYYY-MM-DD, null if not printed
+  "lines": [
+    {
+      "name": string,                   // product description as printed, e.g. "LIQUID CHLORINE 15L"
+      "pack_amount": number | null,     // size of one pack, e.g. 15
+      "pack_unit": "g" | "kg" | "mL" | "L" | null,
+      "quantity": number | null,        // how many packs, default 1 if not shown
+      "price": number | null            // line total in dollars, as printed
+    }
+  ],
+  "confidence": "high" | "medium" | "low",
+  "notes": string | null
+}
+
+Rules:
+- Only pool and spa chemicals (chlorine, acid, buffer, soda ash, stabiliser, salt, calcium, clarifier, algaecide and similar). Skip toys, parts, services, bags and discounts.
+- Never guess a number you cannot read. Use null.
+- If there is no receipt in the image, return an empty lines array with confidence "low" and say why in notes.`
+
+const RECEIPT_UNITS = new Set(["g", "kg", "mL", "L"])
+
+function cleanReceipt(parsed: Record<string, unknown>) {
+  const text = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null)
+  const num = (v: unknown, lo: number, hi: number) => {
+    const n = typeof v === "number" ? v : parseFloat(String(v))
+    return Number.isFinite(n) && n >= lo && n <= hi ? n : null
+  }
+  const rawLines = Array.isArray(parsed.lines) ? parsed.lines.slice(0, 20) : []
+  const lines = rawLines
+    .map((l: Record<string, unknown>) => {
+      const unit = String(l?.pack_unit ?? "")
+      const fixedUnit = unit.toLowerCase() === "ml" ? "mL" : unit.toLowerCase() === "l" ? "L" : unit.toLowerCase()
+      return {
+        name: text(l?.name, 120),
+        pack_amount: num(l?.pack_amount, 0.01, 100000),
+        pack_unit: RECEIPT_UNITS.has(fixedUnit) ? fixedUnit : null,
+        quantity: num(l?.quantity, 1, 100) ?? 1,
+        price: num(l?.price, 0, 10000),
+      }
+    })
+    .filter((l) => l.name)
+  const date = text(parsed.date, 10)
+  return {
+    store: text(parsed.store, 80),
+    date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
+    lines,
+  }
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS })
 }
@@ -88,6 +148,7 @@ async function callAnthropic(opts: {
   model: string
   mediaType: string
   base64Data: string
+  prompt: string
 }): Promise<{ ok: true; rawText: string } | { ok: false; status: number; errText: string }> {
   const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -98,12 +159,12 @@ async function callAnthropic(opts: {
     },
     body: JSON.stringify({
       model: opts.model,
-      max_tokens: 1024,
+      max_tokens: 2048,
       messages: [{
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: opts.mediaType, data: opts.base64Data } },
-          { type: "text", text: EXTRACTION_PROMPT },
+          { type: "text", text: opts.prompt },
         ],
       }],
     }),
@@ -211,6 +272,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => null)
     const imageBase64: unknown = body?.image_base64
     const mediaType: string = body?.media_type ?? "image/jpeg"
+    const kind: "test" | "receipt" = body?.kind === "receipt" ? "receipt" : "test"
 
     if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
       return jsonResponse({ error: "image_base64 is required", code: "BAD_REQUEST" }, 400)
@@ -255,7 +317,10 @@ serve(async (req) => {
     for (const model of models) {
       // One retry on transient overload / rate limit for this model
       for (let attempt = 0; attempt < 2; attempt++) {
-        const result = await callAnthropic({ apiKey, model, mediaType, base64Data })
+        const result = await callAnthropic({
+          apiKey, model, mediaType, base64Data,
+          prompt: kind === "receipt" ? RECEIPT_PROMPT : EXTRACTION_PROMPT,
+        })
         if (result.ok) {
           rawText = result.rawText
           lastFail = null
@@ -306,6 +371,20 @@ serve(async (req) => {
       }, 422)
     }
 
+    const confidenceOf = (v: unknown) => ["high", "medium", "low"].includes(String(v)) ? String(v) : "low"
+    const remaining = Math.max(0, RATE_LIMIT - (count ?? 0) - 1)
+
+    if (kind === "receipt") {
+      await admin.from("ocr_calls").insert({ user_id: user.id, status: "ok" })
+      return jsonResponse({
+        receipt: cleanReceipt(parsed),
+        confidence: confidenceOf(parsed.confidence),
+        notes: typeof parsed.notes === "string" ? parsed.notes.slice(0, 500) : null,
+        source: "ocr",
+        scans_remaining_this_hour: remaining,
+      })
+    }
+
     // Clamp to plausible physical bounds; junk → null
     const bounds: Record<string, [number, number]> = {
       ph: [0, 14], free_chlorine: [0, 20], total_chlorine: [0, 20],
@@ -331,7 +410,7 @@ serve(async (req) => {
       confidence,
       notes,
       source: "ocr",
-      scans_remaining_this_hour: Math.max(0, RATE_LIMIT - (count ?? 0) - 1),
+      scans_remaining_this_hour: remaining,
     })
 
   } catch (err) {

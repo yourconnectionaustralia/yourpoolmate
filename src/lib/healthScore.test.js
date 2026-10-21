@@ -78,7 +78,8 @@ test('live app greets only on the Health Score header and softens vinyl calcium'
   assert.match(app, /<HealthScorePage[\s\S]*?user=\{user\}/);
   assert.match(app, /test\?\.healthScore \?\? calculateScore\(test, sanitiser, saltRange, surface\)/);
   assert.doesNotMatch(app, /isVinylLiner\(surface\)\) return calculateScore/);
-  assert.match(app, /includeCalciumInActions\(statuses\[key\], pool\?\.surface\)/);
+  const plan = readFileSync(new URL('./plan.js', import.meta.url), 'utf8');
+  assert.match(plan, /includeCalciumInActions\(statuses\[key\], ctx\.surface\)/);
   assert.match(app, /calculateScore\(data, pool\?\.sanitiser, saltRange, pool\?\.surface\)/);
   assert.match(app, /Enter Test Results/);
   assert.match(app, /Scan test results/);

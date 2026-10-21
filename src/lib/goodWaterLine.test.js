@@ -63,14 +63,18 @@ test('the home screen centres the score and does not invent local weather', () =
   const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8');
 
   assert.match(app, /score >= 80 \? 'score-ring-fill score-good'/);
-  assert.match(app, /score >= 50 \? 'score-ring-fill score-warn'/);
+  assert.match(app, /score >= 60 \? 'score-ring-fill score-warn'/);
   assert.match(app, /score-ring-fill score-critical/);
-  assert.match(app, /const showQuietLine = waterLooksGood\(score, Boolean\(primaryAction\)\)/);
+  assert.match(app, /const showQuietLine = waterLooksGood\(score, plan\.steps\.length > 0\) && plan\.swim\.tone === 'good'/);
   assert.match(app, /className="card score-hero-card"/);
   assert.match(app, /<HealthScoreRing score=\{score\} size=\{240\} \/>/);
   assert.match(app, /className="score-quiet"/);
   assert.match(app, /\{showQuietLine && <p className="score-quiet">\{goodWaterLine\(lastTest\)\}<\/p>\}/);
-  assert.match(app, /\{primaryAction && \(/);
+  assert.match(app, /<SwimCall/);
+  // Climate on the home screen is a labelled monthly average, never a forecast.
+  const plan = readFileSync(new URL('./plan.js', import.meta.url), 'utf8');
+  assert.match(plan, /not a forecast/);
+  assert.equal(/forecast\(|rain(fall)? (today|overnight)/i.test(plan), false);
   assert.match(css, /\.score-hero-card \{[\s\S]*?align-items: center;/);
   assert.match(css, /\.score-hero-card \{[\s\S]*?justify-content: center;/);
   assert.match(css, /\.score-quiet \{[\s\S]*?text-align: center;/);

@@ -1627,3 +1627,173 @@ img, svg { display: block; max-width: 100%; }
 /* Long button labels wrap on very narrow phones instead of pushing the page wide */
 .btn:not(.btn-nav) { max-width: 100%; white-space: normal; text-align: center; }
 .btn-nav { white-space: nowrap; }
+
+/* ════════════════════════════════════════════════════════════════
+   v3 — Plan, My Shed, Shopping list, Costs, shared report (Oct 2026)
+   Same tokens as above. Every control is at least 44px tall.
+   ════════════════════════════════════════════════════════════════ */
+.btn-block { width: 100%; white-space: normal; text-align: center; }
+.link-btn {
+  background: none; border: none; padding: 0 2px; min-height: 44px;
+  font: inherit; font-weight: 600; color: var(--cc-ocean); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.page-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.plan-h2 { font-size: 1.25rem; font-weight: 700; color: var(--cc-depth); margin: 0 0 8px; line-height: var(--lh-heading); }
+.plan-small { font-size: 15px; line-height: 1.5; color: var(--cc-mid); margin: 6px 0 0; }
+.plan-warn { font-size: 17px; color: var(--amber); margin: 8px 0 0; }
+.chip-row, .period-bar, .shed-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  min-height: 44px; min-width: 56px; padding: 8px 14px; border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-strong); background: var(--white); color: var(--cc-mid);
+  font: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
+}
+.chip.is-on { border-color: var(--cc-ocean); background: var(--cc-mist); color: var(--cc-depth); }
+.gauge { height: 10px; border-radius: var(--radius-full); background: var(--gray-line); overflow: hidden; margin-top: 10px; }
+.gauge > span { display: block; height: 100%; border-radius: inherit; background: var(--grad-water); transition: width .5s ease; }
+.details-summary { font-size: 17px; color: var(--blue); cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.season-hours { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 4px; }
+.plan-page .card-section, .plan-steps, .plan-watchout, .plan-all-added { margin-bottom: 16px; }
+
+/* Plan */
+.plan-progress-text { font-size: 18px; font-weight: 700; color: var(--cc-depth); margin: 0; }
+.plan-progress-bar { display: flex; gap: 6px; margin-top: 12px; }
+.plan-progress-bar span { flex: 1; height: 10px; border-radius: var(--radius-full); background: var(--gray-line); transition: background .4s; }
+.plan-progress-bar .is-done { background: var(--green); }
+.plan-progress-bar .is-next { background: var(--cc-ocean); }
+.plan-progress-bar .is-skipped { background: var(--amber); }
+.plan-steps { list-style: none; padding: 0; margin: 0 0 16px; display: flex; flex-direction: column; gap: 12px; }
+.plan-step { background: var(--white); border: var(--border); border-radius: var(--radius-lg); padding: 18px; }
+.plan-step-next { border-color: var(--cc-ocean); box-shadow: 0 0 0 3px rgba(11,119,153,.14); }
+.plan-step-skipped { border-style: dashed; }
+.plan-step-done { display: flex; align-items: center; gap: 12px; }
+.plan-step-check {
+  flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; background: var(--green-bg); color: var(--green);
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;
+}
+.plan-step-head { display: flex; gap: 12px; align-items: flex-start; }
+.plan-step-num {
+  flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; background: var(--cc-mist); color: var(--cc-depth);
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 700;
+}
+.plan-step-num.is-next { background: var(--cc-ocean); color: var(--white); }
+.plan-step-main { flex: 1; min-width: 0; }
+.plan-step-eyebrow { margin: 0; font-size: 15px; font-weight: 700; color: var(--cc-ocean); }
+.plan-step-title { margin: 2px 0 0; font-size: 1.2rem; font-weight: 700; color: var(--cc-depth); }
+.plan-step-meta { margin: 2px 0 0; font-size: 16px; color: var(--cc-mid); }
+.plan-options { list-style: none; padding: 0; margin: 8px 0 0; font-size: 17px; line-height: 1.55; color: var(--cc-ink); }
+.plan-or { color: var(--cc-muted); }
+.plan-enough { color: var(--green); font-weight: 600; margin: 8px 0 0; }
+.plan-step-body { margin-top: 14px; display: flex; flex-direction: column; gap: 12px; }
+.plan-step-buttons { display: flex; flex-direction: column; gap: 8px; }
+.plan-dose-btn, .swim-dose { min-height: 52px; font-size: 18px; }
+.plan-choose { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.plan-choose-legend { font-weight: 700; color: var(--cc-depth); margin-bottom: 6px; font-size: 17px; }
+.plan-choice {
+  min-height: 48px; padding: 10px 14px; text-align: left; border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong); background: var(--white); color: var(--cc-mid);
+  font: inherit; font-size: 17px; font-weight: 600; cursor: pointer;
+}
+.plan-choice.is-on { border-color: var(--cc-ocean); background: var(--cc-mist); color: var(--cc-depth); }
+.plan-wait { margin: 0; font-size: 17px; color: var(--cc-mid); padding-left: 13px; border-left: 3px solid var(--cc-ocean); }
+.plan-note-box { margin: 0; padding: 12px 14px; border-radius: var(--radius-md); background: var(--cc-mist); color: var(--cc-depth); font-size: 17px; }
+.plan-why { background: var(--cc-mist); border-radius: var(--radius-md); padding: 0 14px; }
+.plan-why summary { min-height: 44px; display: flex; align-items: center; font-weight: 700; color: var(--cc-depth); cursor: pointer; font-size: 17px; }
+.plan-why ul { margin: 0 0 12px; padding-left: 20px; color: var(--cc-mid); font-size: 17px; line-height: 1.5; }
+.plan-show { margin-top: 10px; }
+.plan-amount { display: flex; flex-direction: column; gap: 10px; }
+.plan-amount-lead { margin: 0; font-size: 17px; }
+.plan-amount-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.plan-guidance { margin: 0; padding: 12px 14px; border-radius: var(--radius-md); font-size: 17px; }
+.plan-guidance-good { background: var(--green-bg); color: var(--green); }
+.plan-guidance-warn { background: var(--amber-bg); color: var(--amber); }
+.plan-watchout {
+  margin: 0 0 12px; padding: 12px 14px; border-radius: var(--radius-md);
+  background: var(--amber-bg); color: var(--amber); font-size: 17px; line-height: 1.5;
+}
+.plan-shed-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 17px; }
+.plan-links { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 8px; }
+
+/* Home: swim call + next dose */
+.swim-call { width: 100%; max-width: 460px; margin: 18px auto 0; text-align: center; }
+.swim-pill { display: inline-flex; align-items: center; min-height: 32px; padding: 4px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 15px; }
+.swim-pill-good { background: var(--green-bg); color: var(--green); }
+.swim-pill-wait { background: var(--red-bg); color: var(--red); }
+.swim-pill-stale, .swim-pill-unknown { background: var(--cc-mist); color: var(--cc-depth); }
+.swim-title { margin: 10px 0 4px; font-size: 1.4rem; font-weight: 700; color: var(--cc-depth); line-height: 1.25; }
+.swim-detail { margin: 0; font-size: 17px; color: var(--cc-mid); line-height: 1.5; }
+.swim-next { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.swim-next-label { margin: 0; font-weight: 700; color: var(--cc-depth); font-size: 16px; }
+
+/* Home: last 30 days + this month */
+.teaser, .this-month { margin-top: 16px; }
+.teaser-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.teaser-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px; }
+.teaser-label { margin: 0; font-size: 15px; font-weight: 700; color: var(--cc-mid); }
+.teaser-number { margin: 2px 0 0; font-size: 2rem; font-weight: 800; color: var(--cc-depth); font-variant-numeric: tabular-nums; }
+.teaser-change { margin: 2px 0 0; font-size: 15px; color: var(--cc-mid); }
+.teaser-change.is-good { color: var(--green); font-weight: 700; }
+.teaser-change.is-warn { color: var(--amber); font-weight: 700; }
+.teaser-spend { font-size: 17px; margin: 10px 0 0; }
+.teaser-bars { display: flex; align-items: flex-end; gap: 8px; height: 64px; margin-top: 14px; }
+.teaser-bars span { flex: 1; border-radius: 8px 8px 0 0; background: rgba(11,119,153,.35); }
+.teaser-bars span.is-now { background: var(--cc-ocean); }
+.this-month p { margin: 6px 0 0; font-size: 17px; line-height: 1.5; }
+
+/* Shortcuts */
+.shortcuts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 16px 0; }
+.shortcut {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 64px; padding: 12px 14px;
+  background: var(--white); border: var(--border); border-radius: var(--radius-lg); text-align: left; font: inherit; cursor: pointer;
+}
+.shortcut-title { font-weight: 700; color: var(--cc-depth); font-size: 17px; display: inline-flex; gap: 6px; align-items: center; }
+.shortcut-hint { font-size: 15px; color: var(--cc-mid); }
+.shortcut-badge { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--cc-ocean); color: var(--white); font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
+.mobile-drawer-row { display: flex; align-items: center; }
+.mobile-drawer-row .mobile-drawer-item { flex: 1; }
+.pin-toggle {
+  flex: 0 0 auto; width: 48px; min-height: 48px; margin-right: 12px; border: none; background: none;
+  color: rgba(255,255,255,.75); font-size: 22px; cursor: pointer; border-radius: var(--radius-md);
+}
+.pin-toggle.is-on { color: #FFD166; }
+.mobile-drawer-note { margin: 4px 24px 8px; font-size: 15px; color: rgba(255,255,255,.85); }
+
+/* My Shed + shopping list */
+.shed-form { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+.shed-line { display: flex; flex-direction: column; gap: 10px; }
+.shed-line-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.shed-line-grid .input-group { margin-bottom: 0; }
+.shed-list, .shop-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.shed-item-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.shed-item-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; font-size: 16px; color: var(--cc-mid); flex-wrap: wrap; }
+.receipt-line { border: var(--border); border-radius: var(--radius-md); padding: 12px; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.shop-item { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gray-line); }
+.shop-item:last-child { border-bottom: none; }
+.shop-item-main { flex: 1 1 180px; display: flex; flex-direction: column; font-size: 17px; color: var(--cc-ink); }
+.shop-item-actions { display: flex; gap: 6px; }
+.shop-item-bought .shop-item-main { color: var(--cc-muted); text-decoration: line-through; }
+.shop-to-shed { flex-basis: 100%; background: var(--cc-mist); border-radius: var(--radius-md); padding: 12px; display: flex; flex-direction: column; gap: 8px; text-decoration: none; }
+
+/* Costs */
+.period-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 16px; }
+.period-label { font-weight: 700; color: var(--cc-depth); text-align: center; }
+.cost-bars { display: flex; align-items: flex-end; gap: 6px; height: 140px; margin-top: 16px; }
+.cost-bar { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; min-width: 0; }
+.cost-bar-fill { width: 100%; border-radius: 6px 6px 0 0; background: var(--grad-water); }
+.cost-bar-label { font-size: 12px; color: var(--cc-mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.cost-rows { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; }
+.cost-row-head { display: flex; justify-content: space-between; gap: 8px; font-size: 17px; }
+
+/* Shared report */
+.report-page { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+.report-doses { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 17px; }
+.report-doses span { color: var(--cc-mid); margin-right: 6px; }
+.report-foot { margin-top: 8px; }
+.share-report { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.share-report p { margin: 0; font-size: 17px; }
+
+@media (max-width: 420px) {
+  .shed-line-grid, .season-hours { grid-template-columns: 1fr 1fr; }
+  .plan-step { padding: 14px; }
+  .cost-bar-label { font-size: 11px; }
+}
