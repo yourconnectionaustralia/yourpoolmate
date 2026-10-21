@@ -14,7 +14,7 @@ function assertStyle(kind, blob) {
 }
 
 function unsubHtml(label, url) {
-  return `<p style="font-size:12px;color:#666;text-align:center;margin:0 0 24px;">${esc(label)} <a href="${esc(url)}" style="color:#0B7799;">Unsubscribe</a></p>`
+  return `<p style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#4E6671;text-align:center;margin:0 0 32px;padding:0 16px;">${esc(label)} <a href="${esc(url)}" style="color:#4E6671;text-decoration:underline;">Unsubscribe</a></p>`
 }
 
 function daysAgoText(days) {
@@ -44,7 +44,7 @@ export function renderWeeklyReminder(input) {
     button(link, "Test my water"),
     para(esc(tail), "font-size:14px;line-height:1.5;color:#555;padding-bottom:14px;"),
     signoff("See you on the other side of the test."),
-  ].join("\n")).replace("</body>", `${unsubHtml(unsubLabel, input.unsubscribeUrl)}\n</body>`)
+  ].join("\n"), null, { hero: { eyebrow: "Test day", h1: ["Time to test your ", "pool water", "."] } }).replace("</body>", `${unsubHtml(unsubLabel, input.unsubscribeUrl)}\n</body>`)
 
   const text = `${plainTextBlock(`Hi ${name},`, body, `Test my water: ${link}`, tail)}\n\n${plainSignoff("See you on the other side of the test.")}\n\n${unsubLabel} ${input.unsubscribeUrl}`
   const out = { kind: "weekly_reminder", subject, preview, html, text }
@@ -103,7 +103,14 @@ export function renderMonthlyReport(input) {
     button(link, "Open your pool"),
     para(esc(tail), "font-size:14px;line-height:1.5;color:#555;padding-bottom:14px;"),
     signoff("Thanks for keeping the record."),
-  ].join("\n")).replace("</body>", `${unsubHtml(unsubLabel, input.unsubscribeUrl)}\n</body>`)
+  ].join("\n"), null, {
+    hero: {
+      eyebrow: "Monthly report",
+      h1: Number.isFinite(input.lastScore)
+        ? [`Your pool in ${input.monthName}: `, `${input.lastScore}`, "/100"]
+        : [`Your pool in ${input.monthName}`, "", ""],
+    },
+  }).replace("</body>", `${unsubHtml(unsubLabel, input.unsubscribeUrl)}\n</body>`)
 
   const text = `${plainTextBlock(`Hi ${name},`, intro, facts.join("\n"), `Open your pool: ${link}`, tail)}\n\n${plainSignoff("Thanks for keeping the record.")}\n\n${unsubLabel} ${input.unsubscribeUrl}`
   const out = { kind: "monthly_report", subject, preview, html, text }
