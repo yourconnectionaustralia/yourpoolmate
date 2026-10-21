@@ -32,7 +32,7 @@
 .choice:has(input[value="rectangle"])::before { border-radius: 6px; }
 .choice:has(input[value="round"])::before { width: 40px; height: 40px; border-radius: 50%; }
 .choice:has(input[value="oval"])::before { border-radius: 50%; }
-.choice:has(input[value="kidney"])::before { border-radius: 60% 40% 55% 45% / 70% 45% 55% 30%; }
+.choice:has(input[value="kidney"])::before { width: 64px; height: 40px; border: 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 40'%3E%3Cpath d='M10 6c8-3 14 4 20 9s12 5 18 0 13-4 14 4c1 12-12 19-28 19S2 31 2 21C2 13 5 8 10 6z' fill='%23EAF6FA' stroke='%230B7799' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat; }
 .choice:has(input:checked) { border-color: var(--ocean); background: var(--mist); box-shadow: 0 0 0 4px rgba(11,119,153,.12); }
 .choice:has(input:checked)::after { content: '✓'; position: absolute; top: 8px; right: 10px; width: 24px; height: 24px; border-radius: 50%; background: var(--ocean); color: var(--white); font-size: 14px; display: grid; place-items: center; }
 .choice:focus-within { outline: 3px solid var(--sun); outline-offset: 3px; }

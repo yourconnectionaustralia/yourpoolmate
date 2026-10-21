@@ -86,7 +86,7 @@
   <section class="explain">
     <h2>How it works</h2>
     <p>Enter the free chlorine you have now, the free chlorine you want, and the pool volume in litres. Pick the product you are adding.</p>
-    <p>The amount is the same figure the app gives when it raises chlorine. It scales with the volume (per 1,000 litres) and the gap in ppm. The app's usual target is 2.0 ppm, the middle of the 1.0–3.0 ppm range. You can aim somewhere else; the gap is worked out the same way.</p>
+    <p>The amount is the same figure the app gives when it raises chlorine. It scales with the volume (per 1,000 litres) and the gap in ppm. This calculator starts at 3.0 ppm, the top of the 1.0–3.0 ppm range, which gives you headroom on hot, sunny days. Aim lower if you like; the gap is worked out the same way.</p>
     <p>Liquid chlorine (sodium hypochlorite) and granular chlorine (calcium hypochlorite) are the chlorine products the app calculates. It does not ask for a percentage strength — there is one figure for liquid chlorine.</p>
     <p class="safety">Always follow the product label directions. <span id="app-safety"></span></p>
   </section>
@@ -129,7 +129,7 @@
 </script>
 
 <script type="module">
-import { CHLORINE_RAISE_PRODUCTS, TARGET_MID, chlorineRaiseDose } from '/tools/lib/dosing.js';
+import { CHLORINE_RAISE_PRODUCTS, chlorineRaiseDose } from '/tools/lib/dosing.js';
 import { safetyLineFor } from '/tools/lib/dosingSafety.js';
 import { TOOL_CHLORINE, createToolUseGate, trackToolUsed } from '/tools/lib/toolAnalytics.js';
 
@@ -142,7 +142,9 @@ const result = document.getElementById('result');
 const error = document.getElementById('error');
 const gate = createToolUseGate();
 
-targetInput.value = TARGET_MID.freeChlor.toFixed(1);
+// Start at the top of the 1.0–3.0 ppm band.
+const DEFAULT_TARGET_PPM = 3.0;
+targetInput.value = DEFAULT_TARGET_PPM.toFixed(1);
 // Arriving from the volume calculator: fill in the litres it worked out.
 const litresParam = Number(new URLSearchParams(window.location.search).get('litres'));
 if (Number.isFinite(litresParam) && litresParam > 0 && litresParam < 10000000) volumeInput.value = String(Math.round(litresParam));
