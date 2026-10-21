@@ -120,7 +120,9 @@ test("founding copy follows the recipient flag", () => {
   assert.equal(welcome.text.includes("$79"), false)
   const mid = renderTemplate("L4", { firstName: "James", foundingMember: false })
   assert.equal(mid.text.includes("$79"), false)
-  assert.match(renderTemplate("L7", { firstName: "James", foundingMember: false }).text, /\$79/)
+  // L7 goes to people who may share it after the 300 founding places are gone,
+  // so it makes no price promise to the friend.
+  assert.equal(renderTemplate("L7", { firstName: "James", foundingMember: true }).text.includes("$79"), false)
 })
 
 test("L6 omits the receipt line when there is no https url", () => {
@@ -223,11 +225,26 @@ test("sweep picks one template in lifecycle order", () => {
 })
 
 test("subjects stay on the locked lines", () => {
-  assert.equal(renderTemplate("L1", { foundingMember: true }).subject, "Welcome - let's get your pool sorted")
-  assert.equal(renderTemplate("L2", {}).subject, "Your pool's Health Score starts with one test")
-  assert.equal(renderTemplate("L3", {}).subject, "First test done - here's what to do next")
-  assert.equal(renderTemplate("L4", { foundingMember: true }).subject, "Halfway through your trial - how's the water looking?")
-  assert.equal(renderTemplate("L5", { foundingMember: true }).subject, "Your trial ends in a few days - here's the choice")
-  assert.equal(renderTemplate("L6", { plan: "annual" }).subject, "Welcome aboard - here's what happens next")
+  assert.equal(renderTemplate("L1", { foundingMember: true }).subject, "Welcome - your first step takes about 2 minutes")
+  assert.equal(renderTemplate("L2", {}).subject, "Got a pool shop printout? That's all you need")
+  assert.equal(renderTemplate("L3", {}).subject, "Your first test is in - here's what to do with it")
+  assert.equal(renderTemplate("L4", { foundingMember: true }).subject, "Why your pool warranty cares about your water tests")
+  assert.equal(renderTemplate("L5", { foundingMember: true }).subject, "Your free trial ends this week")
+  assert.equal(renderTemplate("L6", { plan: "annual" }).subject, "Welcome aboard - you're all set")
   assert.equal(renderTemplate("L7", {}).subject, "Know another pool owner?")
+})
+
+test("L5 names the trial end date in Melbourne time, or falls back", () => {
+  const dated = renderTemplate("L5", { firstName: "James", foundingMember: true, trialEndsAt: "2026-11-19T14:00:00.000Z" }) // 1am 20 Nov in Melbourne
+  assert.match(dated.text, /ends on Friday 20 November\./)
+  const undated = renderTemplate("L5", { firstName: "James", foundingMember: false, trialEndsAt: "not a date" })
+  assert.match(undated.text, /ends in a few days\./)
+})
+
+test("footer carries the ABN, and priced emails say AUD once", () => {
+  const l5 = renderTemplate("L5", { firstName: "James", foundingMember: true })
+  assert.match(l5.html, /ABN 61 264 129 127/)
+  assert.match(l5.text, /All prices are in Australian dollars\./)
+  const l2 = renderTemplate("L2", { firstName: "James" })
+  assert.equal(l2.text.includes("Australian dollars"), false)
 })

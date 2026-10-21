@@ -215,7 +215,7 @@ export async function deliverLifecycleEmail(
     let profile = opts.profile ?? null
     if (!profile) {
       const prof = await db.from("user_profiles")
-        .select("founding_member, plan")
+        .select("founding_member, plan, trial_ends_at")
         .eq("id", opts.userId)
         .maybeSingle()
       if (prof.error) {
@@ -234,6 +234,7 @@ export async function deliverLifecycleEmail(
       amountCents: l6.amountCents ?? null,
       currency: l6.currency ?? null,
       receiptUrl: l6.receiptUrl ?? null,
+      trialEndsAt: profile?.trial_ends_at ?? null,
     })
 
     if (!email.includes("@")) {
