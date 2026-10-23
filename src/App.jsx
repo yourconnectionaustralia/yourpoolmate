@@ -41,6 +41,7 @@ import { rectangularVolumeLitres } from './lib/poolVolume.js';
 import { displayNameFromUser, homeGreeting } from './lib/greeting.js';
 import { supabase } from './lib/supabase.js';
 import { createCheckoutSession, fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
+import { buildMyData, myDataBlob, myDataFileName } from './lib/myData.js';
 
 // ─────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM ICONS — inline SVG only, no library dependency
@@ -2176,11 +2177,48 @@ function CheckoutButton({ label, className, style, block }) {
   );
 }
 
+// Same file-save trigger the Profile "Download all my data" button uses.
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
 // ─────────────────────────────────────────────────────────────────
 // TRIAL EXPIRED BLOCK SCREEN
 // ─────────────────────────────────────────────────────────────────
 function TrialExpiredScreen({ pricing, checkoutReturn }) {
   const copy = offerCopy(pricing);
+  const { user, signOut } = useAuth();
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const [downloadNote, setDownloadNote] = useState('');
+  const [downloadProblem, setDownloadProblem] = useState('');
+
+  // Same JSON export as Profile: db.loadMyData then buildMyData. Owner RLS
+  // does not look at premium, so an expired trial can still take a copy.
+  const downloadMyData = async () => {
+    if (downloadBusy) return;
+    setDownloadBusy(true);
+    setDownloadNote('');
+    setDownloadProblem('');
+    try {
+      const raw = await db.loadMyData(user.id);
+      const data = buildMyData({ email: user.email, ...raw });
+      saveBlob(myDataBlob(data), myDataFileName());
+      setDownloadNote('Downloaded. Check your Downloads folder.');
+    } catch (err) {
+      console.error('Data download failed:', err);
+      setDownloadProblem("We couldn't put your data together just now. Check your connection and try again.");
+    } finally {
+      setDownloadBusy(false);
+    }
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -2216,6 +2254,29 @@ function TrialExpiredScreen({ pricing, checkoutReturn }) {
         <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 10 }}>
           {copy.footnote}
         </div>
+        <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={downloadMyData}
+            disabled={downloadBusy}
+          >
+            {downloadBusy ? 'Getting your data…' : 'Download my data'}
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={signOut}>
+            Sign out
+          </button>
+        </div>
+        {downloadNote && (
+          <div role="status" style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 8, lineHeight: 1.4 }}>
+            {downloadNote}
+          </div>
+        )}
+        {downloadProblem && (
+          <div role="alert" style={{ fontSize: 17, color: 'var(--red)', marginTop: 8, lineHeight: 1.4 }}>
+            {downloadProblem}
+          </div>
+        )}
       </div>
     </div>
   );
