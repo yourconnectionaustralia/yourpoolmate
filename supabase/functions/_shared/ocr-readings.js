@@ -104,3 +104,9 @@ export function sanityCheck(readings, confidence, notes) {
   const capped = (RANK[confidence] ?? 0) > RANK.low ? "low" : confidence
   return { confidence: capped, notes: [...found, notes].filter(Boolean).join(" ").slice(0, 500) }
 }
+
+// Anthropic answers an account with no credit as HTTP 400, the same status as a
+// bad image. Told apart here so the owner is not told to retake a good photo.
+export function isBillingError(status, errText) {
+  return status === 400 && /credit balance is too low|plans\s*&\s*billing/i.test(String(errText ?? ""))
+}

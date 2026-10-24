@@ -26,7 +26,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { cleanPoolVolume, cleanReadings, cleanTestDate, parseModelJson, sanityCheck } from "../_shared/ocr-readings.js"
+import { cleanPoolVolume, cleanReadings, cleanTestDate, isBillingError, parseModelJson, sanityCheck } from "../_shared/ocr-readings.js"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -215,6 +215,13 @@ function providerErrorResponse(status: number, errText: string): Response {
   const snippet = errText.slice(0, 300)
   console.error("Anthropic API error:", status, snippet)
 
+  if (isBillingError(status, errText)) {
+    return jsonResponse({
+      error: "Scanning is paused right now — you can still type the readings in.",
+      code: "OCR_PROVIDER_BILLING",
+      detail: "The Anthropic account has no credit. Add credit at console.anthropic.com → Plans & Billing.",
+    }, 503)
+  }
   if (status === 401 || status === 403) {
     return jsonResponse({
       error: "Scanning isn't available right now — you can still type the readings in.",
@@ -363,7 +370,6 @@ serve(async (req) => {
 
         // Bad key: no other model will work either.
         if (result.status === 401) {
-          await admin.from("ocr_calls").insert({ user_id: user.id, status: "error" })
           return providerErrorResponse(result.status, result.errText)
         }
         if (result.status === 404 || result.status === 403) {
@@ -383,7 +389,11 @@ serve(async (req) => {
     }
 
     if (lastFail) {
-      await admin.from("ocr_calls").insert({ user_id: user.id, status: "error" })
+      // A billing or key failure is ours, not theirs: it must not use up one of
+      // the owner's scans for the hour.
+      if (!isBillingError(lastFail.status, lastFail.errText) && lastFail.status !== 401) {
+        await admin.from("ocr_calls").insert({ user_id: user.id, status: "error" })
+      }
       return providerErrorResponse(lastFail.status, lastFail.errText)
     }
 
