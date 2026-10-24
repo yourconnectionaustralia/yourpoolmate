@@ -1679,6 +1679,15 @@ img, svg { display: block; max-width: 100%; }
 .gauge { height: 10px; border-radius: var(--radius-full); background: var(--gray-line); overflow: hidden; margin-top: 10px; }
 .gauge > span { display: block; height: 100%; border-radius: inherit; background: var(--grad-water); transition: width .5s ease; }
 .details-summary { font-size: 17px; color: var(--blue); cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+
+/* Water test form: three short groups, with a count for the main readings. */
+.test-form-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.test-form-title { margin: 0; font-size: 18px; font-weight: 700; color: var(--cc-depth); }
+.test-form-title-gap { margin-top: 20px; }
+.test-form-count { margin: 0; font-size: 16px; font-weight: 700; color: var(--cc-mid); white-space: nowrap; }
+.test-form-count.is-done { color: var(--green); }
+.test-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.test-form-extras { margin-top: 16px; }
 .season-hours { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 4px; }
 .plan-page .card-section, .plan-steps, .plan-watchout, .plan-all-added { margin-bottom: 16px; }
 
@@ -1751,6 +1760,15 @@ img, svg { display: block; max-width: 100%; }
 .swim-detail { margin: 0; font-size: 17px; color: var(--cc-mid); line-height: 1.5; }
 .swim-next { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; text-align: left; }
 .swim-next-label { margin: 0; font-weight: 700; color: var(--cc-depth); font-size: 16px; }
+.swim-progress { margin-bottom: 4px; }
+.swim-progress-text { margin: 0; font-size: 15px; font-weight: 700; color: var(--cc-mid); }
+.swim-progress .plan-progress-bar { margin-top: 8px; }
+
+/* Home: the score against the test before, straight under the ring. */
+.score-change { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; margin: 0; padding: 4px 14px; border-radius: var(--radius-full); font-size: 16px; font-weight: 700; }
+.score-change-up { background: var(--green-bg); color: var(--green); }
+.score-change-down { background: var(--amber-bg); color: var(--amber); }
+.score-change-same { background: var(--cc-mist); color: var(--cc-depth); }
 
 /* Home: last 30 days + this month */
 .teaser, .this-month { margin-top: 16px; }
@@ -1788,6 +1806,8 @@ img, svg { display: block; max-width: 100%; }
 .pin-star { font-size: 22px; line-height: 1; }
 .pin-word { font-size: 12px; line-height: 1.2; font-weight: 600; }
 .pin-toggle.is-on { color: #FFD166; }
+.mobile-drawer-group + .mobile-drawer-group { margin-top: 4px; }
+.mobile-drawer-heading { margin: 12px 24px 2px; font-size: 13px; font-weight: 700; letter-spacing: var(--ls-eyebrow, 0.06em); text-transform: uppercase; color: rgba(255,255,255,.9); }
 .mobile-drawer-note { margin: 4px 24px 8px; font-size: 15px; line-height: 1.4; color: rgba(255,255,255,.9); }
 .mobile-drawer-note-link {
   margin-left: 8px; min-height: 44px; padding: 0 4px; background: none; border: none; cursor: pointer;

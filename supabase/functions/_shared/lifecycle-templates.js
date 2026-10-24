@@ -10,6 +10,8 @@ import { FROM_ADDRESS, REPLY_TO } from "./lifecycle-rules.js"
 export { FROM_ADDRESS, REPLY_TO }
 
 export const APP_URL = "https://app.yourpoolmate.com.au"
+// Opens straight on the water test form once signed in. Used by every "add a test" button.
+export const TEST_URL = `${APP_URL}/?test=1`
 const SITE_URL = "https://yourpoolmate.com.au"
 const HELLO = "hello@yourpoolmate.com.au"
 const ABN = "ABN 61 264 129 127"
@@ -271,6 +273,13 @@ function plainFooter(prices) {
   return `\n\n--\nYour Pool Mate · ${ABN} · Australian owned${prices ? "\nAll prices are in Australian dollars." : ""}`
 }
 
+// "3 tests", or null when the count is unknown (a manual send without it).
+export function testsLabel(count) {
+  const n = Number(count)
+  if (!Number.isInteger(n) || n < 0) return null
+  return `${n} test${n === 1 ? "" : "s"}`
+}
+
 const TRIAL_FOOTER = "You're receiving this because you started a Your Pool Mate trial."
 
 function renderL1(name) {
@@ -288,7 +297,7 @@ You've got a 30-day free trial. No card needed.
 YOUR FIRST STEP
 ${step}
 
-Add your first test: ${APP_URL}
+Add your first test: ${TEST_URL}
 
 WHY IT'S WORTH KEEPING A RECORD
 ${record}
@@ -299,7 +308,7 @@ ${plainSignoff(closing)}${plainFooter(false)}`
           ${para(intro)}
           ${para(`You've got a <strong style="color:${DEPTH};">30-day free trial</strong>. No card needed.`)}
           ${callout("Your first step", step)}
-          ${button(APP_URL, "Add your first test")}
+          ${button(TEST_URL, "Add your first test")}
           ${callout("Why it's worth keeping a record", record, { dark: true })}
           ${signoff(closing)}
   `, TRIAL_FOOTER, { hero: { eyebrow: "Welcome", h1: ["Let's get your pool ", "sorted", "."] } })
@@ -326,7 +335,7 @@ ${ways.map((w, i) => `${i + 1}. ${w.replace(/<\/?strong>/g, "")}`).join("\n")}
 
 ${after}
 
-Add your first test: ${APP_URL}
+Add your first test: ${TEST_URL}
 
 ${tip}
 
@@ -338,7 +347,7 @@ ${plainSignoff(closing)}${plainFooter(false)}`
           ${para(intro)}
           ${steps("Three ways to add it", ways)}
           ${para(after)}
-          ${button(APP_URL, "Add your first test")}
+          ${button(TEST_URL, "Add your first test")}
           ${callout("No test kit yet?", "Most pool shops will test a water sample for free. Bring the printout home and type it in.")}
           ${para("Already done it? Ignore this one. You're on your way.", `font-size:15px;line-height:22px;padding-bottom:16px;color:${MID};`)}
           ${signoff(closing)}
@@ -380,11 +389,20 @@ ${plainSignoff(closing)}${plainFooter(false)}`
   return { preview, text, html }
 }
 
-function renderL4(name, founding) {
-  const preview = "Your test history is quietly doing a second job."
-  const intro = "You're about halfway through your 30-day trial. If you've been adding tests, your history is starting to show a pattern, and it's doing a second job too."
+function renderL4(name, founding, testCount) {
+  const count = testsLabel(testCount)
+  const preview = count && testCount > 0
+    ? `Halfway through your trial, with ${count} in your record.`
+    : "Your test history is quietly doing a second job."
+  const intro = count && testCount > 0
+    ? `You're halfway through your 30-day trial, and you've added ${count} so far. Each one is dated and kept, and that record is doing a second job too.`
+    : "You're about halfway through your 30-day trial. If you've been adding tests, your history is starting to show a pattern, and it's doing a second job too."
   const warranty = "Many pool builder warranties, and plenty of pump, filter and chlorinator makers, can ask for water chemistry records before they honour a claim. Every test in Your Pool Mate is saved with its date, and you can download the full record as a PDF or spreadsheet from Chemistry in the app."
-  const nudge = "Haven't tested much yet? Now's a good time. It takes about a minute."
+  const nudge = testCount === 0
+    ? "You haven't added a test yet. Your first one takes about a minute, and it starts the record."
+    : count
+      ? "Add one a week and the record keeps building. It takes about a minute."
+      : "Haven't tested much yet? Now's a good time. It takes about a minute."
   const offerHtml = founding
     ? `When your trial ends, you can keep going as a <strong style="color:${DEPTH};">founding member</strong> for <strong style="color:${DEPTH};">$79 once</strong>, for life. That price is held for the first 300 people to sign up, and you're one of them. No need to decide today.`
     : `When your trial ends, you can keep going for <strong style="color:${DEPTH};">$49/year</strong>. No need to decide today.`
@@ -399,7 +417,7 @@ ${warranty}
 
 ${nudge}
 
-Add a test: ${APP_URL}
+Add a test: ${TEST_URL}
 
 ${offerPlain}
 
@@ -409,14 +427,15 @@ ${plainSignoff(closing)}${plainFooter(true)}`
           ${para(intro)}
           ${callout("The part nobody tells you", warranty, { dark: true })}
           ${para(nudge)}
-          ${button(APP_URL, "Add a test")}
+          ${button(TEST_URL, "Add a test")}
           ${para(offerHtml, `font-size:16px;line-height:25px;padding:16px 0;color:${INK};border-top:1px solid ${LINE};`)}
           ${signoff(closing)}
   `, TRIAL_FOOTER, { hero: { eyebrow: "Two weeks in", h1: ["Your tests are ", "building a record", "."] }, prices: true })
   return { preview, text, html }
 }
 
-function renderL5(name, founding, trialEndsAt) {
+function renderL5(name, founding, trialEndsAt, testCount) {
+  const count = testsLabel(testCount)
   const ends = trialEndLabel(trialEndsAt)
   const preview = founding
     ? "As one of the first 300, your price is $79 once, for life."
@@ -428,7 +447,8 @@ function renderL5(name, founding, trialEndsAt) {
     ? { label: "Founding member", price: "$79", terms: "once, lifetime access", note: "Held for you as one of the first 300 to sign up. 30-day refund. After the first 300 it's $49/year." }
     : { label: "Yearly", price: "$49", terms: "per year", note: "That's $49/year, billed once a year. Payments are handled securely by Stripe." }
   const how = "Join any time from Profile in the app, or wait and the app will show you how when your trial ends. It takes about a minute, and you pay securely through Stripe."
-  const safe = "We never took a card for the trial, so nothing gets charged automatically. If you don't join, your access pauses, but your test history stays saved, ready if you come back."
+  const kept = count && testCount > 0 ? `your ${count}, each with its date, ${testCount === 1 ? "stays" : "stay"} saved` : "your test history stays saved"
+  const safe = `We never took a card for the trial, so nothing gets charged automatically. If you don't join, your access pauses, but ${kept}, ready if you come back.`
   const closing = "Not sure it's for you? Hit reply and tell me why. I read every one."
   const cta = founding ? "Claim founding access" : "Keep my pool records"
   const text = `Hi ${name},
@@ -546,10 +566,10 @@ export function renderTemplate(template, input = {}) {
       body = renderL3(name)
       break
     case "L4":
-      body = renderL4(name, founding)
+      body = renderL4(name, founding, input.testCount)
       break
     case "L5":
-      body = renderL5(name, founding, input.trialEndsAt)
+      body = renderL5(name, founding, input.trialEndsAt, input.testCount)
       break
     case "L6":
       body = renderL6(name, input, founding)

@@ -25,6 +25,7 @@ import { calculateScore, calciumBand, isSaltPool, saltRangeForEquipment } from '
 import { analyticsScreen, trackPageView } from './lib/analytics.js';
 import { emptyTestHeadline } from './lib/emptyTestHeadline.js';
 import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
+import { scoreChange } from './lib/scoreChange.js';
 import { testPrompt } from './lib/testPrompt.js';
 import { doseEventFor, retestPrompt } from './lib/doseLog.js';
 import { buildPlan, optionAmount, planContext, readingProblem, turnoverHours } from './lib/plan.js';
@@ -631,18 +632,49 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feed
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const items = [
-    { view: 'shed',      icon: Icon.droplet,    label: 'My Shed' },
-    { view: 'shop',      icon: Icon.check,      label: 'Shopping list', badge: shopCount },
-    { view: 'costs',     icon: Icon.calendar,   label: 'Costs' },
-    { view: 'fixer',     icon: Icon.tip,        label: 'Problem fixer' },
-    { view: 'tests',     icon: Icon.flask,      label: 'Water tests' },
-    { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
-    { view: 'equipment', icon: Icon.equipment,  label: 'Equipment' },
-    { view: 'schedule',  icon: Icon.calendar,   label: SEASONAL_TIPS_LABEL },
-    { view: 'profile',   icon: Icon.user,        label: 'Profile' },
+  // Grouped, three or fewer to a group, so the sheet scans in chunks. Water
+  // tests is not here: the Test button in the bar already opens it.
+  const groups = [
+    { title: 'Fix and plan ahead', items: [
+      { view: 'fixer',     icon: Icon.tip,        label: 'Problem fixer' },
+      { view: 'schedule',  icon: Icon.calendar,   label: SEASONAL_TIPS_LABEL },
+    ] },
+    { title: 'Chemicals and costs', items: [
+      { view: 'shed',      icon: Icon.droplet,    label: 'My Shed' },
+      { view: 'shop',      icon: Icon.check,      label: 'Shopping list', badge: shopCount },
+      { view: 'costs',     icon: Icon.calendar,   label: 'Costs' },
+    ] },
+    { title: 'Your pool', items: [
+      { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
+      { view: 'equipment', icon: Icon.equipment,  label: 'Equipment' },
+    ] },
   ];
   const pinnable = new Set(SHORTCUTS.map((x) => x.view));
+  const row = (item) => (
+    <div key={item.view} className="mobile-drawer-row">
+      <button
+        className={`mobile-drawer-item ${activeView === item.view ? 'active' : ''}`}
+        onClick={() => { onNav(item.view); onClose(); }}
+        data-tour={`drawer-${item.view}`}
+      >
+        <span className="mobile-drawer-icon">{item.icon}</span>
+        <span>{item.label}</span>
+        {item.badge > 0 && <span className="mobile-drawer-badge">{item.badge}</span>}
+      </button>
+      {onTogglePin && pinnable.has(item.view) && (
+        <button
+          type="button"
+          className={`pin-toggle${pins.includes(item.view) ? ' is-on' : ''}`}
+          aria-pressed={pins.includes(item.view)}
+          aria-label={`${pins.includes(item.view) ? 'Unpin' : 'Pin'} ${item.label} ${pins.includes(item.view) ? 'from' : 'to'} Home`}
+          onClick={() => onTogglePin(item.view, item.label)}
+        >
+          <span className="pin-star" aria-hidden="true">{pins.includes(item.view) ? '★' : '☆'}</span>
+          <span className="pin-word">{pins.includes(item.view) ? 'On Home' : 'Pin'}</span>
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -651,30 +683,11 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feed
         <button type="button" className="mobile-drawer-grab" ref={grabRef} onClick={onClose} aria-label="Close menu">
           <span className="mobile-drawer-handle" />
         </button>
-        {items.map(item => (
-          <div key={item.view} className="mobile-drawer-row">
-            <button
-              className={`mobile-drawer-item ${activeView === item.view ? 'active' : ''}`}
-              onClick={() => { onNav(item.view); onClose(); }}
-              data-tour={`drawer-${item.view}`}
-            >
-              <span className="mobile-drawer-icon">{item.icon}</span>
-              <span>{item.label}</span>
-              {item.badge > 0 && <span className="mobile-drawer-badge">{item.badge}</span>}
-            </button>
-            {onTogglePin && pinnable.has(item.view) && (
-              <button
-                type="button"
-                className={`pin-toggle${pins.includes(item.view) ? ' is-on' : ''}`}
-                aria-pressed={pins.includes(item.view)}
-                aria-label={`${pins.includes(item.view) ? 'Unpin' : 'Pin'} ${item.label} ${pins.includes(item.view) ? 'from' : 'to'} Home`}
-                onClick={() => onTogglePin(item.view, item.label)}
-              >
-                <span className="pin-star" aria-hidden="true">{pins.includes(item.view) ? '★' : '☆'}</span>
-                <span className="pin-word">{pins.includes(item.view) ? 'On Home' : 'Pin'}</span>
-              </button>
-            )}
-          </div>
+        {groups.map((g) => (
+          <section key={g.title} className="mobile-drawer-group" aria-label={g.title}>
+            <h2 className="mobile-drawer-heading">{g.title}</h2>
+            {g.items.map(row)}
+          </section>
         ))}
         <p className="mobile-drawer-note" role="status">
           {pinNotice || 'Tap ☆ to put a shortcut on your Health Score page.'}
@@ -682,6 +695,8 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feed
             <button type="button" className="mobile-drawer-note-link" onClick={() => { onNav('health'); onClose(); }}>See Home</button>
           )}
         </p>
+        <h2 className="mobile-drawer-heading">Account</h2>
+        {row({ view: 'profile', icon: Icon.user, label: 'Profile' })}
         <button
           className="mobile-drawer-item"
           onClick={() => { onClose(); onHelp?.(); }}
@@ -721,7 +736,7 @@ function useHomeGreeting(user) {
 
 function HealthScorePage({
   testData, poolProfile, events = [], onLogFirst, onLogTest, user, reminderOffer = null, careDue = [], onOpenCare, onOpenFixer,
-  plan, next, doneCount = 0, shopCount = 0, onAdded, onOpen, ctx, tests = [], low = [], pins = [], badges = {},
+  plan, next, doneCount = 0, done = {}, skipped = {}, shopCount = 0, onAdded, onOpen, ctx, tests = [], low = [], pins = [], badges = {},
 }) {
   const greeting = useHomeGreeting(user);
   const lastTest = testData?.createdAt;
@@ -771,6 +786,8 @@ function HealthScorePage({
   const prompt = testPrompt(lastTest);
   // A dose or shock with no test since is a more useful thing to say than "last tested".
   const retest = retestPrompt(events, lastTest);
+  // Did the last round of dosing pay off? Compared with the test before.
+  const change = scoreChange(tests);
 
   return (
     <div>
@@ -814,6 +831,12 @@ function HealthScorePage({
           "This month" card — this app does not store or invent weather. */}
       <div className="card score-hero-card" data-tour="hero">
         <HealthScoreRing score={score} size={240} />
+        {change && (
+          <p className={`score-change score-change-${change.tone}`}>
+            {change.tone !== 'same' && <span aria-hidden="true">{change.tone === 'up' ? '▲' : '▼'} </span>}
+            {change.text}
+          </p>
+        )}
         {showQuietLine && <p className="score-quiet">{goodWaterLine(lastTest)}</p>}
         {!showQuietLine && <div className="score-headline">{plan.headline}</div>}
         {!showQuietLine && !retest && prompt?.kind === 'upcoming' && <p className="score-next-test">{prompt.text}</p>}
@@ -828,6 +851,8 @@ function HealthScorePage({
           plan={plan}
           next={next}
           doneCount={doneCount}
+          done={done}
+          skipped={skipped}
           shopCount={shopCount}
           onAdded={onAdded}
           onOpenPlan={() => onOpen('plan')}
@@ -943,16 +968,39 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProf
 
   // Core fields, plus salt for salt/mineral pools, plus optional advanced fields.
   const formFields = [
-    { key: 'freeChlor',       label: 'Free chlorine',    unit: 'ppm', placeholder: '1.0–3.0' },
-    { key: 'pH',              label: 'pH',               unit: '',    placeholder: '7.2–7.6' },
-    { key: 'alkalinity',      label: 'Total alkalinity', unit: 'ppm', placeholder: '80–120' },
-    { key: 'cyanuricAcid',    label: 'Cyanuric acid',    unit: 'ppm', placeholder: '30–50' },
-    { key: 'calciumHardness', label: 'Calcium hardness', unit: 'ppm', placeholder: '200–400' },
-    ...(saltPool ? [{ key: 'salt', label: 'Salt', unit: 'ppm', placeholder: saltRange ? `${saltRange.lo}–${saltRange.hi}` : '3000–5000' }] : []),
-    { key: 'totalChlor', label: 'Total chlorine', unit: 'ppm', placeholder: 'optional' },
-    { key: 'phosphates', label: 'Phosphates', unit: 'ppb', placeholder: 'optional' },
-    { key: 'tds',        label: 'Total dissolved solids', unit: 'ppm', placeholder: 'optional' },
+    { key: 'freeChlor',       label: 'Free chlorine',    unit: 'ppm', placeholder: '1.0–3.0', group: 'main' },
+    { key: 'pH',              label: 'pH',               unit: '',    placeholder: '7.2–7.6', group: 'main' },
+    { key: 'alkalinity',      label: 'Total alkalinity', unit: 'ppm', placeholder: '80–120', group: 'main' },
+    ...(saltPool ? [{ key: 'salt', label: 'Salt', unit: 'ppm', placeholder: saltRange ? `${saltRange.lo}–${saltRange.hi}` : '3000–5000', group: 'main' }] : []),
+    { key: 'cyanuricAcid',    label: 'Cyanuric acid',    unit: 'ppm', placeholder: '30–50', group: 'kit' },
+    { key: 'calciumHardness', label: 'Calcium hardness', unit: 'ppm', placeholder: '200–400', group: 'kit' },
+    { key: 'totalChlor', label: 'Total chlorine', unit: 'ppm', placeholder: 'optional', group: 'extra' },
+    { key: 'phosphates', label: 'Phosphates', unit: 'ppb', placeholder: 'optional', group: 'extra' },
+    { key: 'tds',        label: 'Total dissolved solids', unit: 'ppm', placeholder: 'optional', group: 'extra' },
   ];
+  // Three short groups instead of one long grid: the readings every test has,
+  // the two most strips and kits add, then the rarely-tested extras folded away.
+  const fieldsIn = (group) => formFields.filter((f) => f.group === group);
+  const mainFields = fieldsIn('main');
+  const mainDone = mainFields.filter((f) => form[f.key] !== '').length;
+  const fieldGrid = (fields) => (
+    <div className="test-form-grid">
+      {fields.map(f => (
+        <div key={f.key} className="input-group">
+          <label className="input-label" htmlFor={`test-${f.key}`}>{f.label}{f.unit ? ` (${f.unit})` : ''}</label>
+          <input
+            id={`test-${f.key}`}
+            className="input"
+            type="number"
+            inputMode="decimal"
+            placeholder={f.placeholder}
+            value={form[f.key]}
+            onChange={e => setForm(v => ({ ...v, [f.key]: e.target.value }))}
+          />
+        </div>
+      ))}
+    </div>
+  );
 
   const handleSubmit = async () => {
     // Catch typos (pH 74) before they become a dose for the wrong water.
@@ -1004,22 +1052,22 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProf
       {/* Log form */}
       {showForm && (
         <div className="card-section" style={{ marginBottom: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 16 }}>Enter readings</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {formFields.map(f => (
-              <div key={f.key} className="input-group">
-                <label className="input-label">{f.label}{f.unit ? ` (${f.unit})` : ''}</label>
-                <input
-                  className="input"
-                  type="number"
-                  placeholder={f.placeholder}
-                  value={form[f.key]}
-                  onChange={e => setForm(v => ({ ...v, [f.key]: e.target.value }))}
-                />
-              </div>
-            ))}
+          <div className="test-form-head">
+            <h2 className="test-form-title">Your main readings</h2>
+            <p className={`test-form-count${mainDone === mainFields.length ? ' is-done' : ''}`} aria-live="polite">
+              {mainDone === mainFields.length ? '✓ ' : ''}{mainDone} of {mainFields.length} in
+            </p>
           </div>
-          <p className="plan-small">Total chlorine is optional. With it, the plan spots chloramines — the cause of the "chlorine smell" — and adds a shock step.</p>
+          <p className="plan-small">These are on every test. They decide the swim call.</p>
+          {fieldGrid(mainFields)}
+          <h2 className="test-form-title test-form-title-gap">If your kit has them</h2>
+          <p className="plan-small">Most strips and pool shop printouts show these too. Leave blank if not.</p>
+          {fieldGrid(fieldsIn('kit'))}
+          <details className="test-form-extras">
+            <summary className="details-summary">Extra readings (total chlorine, phosphates, TDS)</summary>
+            <p className="plan-small">With total chlorine, the plan spots chloramines — the cause of the "chlorine smell" — and adds a shock step.</p>
+            {fieldGrid(fieldsIn('extra'))}
+          </details>
           {problem && <p role="alert" className="test-editor-problem">{problem}</p>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
@@ -3110,6 +3158,8 @@ export default function App() {
               plan={dosePlan}
               next={next}
               doneCount={doneCount}
+              done={done}
+              skipped={skipped}
               shopCount={Object.keys(skipped).length}
               onAdded={recordDose}
               onOpen={openView}

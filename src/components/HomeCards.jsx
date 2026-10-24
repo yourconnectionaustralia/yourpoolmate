@@ -10,7 +10,7 @@ import { periodWindow, scoreSummary, spendTotal, spendBuckets, formatAud } from 
 
 const SWIM_PILL = { good: 'Swim-ready', wait: 'Hold off', stale: 'Test first', unknown: 'Test first' };
 
-export function SwimCall({ plan, next, doneCount, shopCount, onAdded, onOpenPlan, onOpenShop, onLogTest }) {
+export function SwimCall({ plan, next, doneCount, done = {}, skipped = {}, shopCount, onAdded, onOpenPlan, onOpenShop, onLogTest }) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState('');
   const option = next?.options[0];
@@ -36,10 +36,19 @@ export function SwimCall({ plan, next, doneCount, shopCount, onAdded, onOpenPlan
 
       {next && option ? (
         <div className="swim-next">
-          <p className="swim-next-label">
-            Next · {next.action}
-            <span className="visually-hidden"> · step {doneCount + 1} of {plan.steps.length}</span>
-          </p>
+          {plan.steps.length > 1 && (
+            <div className="swim-progress">
+              <p className="swim-progress-text">
+                {doneCount} of {plan.steps.length} added
+              </p>
+              <div className="plan-progress-bar" aria-hidden="true">
+                {plan.steps.map((s) => (
+                  <span key={s.key} className={done[s.key] ? 'is-done' : s.key === next.key ? 'is-next' : skipped[s.key] ? 'is-skipped' : ''} />
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="swim-next-label">Next · {next.action}</p>
           <button className="btn btn-primary btn-block swim-dose" disabled={busy} onClick={add}>
             {isBuyable(option) ? `I added ${doseLabel(option)}` : `Done: ${doseLabel(option)}`}
           </button>

@@ -182,10 +182,12 @@ export async function deliverLifecycleEmail(
     template: string
     source: string
     reclaimSkipped?: boolean
-    profile?: { founding_member?: boolean; plan?: string | null } | null
+    profile?: { founding_member?: boolean; plan?: string | null; trial_ends_at?: string | null } | null
     allowlistRaw?: string | null
     resendKey?: string | null
     deferSend?: boolean
+    // Tests in the record so far, for L4/L5. Left out, the copy stays general.
+    testCount?: number | null
     l6?: {
       plan?: string | null
       amountCents?: number | null
@@ -235,6 +237,7 @@ export async function deliverLifecycleEmail(
       currency: l6.currency ?? null,
       receiptUrl: l6.receiptUrl ?? null,
       trialEndsAt: profile?.trial_ends_at ?? null,
+      testCount: opts.testCount ?? null,
     })
 
     if (!email.includes("@")) {
@@ -444,10 +447,12 @@ export async function sweepLifecycleEmails(db: Db): Promise<SweepResult> {
       profile: {
         founding_member: candidate.founding_member,
         plan: candidate.plan,
+        trial_ends_at: candidate.trial_ends_at,
       },
       allowlistRaw,
       resendKey,
       deferSend: counts.sent >= MAX_SENDS_PER_SWEEP,
+      testCount: candidate.test_count,
       l6: template === "L6" ? { plan: candidate.plan } : undefined,
     })
     counts[bucket(result.status)]++
@@ -512,6 +517,6 @@ export async function sweepMemberEmails(db: Db, userId: string): Promise<Deliver
     template,
     source: "member",
     reclaimSkipped: false,
-    profile: { founding_member: candidate.founding_member, plan: candidate.plan },
+    profile: { founding_member: candidate.founding_member, plan: candidate.plan, trial_ends_at: candidate.trial_ends_at },
   })
 }

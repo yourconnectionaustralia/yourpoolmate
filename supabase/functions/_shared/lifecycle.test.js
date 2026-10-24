@@ -248,3 +248,18 @@ test("footer carries the ABN, and priced emails say AUD once", () => {
   const l2 = renderTemplate("L2", { firstName: "James" })
   assert.equal(l2.text.includes("Australian dollars"), false)
 })
+
+test("test buttons open the test form; L4 and L5 show the record so far", () => {
+  for (const key of ["L1", "L2", "L4"]) {
+    assert.ok(renderTemplate(key, {}).html.includes("https://app.yourpoolmate.com.au/?test=1"), key)
+  }
+  const l4 = renderTemplate("L4", { foundingMember: false, testCount: 3 })
+  assert.ok(l4.text.includes("you've added 3 tests so far"))
+  assert.ok(l4.preview.includes("3 tests"))
+  const none = renderTemplate("L4", { foundingMember: false, testCount: 0 })
+  assert.ok(none.text.includes("You haven't added a test yet"))
+  const unknown = renderTemplate("L4", { foundingMember: false })
+  assert.ok(unknown.text.includes("If you've been adding tests"))
+  assert.ok(renderTemplate("L5", { foundingMember: true, testCount: 1 }).text.includes("your 1 test, each with its date, stays saved"))
+  assert.ok(renderTemplate("L5", { foundingMember: true }).text.includes("your test history stays saved"))
+})
