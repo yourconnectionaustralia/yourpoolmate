@@ -1,9 +1,11 @@
 // File: src/components/WaterTestScanner.jsx
 // Real OCR scanner — replaces the simulated ScanModal.
 //
-// Flow: pick/take photo → client-side compress → ocr-water-test Edge
-// Function (Claude Vision) → review screen ("Here's what your shop
-// found") with editable values + confidence → onComplete(readings).
+// Flow: pick/take photos → client-side compress → ocr-water-test Edge
+// Function (Claude Vision, one call per photo) → review screen ("Here's what
+// your shop found") with editable values + confidence → onComplete(readings).
+// Several photos (a printout that runs over two pages) are read one by one and
+// merged: a later photo only fills readings the earlier ones did not find.
 //
 // The Edge Function requires an authenticated Supabase session. The app
 // currently runs without sign-in, so we transparently create an
@@ -14,20 +16,13 @@
 import { useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { compressImage } from '../lib/imageCompress.js';
+import { SCAN_FIELDS, conflictMessage, hasReadings, mergeScans } from '../lib/scanMerge.js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Edge-function keys → app state keys
-const FIELD_MAP = [
-  { ocr: 'free_chlorine', app: 'freeChlor',       label: 'Free chlorine',    unit: 'ppm' },
-  { ocr: 'ph',            app: 'pH',              label: 'pH',               unit: ''    },
-  { ocr: 'alkalinity',    app: 'alkalinity',      label: 'Total alkalinity', unit: 'ppm' },
-  { ocr: 'cyanuric_acid', app: 'cyanuricAcid',    label: 'Cyanuric acid',    unit: 'ppm' },
-  { ocr: 'calcium',       app: 'calciumHardness', label: 'Calcium hardness', unit: 'ppm' },
-  { ocr: 'salt',          app: 'salt',            label: 'Salt',             unit: 'ppm' },
-  { ocr: 'total_chlorine', app: 'totalChlor',     label: 'Total chlorine',   unit: 'ppm' },
-];
+// Edge-function keys → app state keys (see lib/scanMerge.js for the list).
+const FIELD_MAP = SCAN_FIELDS.map((f) => ({ ...f, unit: f.app === 'pH' ? '' : 'ppm' }));
 
 const CameraIcon = (
   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -48,8 +43,34 @@ async function ensureSession() {
   return data.session;
 }
 
+const MAX_PHOTOS = 4;
+
+// Read one photo. Throws an Error with a plain-English message.
+async function scanPhoto(file, session) {
+  const { dataUrl, base64, mediaType, blob } = await compressImage(file);
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/ocr-water-test`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ image_base64: base64, media_type: mediaType }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const friendly = {
+      RATE_LIMITED: data.error || 'Scan limit reached — try again in an hour.',
+      IMAGE_TOO_LARGE: 'That photo is too large — try again, a bit further from the page is fine.',
+      NOT_CONFIGURED: 'Scanning isn\'t available right now — you can still type the readings in.',
+    }[data.code] || data.error || 'Couldn\'t read the photo right now — please try again.';
+    throw new Error(friendly);
+  }
+  return { dataUrl, blob, data };
+}
+
 export default function WaterTestScanner({ onClose, onComplete }) {
-  const [state, setState] = useState('pick'); // pick | scanning | review | error
+  const [state, setState] = useState('pick'); // pick | scanning | review | adding | error
   const [preview, setPreview] = useState(null);
   const [values, setValues] = useState({});   // app-keyed editable strings
   const [confidence, setConfidence] = useState('high');
@@ -58,71 +79,85 @@ export default function WaterTestScanner({ onClose, onComplete }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [photoBlob, setPhotoBlob] = useState(null);
   const [keepPhoto, setKeepPhoto] = useState(true);
-  const fileRef = useRef(null);
-  const galleryRef = useRef(null);
+  const [progress, setProgress] = useState(null);   // { n, of } while photos are read
+  const [notice, setNotice] = useState('');         // review-screen message after adding photos
+  const fileRef = useRef(null);      // camera
+  const galleryRef = useRef(null);   // photo library, several at once
+  const intent = useRef('replace');  // 'replace' = start over, 'add' = merge into what is on screen
 
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const choose = (ref, how) => { intent.current = how; ref.current?.click(); };
+
+  const handleFiles = async (e) => {
+    const picked = Array.from(e.target.files || []);
     e.target.value = ''; // allow re-picking the same file
-    setState('scanning');
+    if (!picked.length) return;
+    const files = picked.slice(0, MAX_PHOTOS);
+    const adding = intent.current === 'add' && state === 'review';
+    setNotice('');
     setErrorMsg('');
+    setProgress({ n: 1, of: files.length });
+    setState(adding ? 'adding' : 'scanning');
 
+    const failBack = (message) => {
+      setProgress(null);
+      if (adding) { setNotice(message); setState('review'); } else { setErrorMsg(message); setState('error'); }
+    };
+
+    let session;
     try {
-      const { dataUrl, base64, mediaType, blob } = await compressImage(file);
-      setPreview(dataUrl);
-      setPhotoBlob(blob);
-
-      const session = await ensureSession();
-
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/ocr-water-test`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ image_base64: base64, media_type: mediaType }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        const friendly = {
-          RATE_LIMITED: data.error || 'Scan limit reached — try again in an hour.',
-          IMAGE_TOO_LARGE: 'That photo is too large — try again, a bit further from the page is fine.',
-          NOT_CONFIGURED: 'Scanning isn\'t available right now — you can still type the readings in.',
-        }[data.code] || data.error || 'Couldn\'t read the photo right now — please try again.';
-        throw new Error(friendly);
-      }
-
-      const readings = data.readings || {};
-      const found = FIELD_MAP.filter(f => readings[f.ocr] !== null && readings[f.ocr] !== undefined);
-
-      if (found.length === 0) {
-        setState('error');
-        setErrorMsg(
-          data.notes
-            ? `Couldn't find readings in that photo (${data.notes}). Try a flatter, well-lit shot of the printout.`
-            : 'Couldn\'t find any readings in that photo. Try a flatter, well-lit shot of the printout.'
-        );
-        return;
-      }
-
-      const next = {};
-      for (const f of FIELD_MAP) {
-        const v = readings[f.ocr];
-        next[f.app] = (v === null || v === undefined) ? '' : String(v);
-      }
-      setValues(next);
-      setConfidence(data.confidence || 'low');
-      setNotes(data.notes || null);
-      setScansLeft(typeof data.scans_remaining_this_hour === 'number' ? data.scans_remaining_this_hour : null);
-      setState('review');
+      session = await ensureSession();
     } catch (err) {
-      setState('error');
-      setErrorMsg(err.message || 'Something went wrong — please try again.');
+      failBack(err.message || 'Something went wrong — please try again.');
+      return;
     }
+
+    const read = [];
+    let unreadable = 0;
+    let lastNote = null;
+    let stopped = '';
+    for (let i = 0; i < files.length; i += 1) {
+      setProgress({ n: i + 1, of: files.length });
+      try {
+        const r = await scanPhoto(files[i], session);
+        if (hasReadings(r.data.readings)) read.push(r);
+        else { unreadable += 1; lastNote = r.data.notes || lastNote; }
+      } catch (err) {
+        stopped = err.message || 'Something went wrong — please try again.';
+        break;
+      }
+    }
+
+    if (read.length === 0) {
+      failBack(stopped || (lastNote
+        ? `Couldn't find readings in that photo (${lastNote}). Try a flatter, well-lit shot of the printout.`
+        : 'Couldn\'t find any readings in that photo. Try a flatter, well-lit shot of the printout.'));
+      return;
+    }
+
+    // Merge: keep what is already on screen, fill only the gaps, flag clashes.
+    const merged = mergeScans(
+      adding ? values : {},
+      read.map(r => r.data),
+      adding ? confidence : 'high',
+      adding ? notes : null,
+    );
+    const last = read[read.length - 1].data;
+
+    setValues(merged.values);
+    setConfidence(merged.confidence);
+    setNotes(merged.notes);
+    setScansLeft(typeof last.scans_remaining_this_hour === 'number' ? last.scans_remaining_this_hour : null);
+    // The first photo that read anything is the one kept with the test.
+    if (!adding || !photoBlob) { setPreview(read[0].dataUrl); setPhotoBlob(read[0].blob); }
+
+    const messages = [];
+    if (picked.length > MAX_PHOTOS) messages.push(`Only the first ${MAX_PHOTOS} photos were read.`);
+    if (unreadable) messages.push(`${unreadable === 1 ? 'One photo' : `${unreadable} photos`} had no readings that could be read.`);
+    if (merged.conflicts.length) messages.push(conflictMessage(merged.conflicts));
+    if (stopped) messages.push(stopped);
+    setNotice(messages.join(' '));
+    setProgress(null);
+    setState('review');
   };
 
   const handleUse = () => {
@@ -153,7 +188,9 @@ export default function WaterTestScanner({ onClose, onComplete }) {
       : { cls: 'tag-warn', text: 'Low confidence — please check every value' };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    // Once photos have been read, a stray tap outside must not throw the
+    // readings away: Discard is the only way out of the review screen.
+    <div className="modal-backdrop" onClick={state === 'pick' || state === 'error' ? onClose : undefined}>
       <div className="modal-panel" onClick={e => e.stopPropagation()}>
         <div className="modal-title">Scan test results</div>
 
@@ -166,14 +203,15 @@ export default function WaterTestScanner({ onClose, onComplete }) {
           accept="image/*"
           capture="environment"
           style={{ display: 'none' }}
-          onChange={handleFile}
+          onChange={handleFiles}
         />
         <input
           ref={galleryRef}
           type="file"
           accept="image/*"
+          multiple
           style={{ display: 'none' }}
-          onChange={handleFile}
+          onChange={handleFiles}
         />
 
         {state === 'pick' && (
@@ -186,7 +224,7 @@ export default function WaterTestScanner({ onClose, onComplete }) {
                 type="button"
                 className="btn btn-primary"
                 style={{ minHeight: 56, fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
-                onClick={() => fileRef.current?.click()}
+                onClick={() => choose(fileRef, 'replace')}
               >
                 <span style={{ display: 'flex' }}>{CameraIcon}</span>
                 Take a photo
@@ -195,15 +233,18 @@ export default function WaterTestScanner({ onClose, onComplete }) {
                 type="button"
                 className="btn btn-ghost"
                 style={{ minHeight: 56, fontSize: 17 }}
-                onClick={() => galleryRef.current?.click()}
+                onClick={() => choose(galleryRef, 'replace')}
               >
                 Choose from your photos
               </button>
+              <span style={{ fontSize: 15, color: 'var(--gray-mid)', textAlign: 'center' }}>
+                Printout runs over two pages? Pick up to {MAX_PHOTOS} photos at once.
+              </span>
             </div>
           </>
         )}
 
-        {state === 'scanning' && (
+        {(state === 'scanning') && (
           <div style={{
             minHeight: 200, display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 24,
@@ -213,11 +254,13 @@ export default function WaterTestScanner({ onClose, onComplete }) {
                    style={{ maxHeight: 120, maxWidth: '100%', borderRadius: 'var(--r-md)', opacity: 0.85 }} />
             )}
             <div className="dot-loader"><span/><span/><span/></div>
-            <span style={{ fontSize: 17, color: 'var(--gray-mid)' }}>Reading your test results…</span>
+            <span style={{ fontSize: 17, color: 'var(--gray-mid)' }}>
+              {progress && progress.of > 1 ? `Reading photo ${progress.n} of ${progress.of}…` : 'Reading your test results…'}
+            </span>
           </div>
         )}
 
-        {state === 'review' && (
+        {(state === 'review' || state === 'adding') && (
           <>
             <div className="modal-body" style={{ marginBottom: 12 }}>
               Here's what your shop found. Check the values, fix anything that's off, then use them.
@@ -236,9 +279,23 @@ export default function WaterTestScanner({ onClose, onComplete }) {
                 {notes}
               </div>
             )}
+            {notice && (
+              <p role="status" style={{ fontSize: 17, color: 'var(--amber)', marginBottom: 12 }}>{notice}</p>
+            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => choose(galleryRef, 'add')}>
+                {state === 'adding' && progress ? `Reading photo ${progress.n} of ${progress.of}…` : 'Add more photos'}
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => choose(fileRef, 'add')}>
+                Take another photo
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => { setNotice(''); setValues({}); setPhotoBlob(null); setPreview(null); setState('pick'); }}>
+                Start again with a different photo
+              </button>
+            </div>
             <label className="keep-photo">
               <input type="checkbox" checked={keepPhoto} onChange={e => setKeepPhoto(e.target.checked)} />
-              <span>Keep this photo with the test. It is proof of the result, and only you can see it.</span>
+              <span>Keep {photoBlob ? 'the first photo' : 'this photo'} with the test. It is proof of the result, and only you can see it.</span>
             </label>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
               {FIELD_MAP.filter(f => f.app !== 'salt' || values.salt !== '').map(f => (
@@ -276,15 +333,20 @@ export default function WaterTestScanner({ onClose, onComplete }) {
 
         <div className="modal-actions">
           <button className="btn btn-ghost btn-sm" onClick={onClose}>
-            {state === 'review' ? 'Discard' : 'Cancel'}
+            {(state === 'review' || state === 'adding') ? 'Discard' : 'Cancel'}
           </button>
           {(state === 'error') && (
-            <button className="btn btn-primary btn-sm" onClick={() => fileRef.current?.click()}>
-              Try another photo
-            </button>
+            <>
+              <button className="btn btn-ghost btn-sm" onClick={() => choose(galleryRef, 'replace')}>
+                Choose from your photos
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={() => choose(fileRef, 'replace')}>
+                Take a photo
+              </button>
+            </>
           )}
-          {state === 'review' && (
-            <button className="btn btn-primary btn-sm" onClick={handleUse}>
+          {(state === 'review' || state === 'adding') && (
+            <button className="btn btn-primary btn-sm" disabled={state === 'adding'} onClick={handleUse}>
               Use these readings
             </button>
           )}
