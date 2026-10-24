@@ -43,12 +43,10 @@ const ALLOWED_MEDIA_TYPES = new Set([
   "image/jpeg", "image/png", "image/webp", "image/gif",
 ])
 
-// A printout is a dense page with bubbles, handwriting and show-through, so the
-// strongest model comes first. A model the key can't use (404 not found, 403 no
-// access) moves on to the next one, ending at the pinned Haiku snapshot.
+// Prefer the alias; fall back to the pinned snapshot if the alias fails. A model
+// the key can't use (404 not found, 403 no access) moves on to the next one.
+// Set the OCR_MODEL secret to try another model first.
 const DEFAULT_MODELS = [
-  "claude-sonnet-5-5",
-  "claude-haiku-5-5",
   "claude-haiku-4-5",
   "claude-haiku-4-5-20251001",
 ]

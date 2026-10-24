@@ -95,6 +95,10 @@ test("the function keeps the guards that stop the known misreads", () => {
   // A model the key can't use must fall through to the next one, not stop scanning.
   assert.match(src, /result\.status === 404 \|\| result\.status === 403/)
   assert.match(src, /"claude-haiku-4-5-20251001"/)
+  // Haiku 4.5 is the default; a dearer model is only ever chosen with OCR_MODEL.
+  const models = src.slice(src.indexOf("const DEFAULT_MODELS"), src.indexOf("]", src.indexOf("const DEFAULT_MODELS")))
+  assert.match(models, /"claude-haiku-4-5",/)
+  assert.doesNotMatch(models, /sonnet|opus|5-5/)
 })
 
 const NOW = new Date("2026-10-24T02:00:00Z")
