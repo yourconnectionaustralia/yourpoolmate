@@ -17,7 +17,7 @@
 // Who: members, and owners whose free trial is still running.
 //
 // Secrets: ANTHROPIC_API_KEY (shared with ocr-water-test). Optional CHAT_MODEL
-// is tried first, then DEFAULT_MODELS.
+// is tried first, then DEFAULT_MODELS (Haiku: quick and cheap for chat).
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
@@ -42,7 +42,7 @@ const CORS_HEADERS = {
 const JSON_HEADERS = { ...CORS_HEADERS, "Content-Type": "application/json" }
 
 // A model the key can't use (404 not found, 403 no access) moves on to the next.
-const DEFAULT_MODELS = ["claude-opus-5-5"]
+const DEFAULT_MODELS = ["claude-haiku-5-5"]
 const FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 function jsonResponse(body: unknown, status = 200): Response {
