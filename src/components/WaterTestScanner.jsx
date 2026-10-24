@@ -59,6 +59,7 @@ export default function WaterTestScanner({ onClose, onComplete }) {
   const [photoBlob, setPhotoBlob] = useState(null);
   const [keepPhoto, setKeepPhoto] = useState(true);
   const fileRef = useRef(null);
+  const galleryRef = useRef(null);
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
@@ -156,12 +157,21 @@ export default function WaterTestScanner({ onClose, onComplete }) {
       <div className="modal-panel" onClick={e => e.stopPropagation()}>
         <div className="modal-title">Scan test results</div>
 
-        {/* Hidden file input — opens camera on mobile */}
+        {/* Two hidden inputs. `capture` makes iPhone and Android open the camera
+            straight away with no photo library, so the gallery needs its own
+            input without it. */}
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
           capture="environment"
+          style={{ display: 'none' }}
+          onChange={handleFile}
+        />
+        <input
+          ref={galleryRef}
+          type="file"
+          accept="image/*"
           style={{ display: 'none' }}
           onChange={handleFile}
         />
@@ -171,22 +181,24 @@ export default function WaterTestScanner({ onClose, onComplete }) {
             <div className="modal-body">
               Take a photo of your pool shop's printed water test. Your Pool Mate reads the values for you — you check them before anything is saved.
             </div>
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => fileRef.current?.click()}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') fileRef.current?.click(); }}
-              style={{
-                border: 'var(--border)', borderRadius: 'var(--r-md)',
-                minHeight: 160, display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center', gap: 8,
-                marginBottom: 24, background: 'var(--gray-bg)',
-                cursor: 'pointer', color: 'var(--gray-mid)',
-              }}
-            >
-              <span style={{ display: 'flex' }}>{CameraIcon}</span>
-              <span style={{ fontSize: 17, fontWeight: 500 }}>Take a photo</span>
-              <span style={{ fontSize: 17, color: 'var(--gray-light)' }}>or choose one from your gallery</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ minHeight: 56, fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+                onClick={() => fileRef.current?.click()}
+              >
+                <span style={{ display: 'flex' }}>{CameraIcon}</span>
+                Take a photo
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ minHeight: 56, fontSize: 17 }}
+                onClick={() => galleryRef.current?.click()}
+              >
+                Choose from your photos
+              </button>
             </div>
           </>
         )}

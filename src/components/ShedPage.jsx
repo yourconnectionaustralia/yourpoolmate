@@ -282,6 +282,7 @@ export default function ShedPage({ available, stock, low, onAdd, onDelete, onOpe
   const [mode, setMode] = useState(null); // null | 'add' | 'reading' | { receipt }
   const [problem, setProblem] = useState('');
   const fileRef = useRef(null);
+  const galleryRef = useRef(null);
 
   if (!available) return <NotReady title="My Shed" />;
 
@@ -309,7 +310,12 @@ export default function ShedPage({ available, stock, low, onAdd, onDelete, onOpe
         <button className="btn btn-ghost" onClick={() => fileRef.current?.click()} disabled={mode === 'reading'}>
           {mode === 'reading' ? 'Reading the receipt…' : 'Photograph a receipt'}
         </button>
+        <button className="btn btn-ghost" onClick={() => galleryRef.current?.click()} disabled={mode === 'reading'}>
+          Choose a receipt photo
+        </button>
+        {/* `capture` skips the photo library on iPhone, so the library has its own input. */}
         <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={pickReceipt} />
+        <input ref={galleryRef} type="file" accept="image/*" hidden onChange={pickReceipt} />
       </div>
       {problem && <p role="alert" className="test-editor-problem">{problem}</p>}
 
