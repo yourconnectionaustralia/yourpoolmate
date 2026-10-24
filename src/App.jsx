@@ -26,6 +26,10 @@ import { analyticsScreen, trackPageView } from './lib/analytics.js';
 import { emptyTestHeadline } from './lib/emptyTestHeadline.js';
 import { goodWaterLine, waterLooksGood } from './lib/goodWaterLine.js';
 import { scoreChange } from './lib/scoreChange.js';
+import { cleanNav, navOption } from './lib/navSlots.js';
+import { chatContext } from './lib/chatContext.js';
+import AskMate from './components/AskMate.jsx';
+import NavEditor from './components/NavEditor.jsx';
 import { testPrompt } from './lib/testPrompt.js';
 import { doseEventFor, retestPrompt } from './lib/doseLog.js';
 import { buildPlan, optionAmount, planContext, readingProblem, turnoverHours } from './lib/plan.js';
@@ -146,6 +150,23 @@ const Icon = {
       <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
     </svg>
   ),
+  chat: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>
+    </svg>
+  ),
+  sliders: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="9" cy="7" r="2.2" fill="white"/><circle cx="15" cy="17" r="2.2" fill="white"/>
+    </svg>
+  ),
+};
+
+// Icon and label for each screen that can sit on the bottom bar.
+const NAV_ICONS = {
+  health: Icon.waves, plan: Icon.tip, history: Icon.droplet, chat: Icon.chat,
+  shed: Icon.droplet, shop: Icon.check, costs: Icon.calendar, fixer: Icon.tip,
+  schedule: Icon.calendar, setup: Icon.settings, equipment: Icon.equipment, profile: Icon.user,
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -403,6 +424,13 @@ function Sidebar({ activeView, onNav, pendingActions, shopCount = 0, onHelp, onF
           <span className="sidebar-icon">{Icon.tip}</span>
           Problem fixer
         </div>
+        <div
+          className={`sidebar-item ${activeView === 'chat' ? 'active' : ''}`}
+          onClick={() => onNav('chat')}
+        >
+          <span className="sidebar-icon">{Icon.chat}</span>
+          Ask Mate
+        </div>
       </div>
 
       <div className="sidebar-section">
@@ -496,34 +524,32 @@ function Sidebar({ activeView, onNav, pendingActions, shopCount = 0, onHelp, onF
 // ─────────────────────────────────────────────────────────────────
 // MOBILE BOTTOM NAV
 // ─────────────────────────────────────────────────────────────────
-function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
-  const SECONDARY = ['fixer', 'setup', 'equipment', 'schedule', 'profile', 'shed', 'shop', 'costs'];
-  const moreActive = SECONDARY.includes(activeView);
-
-  return (
-    <nav className="mobile-nav">
-      {/* Health */}
+function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest, nav }) {
+  // Three slots the owner picks; Test fixed in the middle, More on the right.
+  // More lights up for any screen that isn't on the bar.
+  const moreActive = activeView !== 'tests' && !nav.includes(activeView);
+  const slot = (view) => {
+    const opt = navOption(view);
+    return (
       <button
-        className={`mobile-nav-item ${activeView === 'health' ? 'active' : ''}`}
-        onClick={() => onNav('health')}
-        data-tour="health"
+        key={view}
+        className={`mobile-nav-item ${activeView === view ? 'active' : ''}`}
+        onClick={() => onNav(view)}
+        data-tour={view}
       >
-        <span className="mobile-nav-icon">{Icon.waves}</span>
-        <span className="mobile-nav-label">Health</span>
-      </button>
-
-      {/* Plan — what to add, in order */}
-      <button
-        className={`mobile-nav-item ${activeView === 'plan' ? 'active' : ''}`}
-        onClick={() => onNav('plan')}
-        data-tour="plan"
-      >
-        <span className="mobile-nav-icon">{Icon.tip}</span>
-        <span className="mobile-nav-label">Plan</span>
-        {pendingActions > 0 && (
+        <span className="mobile-nav-icon">{NAV_ICONS[view]}</span>
+        <span className="mobile-nav-label">{opt?.label ?? view}</span>
+        {view === 'plan' && pendingActions > 0 && (
           <span className="mobile-nav-badge">{pendingActions}</span>
         )}
       </button>
+    );
+  };
+
+  return (
+    <nav className="mobile-nav">
+      {slot(nav[0])}
+      {slot(nav[1])}
 
       {/* Centre CTA — Test Water */}
       <button
@@ -535,15 +561,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
         <span className="mobile-nav-label">Test</span>
       </button>
 
-      {/* History */}
-      <button
-        className={`mobile-nav-item ${activeView === 'history' ? 'active' : ''}`}
-        onClick={() => onNav('history')}
-        data-tour="history"
-      >
-        <span className="mobile-nav-icon">{Icon.droplet}</span>
-        <span className="mobile-nav-label">History</span>
-      </button>
+      {slot(nav[2])}
 
       {/* More */}
       <button
@@ -561,7 +579,7 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
 // ─────────────────────────────────────────────────────────────────
 // MOBILE MORE DRAWER (slide-up sheet)
 // ─────────────────────────────────────────────────────────────────
-function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feedbackNoteCount = 0, pins = [], onTogglePin, pinNotice, shopCount = 0 }) {
+function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feedbackNoteCount = 0, pins = [], onTogglePin, pinNotice, shopCount = 0, nav = [], onEditNav }) {
   const sheetRef = useRef(null);
   const grabRef = useRef(null);
 
@@ -633,8 +651,15 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feed
   }, [onClose]);
 
   // Grouped, three or fewer to a group, so the sheet scans in chunks. Water
-  // tests is not here: the Test button in the bar already opens it.
+  // tests is not here: the Test button in the bar already opens it. Screens
+  // already on the bottom bar are left out.
   const groups = [
+    { title: 'Today', items: [
+      { view: 'health',    icon: Icon.waves,      label: 'Home' },
+      { view: 'plan',      icon: Icon.tip,        label: 'Plan' },
+      { view: 'history',   icon: Icon.droplet,    label: 'History' },
+      { view: 'chat',      icon: Icon.chat,       label: 'Ask Mate' },
+    ] },
     { title: 'Fix and plan ahead', items: [
       { view: 'fixer',     icon: Icon.tip,        label: 'Problem fixer' },
       { view: 'schedule',  icon: Icon.calendar,   label: SEASONAL_TIPS_LABEL },
@@ -648,7 +673,9 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feed
       { view: 'setup',     icon: Icon.settings,  label: 'Pool Setup' },
       { view: 'equipment', icon: Icon.equipment,  label: 'Equipment' },
     ] },
-  ];
+  ]
+    .map((g) => ({ ...g, items: g.items.filter((it) => !nav.includes(it.view)) }))
+    .filter((g) => g.items.length > 0);
   const pinnable = new Set(SHORTCUTS.map((x) => x.view));
   const row = (item) => (
     <div key={item.view} className="mobile-drawer-row">
@@ -696,7 +723,17 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feed
           )}
         </p>
         <h2 className="mobile-drawer-heading">Account</h2>
-        {row({ view: 'profile', icon: Icon.user, label: 'Profile' })}
+        {!nav.includes('profile') && row({ view: 'profile', icon: Icon.user, label: 'Profile' })}
+        {onEditNav && (
+          <button
+            type="button"
+            className="mobile-drawer-item"
+            onClick={() => { onClose(); onEditNav(); }}
+          >
+            <span className="mobile-drawer-icon">{Icon.sliders}</span>
+            <span>Change bottom bar</span>
+          </button>
+        )}
         <button
           className="mobile-drawer-item"
           onClick={() => { onClose(); onHelp?.(); }}
@@ -919,6 +956,10 @@ function HealthScorePage({
       <button className="fixer-link" onClick={onOpenFixer}>
         <span className="fixer-link-title">Water looking off?</span>
         <span className="fixer-link-sub">Green, cloudy, stinging eyes, foam or stains: open the problem fixer.</span>
+      </button>
+      <button className="fixer-link" onClick={() => onOpen('chat')}>
+        <span className="fixer-link-title">Got a question?</span>
+        <span className="fixer-link-sub">Ask Mate. Plain-English answers that know your pool's litres and readings.</span>
       </button>
 
       <InstallGuide />
@@ -2604,6 +2645,12 @@ export default function App() {
     try { return cleanPins(JSON.parse(localStorage.getItem('ypm.pins.v1') || 'null') ?? undefined); } catch { return cleanPins(); }
   });
   const [pinNotice, setPinNotice] = useState(null);
+  // The bottom bar's three owner-chosen buttons: saved to the account with
+  // the pins, and kept on this device too.
+  const [navSlots, setNavSlots] = useState(() => {
+    try { return cleanNav(JSON.parse(localStorage.getItem('ypm.nav.v1') || 'null')); } catch { return cleanNav(); }
+  });
+  const [navEditorOpen, setNavEditorOpen] = useState(false);
 
   // The shell never changes the URL, so Analytics only sees a new screen
   // when activeView (or an auth/trial gate) changes. Same measurement id
@@ -2672,6 +2719,7 @@ export default function App() {
       setShed(shedRes);
       setShop(shopRes);
       if (profile?.app_prefs && Array.isArray(profile.app_prefs.pins)) setPins(cleanPins(profile.app_prefs.pins));
+      if (profile?.app_prefs && Array.isArray(profile.app_prefs.nav)) setNavSlots(cleanNav(profile.app_prefs.nav));
       if (profile) {
         setIsPremium(!!profile.is_premium);
         setPlan(profile.plan ?? null);
@@ -3079,7 +3127,13 @@ export default function App() {
     if (result.pins === pins) return;
     setPins(result.pins);
     try { localStorage.setItem('ypm.pins.v1', JSON.stringify(result.pins)); } catch { /* private mode */ }
-    db.saveAppPrefs(user.id, { pins: result.pins }).catch(() => { /* kept on this device */ });
+    db.saveAppPrefs(user.id, { pins: result.pins, nav: navSlots }).catch(() => { /* kept on this device */ });
+  };
+  const handleSaveNav = (next) => {
+    const clean = cleanNav(next);
+    setNavSlots(clean);
+    try { localStorage.setItem('ypm.nav.v1', JSON.stringify(clean)); } catch { /* private mode */ }
+    db.saveAppPrefs(user.id, { pins, nav: clean }).catch(() => { /* kept on this device */ });
   };
   const openView = (view) => {
     setActiveView(view);
@@ -3275,6 +3329,13 @@ export default function App() {
           {activeView === 'fixer' && (
             <ProblemFixer onTestWater={goLogTest} onNote={handleAddFixerNote} />
           )}
+          {activeView === 'chat' && (
+            <AskMate
+              userId={user.id}
+              getContext={() => chatContext({ poolProfile, testData, plan: dosePlan })}
+              onOpenPlan={() => openView('plan')}
+            />
+          )}
           {activeView === 'schedule' && (
             <SeasonalTipsPage season={getAUSeason()} />
           )}
@@ -3403,6 +3464,7 @@ export default function App() {
         pendingActions={pendingActions}
         onMore={() => { setPinNotice(null); setMobileDrawerOpen(v => !v); }}
         onLogTest={goLogTest}
+        nav={navSlots}
       />
 
       {/* Mobile More drawer */}
@@ -3418,7 +3480,12 @@ export default function App() {
           onTogglePin={handleTogglePin}
           pinNotice={pinNotice}
           shopCount={shopCount}
+          nav={navSlots}
+          onEditNav={() => setNavEditorOpen(true)}
         />
+      )}
+      {navEditorOpen && (
+        <NavEditor nav={navSlots} onSave={handleSaveNav} onClose={() => setNavEditorOpen(false)} />
       )}
 
       {/* Guest onboarding — auto-shows for signed-in users with no pool profile.

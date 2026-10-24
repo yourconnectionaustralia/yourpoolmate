@@ -174,6 +174,7 @@ export const SHORTCUTS = [
   { view: 'equipment', title: 'Equipment', hint: 'Pump, filter, chlorinator' },
   { view: 'schedule', title: 'Seasonal tips', hint: 'What changes this season' },
   { view: 'fixer', title: 'Problem fixer', hint: 'Green, cloudy, eyes, foam' },
+  { view: 'chat', title: 'Ask Mate', hint: 'Ask a pool question' },
   { view: 'profile', title: 'Profile', hint: 'Membership, reminders, data' },
 ];
 

@@ -158,6 +158,7 @@ B2B pitch threshold: **≥ 50 active users in the shop's postcode cluster.** Do 
 | 30-day hard-countdown free trial logic | ✅ Built (migration 004) |
 | Marketing site (HTML) — "Start free" CTA, no payment | ✅ Built (checkout moved in-app Sep 2026) |
 | Stripe payment processing — checkout + webhook Edge Functions, paywall wired | ✅ Built (Sep 2026, migration 014) — needs Stripe keys/secrets + webhook endpoint set |
+| Ask Mate (Oct 2026): in-app AI chat, `pool-chat` Edge Function + migration 022. 5 chats/month × 10 questions each (secrets `CHAT_SESSIONS_PER_MONTH`, `CHAT_QUESTIONS_PER_SESSION`; model `CHAT_MODEL`, default claude-opus-5-5). Owner-chosen bottom bar (3 slots, Test fixed middle, More fixed right), saved in `user_profiles.app_prefs.nav` | ✅ Built |
 | v3 (Oct 2026): Plan tab, safe-to-swim call, one-tap next dose, My Shed, receipt scan, shopping list, Costs, share-a-report link, pinned shortcuts, pump/chlorinator settings | ✅ Built — ported from the staging Worker into the live stack. Needs migration 021 applied (Deploy Supabase → Run workflow). See `docs/V3_RELEASE.md` |
 
 **Highest-priority unwired item:**

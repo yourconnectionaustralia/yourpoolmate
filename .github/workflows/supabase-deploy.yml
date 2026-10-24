@@ -42,6 +42,7 @@ jobs:
         run: |
           supabase functions deploy calculate-health-score --project-ref "$PROJECT_REF" --use-api
           supabase functions deploy ocr-water-test --project-ref "$PROJECT_REF" --use-api
+          supabase functions deploy pool-chat --project-ref "$PROJECT_REF" --use-api
           # stripe-checkout is called by signed-in app users → keep JWT verification.
           supabase functions deploy stripe-checkout --project-ref "$PROJECT_REF" --use-api
           # stripe-webhook is called by Stripe (no Supabase JWT) → verify by signature instead.

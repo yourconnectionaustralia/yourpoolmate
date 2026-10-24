@@ -23,7 +23,7 @@ export const TOUR_STEPS = [
   {
     id: 'health',
     view: 'health',
-    anchors: ['health'],
+    anchors: ['health', 'more'],
     title: 'Your Health Score',
     body: "One number, 0–100, for how your water is tracking. Open this first — if it's green, there's nothing to do today.",
   },
@@ -37,14 +37,14 @@ export const TOUR_STEPS = [
   {
     id: 'plan',
     view: 'plan',
-    anchors: ['plan'],
+    anchors: ['plan', 'more'],
     title: "Today's plan",
     body: 'After a test, the plan lists what to add, in the right order, in grams and millilitres for your pool. Tap "I added it" as you go — each dose goes in your history, and anything you haven\'t bought yet goes on the shopping list.',
   },
   {
     id: 'history',
     view: 'history',
-    anchors: ['history'],
+    anchors: ['history', 'more'],
     title: 'Chemistry log',
     body: 'Every test and treatment, kept on a timeline. This is the record that backs up a warranty claim, so it is worth keeping current.',
   },
