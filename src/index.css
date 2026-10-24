@@ -1532,6 +1532,13 @@ img, svg { display: block; max-width: 100%; }
   padding: 28px 24px;
   max-width: 480px;
 }
+/* The scanner's review screen is long on a phone (readings, date, notices).
+   The panel scrolls and the buttons stay pinned at the bottom of it. */
+.scanner-panel .modal-actions {
+  position: sticky; bottom: -28px; z-index: 1;
+  margin: 12px -24px -28px; padding: 12px 24px 20px;
+  background: var(--white); border-top: 1px solid var(--cc-border, #E3EAEE);
+}
 .test-editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
 @media (max-width: 340px) { .test-editor-grid { grid-template-columns: 1fr; } }
 .test-editor-problem { margin: 8px 0 0; font-size: 17px; color: var(--red); line-height: 1.4; }

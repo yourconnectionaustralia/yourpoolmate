@@ -16,7 +16,8 @@
 import { useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { compressImage } from '../lib/imageCompress.js';
-import { SCAN_FIELDS, conflictMessage, hasReadings, mergeScans } from '../lib/scanMerge.js';
+import { SCAN_FIELDS, conflictMessage, daysOld, duplicateTest, hasReadings, mergeMeta, mergeScans, volumeNotice } from '../lib/scanMerge.js';
+import { isoFromDateInput, toDateInput } from '../lib/testFields.js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -69,7 +70,9 @@ async function scanPhoto(file, session) {
   return { dataUrl, blob, data };
 }
 
-export default function WaterTestScanner({ onClose, onComplete }) {
+// poolVolumeL: the volume in Pool setup, to check against the printout's.
+// history: saved tests, to warn when this printout is already in the record.
+export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = null, history = [] }) {
   const [state, setState] = useState('pick'); // pick | scanning | review | adding | error
   const [preview, setPreview] = useState(null);
   const [values, setValues] = useState({});   // app-keyed editable strings
@@ -81,6 +84,9 @@ export default function WaterTestScanner({ onClose, onComplete }) {
   const [keepPhoto, setKeepPhoto] = useState(true);
   const [progress, setProgress] = useState(null);   // { n, of } while photos are read
   const [notice, setNotice] = useState('');         // review-screen message after adding photos
+  const [testDate, setTestDate] = useState(() => toDateInput(new Date().toISOString()));
+  const [dateSource, setDateSource] = useState('today'); // 'printout' | 'today' | 'you'
+  const [printoutVolumeL, setPrintoutVolumeL] = useState(null);
   const fileRef = useRef(null);      // camera
   const galleryRef = useRef(null);   // photo library, several at once
   const intent = useRef('replace');  // 'replace' = start over, 'add' = merge into what is on screen
@@ -143,6 +149,16 @@ export default function WaterTestScanner({ onClose, onComplete }) {
     );
     const last = read[read.length - 1].data;
 
+    // The test date and pool size printed on the printout. A date the owner has
+    // typed is never replaced by a later photo.
+    const meta = mergeMeta(
+      adding ? { testDate: dateSource === 'printout' ? testDate : null, poolVolumeL: printoutVolumeL } : {},
+      read.map(r => r.data),
+    );
+    if (meta.testDate && dateSource !== 'you') { setTestDate(meta.testDate); setDateSource('printout'); }
+    else if (!adding) { setTestDate(toDateInput(new Date().toISOString())); setDateSource('today'); }
+    setPrintoutVolumeL(meta.poolVolumeL);
+
     setValues(merged.values);
     setConfidence(merged.confidence);
     setNotes(merged.notes);
@@ -154,11 +170,14 @@ export default function WaterTestScanner({ onClose, onComplete }) {
     if (picked.length > MAX_PHOTOS) messages.push(`Only the first ${MAX_PHOTOS} photos were read.`);
     if (unreadable) messages.push(`${unreadable === 1 ? 'One photo' : `${unreadable} photos`} had no readings that could be read.`);
     if (merged.conflicts.length) messages.push(conflictMessage(merged.conflicts));
+    for (const c of meta.conflicts) messages.push(c.message);
     if (stopped) messages.push(stopped);
     setNotice(messages.join(' '));
     setProgress(null);
     setState('review');
   };
+
+  const todayInput = toDateInput(new Date().toISOString());
 
   const handleUse = () => {
     // Values the OCR couldn't read stay null ("not tested") — they're skipped
@@ -170,9 +189,12 @@ export default function WaterTestScanner({ onClose, onComplete }) {
       alkalinity:      num(values.alkalinity),
       cyanuricAcid:    num(values.cyanuricAcid),
       calciumHardness: num(values.calciumHardness),
-      createdAt: new Date().toISOString(),
+      // The date on the printout, or today. The same midday rule as Add a past result.
+      createdAt: isoFromDateInput(testDate > todayInput ? todayInput : testDate, new Date().toISOString()),
       source: 'ocr',
     };
+    // Held for the pool-size prompt when Pool setup has no volume yet. Not saved.
+    if (printoutVolumeL) result.printoutVolumeL = printoutVolumeL;
     if (values.salt !== '' && values.salt !== undefined) result.salt = num(values.salt);
     if (values.totalChlor !== '' && values.totalChlor !== undefined) result.totalChlor = num(values.totalChlor);
     // The photo is kept with the test as evidence, unless the owner unticked it.
@@ -191,7 +213,7 @@ export default function WaterTestScanner({ onClose, onComplete }) {
     // Once photos have been read, a stray tap outside must not throw the
     // readings away: Discard is the only way out of the review screen.
     <div className="modal-backdrop" onClick={state === 'pick' || state === 'error' ? onClose : undefined}>
-      <div className="modal-panel" onClick={e => e.stopPropagation()}>
+      <div className="modal-panel modal-panel-tall scanner-panel" onClick={e => e.stopPropagation()}>
         <div className="modal-title">Scan test results</div>
 
         {/* Two hidden inputs. `capture` makes iPhone and Android open the camera
@@ -282,21 +304,14 @@ export default function WaterTestScanner({ onClose, onComplete }) {
             {notice && (
               <p role="status" style={{ fontSize: 17, color: 'var(--amber)', marginBottom: 12 }}>{notice}</p>
             )}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => choose(galleryRef, 'add')}>
-                {state === 'adding' && progress ? `Reading photo ${progress.n} of ${progress.of}…` : 'Add more photos'}
-              </button>
-              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => choose(fileRef, 'add')}>
-                Take another photo
-              </button>
-              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => { setNotice(''); setValues({}); setPhotoBlob(null); setPreview(null); setState('pick'); }}>
-                Start again with a different photo
-              </button>
-            </div>
-            <label className="keep-photo">
-              <input type="checkbox" checked={keepPhoto} onChange={e => setKeepPhoto(e.target.checked)} />
-              <span>Keep {photoBlob ? 'the first photo' : 'this photo'} with the test. It is proof of the result, and only you can see it.</span>
-            </label>
+            {duplicateTest(history, testDate, values) && (
+              <p role="status" style={{ fontSize: 17, color: 'var(--amber)', marginBottom: 12 }}>
+                You already have a test from {new Date(`${testDate}T12:00:00`).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })} with these readings. Using them again adds a second copy.
+              </p>
+            )}
+            {volumeNotice(printoutVolumeL, poolVolumeL) && (
+              <p role="status" style={{ fontSize: 17, color: 'var(--amber)', marginBottom: 12 }}>{volumeNotice(printoutVolumeL, poolVolumeL)}</p>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
               {FIELD_MAP.filter(f => f.app !== 'salt' || values.salt !== '').map(f => (
                 <div key={f.app} className="input-group">
@@ -314,6 +329,37 @@ export default function WaterTestScanner({ onClose, onComplete }) {
                   />
                 </div>
               ))}
+            </div>
+            <div className="input-group" style={{ marginBottom: 16 }}>
+              <label className="input-label" htmlFor="scan-date">Date of test</label>
+              <input
+                id="scan-date"
+                className="input"
+                type="date"
+                max={todayInput}
+                value={testDate}
+                onChange={e => { setTestDate(e.target.value || todayInput); setDateSource('you'); }}
+              />
+              <p style={{ fontSize: 15, color: 'var(--gray-mid)', marginTop: 6 }}>
+                {dateSource === 'printout' && 'Read from the printout. '}
+                {dateSource === 'today' && 'No date found on the printout, so this is today. Change it if the test was done earlier. '}
+                {daysOld(testDate) >= 2 && `These readings are ${daysOld(testDate)} days old, so your Health Score page will show them that way.`}
+              </p>
+            </div>
+            <label className="keep-photo">
+              <input type="checkbox" checked={keepPhoto} onChange={e => setKeepPhoto(e.target.checked)} />
+              <span>Keep {photoBlob ? 'the first photo' : 'this photo'} with the test. It is proof of the result, and only you can see it.</span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => choose(galleryRef, 'add')}>
+                {state === 'adding' && progress ? `Reading photo ${progress.n} of ${progress.of}…` : 'Add more photos'}
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => choose(fileRef, 'add')}>
+                Take another photo
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => { setNotice(''); setValues({}); setPhotoBlob(null); setPreview(null); setPrintoutVolumeL(null); setDateSource('today'); setTestDate(todayInput); setState('pick'); }}>
+                Start again with a different photo
+              </button>
             </div>
           </>
         )}

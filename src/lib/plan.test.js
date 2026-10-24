@@ -265,3 +265,18 @@ test('amount helpers round-trip', () => {
   assert.deepEqual(amountForForm({ grams: 2300 }), { value: '2.3', unit: 'kg' });
   assert.deepEqual(amountForForm({ millilitres: 540 }), { value: '540', unit: 'mL' });
 });
+
+test('4,572 ppm salt with no chlorinator on file is in range, so no drain-and-refill step', () => {
+  const ctx = planContext({ pool: { ...POOL, sanitiser: 'Saltwater chlorinator' }, postcode: '3144', now: APR });
+  const plan = buildPlan({ ...BALANCED, salt: 4572 }, ctx, APR);
+  assert.equal(plan.steps.some((st) => st.key === 'salt'), false);
+  const row = plan.rows.find((r) => r.key === 'salt');
+  assert.equal(row.state, 'ok');
+  assert.equal(row.target, '3,000–5,000');
+  // Past the band it is still flagged.
+  const high = buildPlan({ ...BALANCED, salt: 5400 }, ctx, APR);
+  assert.equal(high.steps.some((st) => st.key === 'salt' && st.state === 'high'), true);
+  // A chlorinator's own band still wins.
+  const own = planContext({ pool: { ...POOL, sanitiser: 'Saltwater chlorinator' }, saltRange: { lo: 900, hi: 2000 }, postcode: '3144', now: APR });
+  assert.equal(buildPlan({ ...BALANCED, salt: 4572 }, own, APR).steps.some((st) => st.key === 'salt' && st.state === 'high'), true);
+});
