@@ -22,10 +22,11 @@
 //   SUPABASE_SERVICE_ROLE_KEY — auto-provided by Supabase
 //   SUPABASE_URL              — auto-provided by Supabase
 // Optional:
-//   OCR_MODEL — defaults to claude-haiku-4-5 (alias → current Haiku 4.5 snapshot)
+//   OCR_MODEL — tried first when set. Otherwise DEFAULT_MODELS below, in order.
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { cleanReadings, parseModelJson, sanityCheck } from "../_shared/ocr-readings.js"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -42,16 +43,20 @@ const ALLOWED_MEDIA_TYPES = new Set([
   "image/jpeg", "image/png", "image/webp", "image/gif",
 ])
 
-// Prefer the alias; fall back to the pinned snapshot if the alias fails.
+// A printout is a dense page with bubbles, handwriting and show-through, so the
+// strongest model comes first. A model the key can't use (404 not found, 403 no
+// access) moves on to the next one, ending at the pinned Haiku snapshot.
 const DEFAULT_MODELS = [
+  "claude-sonnet-5-5",
+  "claude-haiku-5-5",
   "claude-haiku-4-5",
   "claude-haiku-4-5-20251001",
 ]
 
 // The readings we ask Claude to extract. Keys match the water_tests columns.
-const EXTRACTION_PROMPT = `You are reading a photo of a swimming pool water test result — either a pool shop printout or a test strip chart. Extract the chemical readings.
+const EXTRACTION_PROMPT = `You are reading a photo of a swimming pool water test result — a pool shop printout (often several pages, photographed one page at a time) or a test strip chart. Extract the MEASURED readings only.
 
-Return ONLY a JSON object, no other text, with exactly these keys (use null for anything not visible or not legible):
+Return ONLY a JSON object, no other text, with exactly these keys (use null for anything not on this page or not legible):
 
 {
   "ph": number | null,
@@ -67,11 +72,31 @@ Return ONLY a JSON object, no other text, with exactly these keys (use null for 
   "notes": string | null                 // anything ambiguous, e.g. "salt value partially obscured"
 }
 
-Rules:
-- Numbers only — strip units.
-- If the printout shows a range (e.g. "7.2-7.6"), that is a TARGET range, not the reading. Only extract actual measured values.
+Where the measured value is:
+- On chart-style printouts (for example Swimart) each test has a coloured bar, and the measured value is the number inside the round marker sitting on that bar. The other numbers near it are NOT readings: "Low range", "Desired range" and "High range" are target ranges, "Previous" is the last visit's result, and "Dosage" is how much product to add.
+- On table-style printouts it is the column headed Result, Reading or Your result.
+
+Never use these as readings:
+- Target ranges (e.g. "7.2-7.6", "Desired Range 2-5").
+- Numbers beside the word "Previous" (the earlier test).
+- Dosage amounts or product sizes (e.g. "0.36kg", "0.64L", "2.76kg").
+- Handwriting or pen notes added by hand (e.g. "2k Alk", "700ml Acid"). They are instructions, not results.
+- Pool volume, dates, customer numbers.
+- Faint, washed-out, mirrored or reversed text that shows through from the back of the page.
+
+Matching names to keys:
+- free_chlorine: "Free Chlorine". total_chlorine: "Total Chlorine". "Combined Chlorine" is neither, leave it out.
+- alkalinity: "Alkalinity" or "Total Alkalinity".
+- cyanuric_acid: "Cyanuric Acid", "CYA", "Stabiliser", "Conditioner" or a brand name such as "Sunscreen (Stabiliser)".
+- calcium: only a line named "Calcium Hardness" (some printouts add "(Salt)"). "Total Hardness" and "Magnesium Hardness" are different tests: do not use them for calcium. If there is no Calcium Hardness line, use null.
+- salt: "Salt" or "Salt Level".
+
+Formatting:
+- Plain numbers only, no units and no thousands separators: write 4572, not "4,572" or "4 572".
+- A reading of 0 is a real reading: return 0, not null.
+- Use null for any test that is not on this page. A page with only some of the tests is normal.
 - If you cannot find any water test data in the image, return all readings as null with confidence "low" and explain in notes.
-- Never guess a value you cannot actually read.`
+- Never guess a value you cannot actually read. If the number in the marker is partly hidden or blurred, use null and say so in notes.`
 
 const RECEIPT_PROMPT = `You are reading a photo of a receipt from a pool shop or hardware store. List the pool chemical products on it.
 
@@ -330,13 +355,13 @@ serve(async (req) => {
         lastFail = { status: result.status, errText: result.errText }
         console.error("OCR Anthropic fail model=", model, "attempt=", attempt + 1, "status=", result.status)
 
-        // Bad key / bad model — don't burn retries on the same model
-        if (result.status === 401 || result.status === 403) {
+        // Bad key: no other model will work either.
+        if (result.status === 401) {
           await admin.from("ocr_calls").insert({ user_id: user.id, status: "error" })
           return providerErrorResponse(result.status, result.errText)
         }
-        if (result.status === 404) {
-          // try next model candidate
+        if (result.status === 404 || result.status === 403) {
+          // This model isn't available to the key: try the next candidate
           break
         }
         if ((result.status === 429 || result.status === 529) && attempt === 0) {
@@ -347,8 +372,8 @@ serve(async (req) => {
         break
       }
       if (!lastFail) break // success
-      // 401 already returned; 404 tries next model; others stop after exhausting retries
-      if (lastFail.status !== 404) break
+      // 401 already returned; 404 and 403 try the next model; others stop after exhausting retries
+      if (lastFail.status !== 404 && lastFail.status !== 403) break
     }
 
     if (lastFail) {
@@ -359,9 +384,8 @@ serve(async (req) => {
     // ── 5. Parse + sanitise the model's JSON ──────────────────
     let parsed: Record<string, unknown>
     try {
-      // Tolerate accidental markdown fencing
-      const cleaned = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim()
-      parsed = JSON.parse(cleaned)
+      // Tolerates markdown fences, chatter around the object, and "4,572"-style numbers
+      parsed = parseModelJson(rawText)
     } catch {
       console.error("OCR returned unparseable output:", rawText.slice(0, 200))
       await admin.from("ocr_calls").insert({ user_id: user.id, status: "error" })
@@ -385,22 +409,16 @@ serve(async (req) => {
       })
     }
 
-    // Clamp to plausible physical bounds; junk → null
-    const bounds: Record<string, [number, number]> = {
-      ph: [0, 14], free_chlorine: [0, 20], total_chlorine: [0, 20],
-      alkalinity: [0, 500], cyanuric_acid: [0, 300], calcium: [0, 1500],
-      salt: [0, 20000], phosphates: [0, 10000], tds: [0, 50000],
-    }
-    const readings: Record<string, number | null> = {}
-    for (const [key, [lo, hi]] of Object.entries(bounds)) {
-      const v = parsed[key]
-      const n = typeof v === "number" ? v : parseFloat(String(v))
-      readings[key] = Number.isFinite(n) && n >= lo && n <= hi ? n : null
-    }
+    // Clamp to plausible physical bounds; junk → null. Reads "4,572" as 4572.
+    const readings = cleanReadings(parsed)
 
-    const confidence = ["high", "medium", "low"].includes(String(parsed.confidence))
-      ? String(parsed.confidence) : "low"
-    const notes = typeof parsed.notes === "string" ? parsed.notes.slice(0, 500) : null
+    const checked = sanityCheck(
+      readings,
+      ["high", "medium", "low"].includes(String(parsed.confidence)) ? String(parsed.confidence) : "low",
+      typeof parsed.notes === "string" ? parsed.notes.slice(0, 500) : null,
+    )
+    const confidence = checked.confidence
+    const notes = checked.notes
 
     // ── 6. Log the successful call ────────────────────────────
     await admin.from("ocr_calls").insert({ user_id: user.id, status: "ok" })
