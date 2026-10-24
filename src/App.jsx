@@ -561,6 +561,76 @@ function MobileNav({ activeView, onNav, pendingActions, onMore, onLogTest }) {
 // MOBILE MORE DRAWER (slide-up sheet)
 // ─────────────────────────────────────────────────────────────────
 function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feedbackNoteCount = 0, pins = [], onTogglePin, pinNotice, shopCount = 0 }) {
+  const sheetRef = useRef(null);
+  const grabRef = useRef(null);
+
+  // Swipe down to close. The grab bar always drags; the rest of the sheet drags
+  // only when it is scrolled to the top, so scrolling the list still works.
+  // Native listeners (not React's) so a downward drag can stop the page from
+  // scrolling or pull-to-refreshing underneath.
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    const grab = grabRef.current;
+    if (!sheet || !grab) return undefined;
+    let startY = 0;
+    let startT = 0;
+    let dy = 0;
+    let armed = false;
+    let dragging = false;
+    const setY = (y, animate) => {
+      sheet.style.transition = animate ? 'transform 0.2s ease-out' : 'none';
+      sheet.style.transform = y ? `translateY(${y}px)` : '';
+    };
+    const onStart = (e) => {
+      if (e.touches.length !== 1) return;
+      startY = e.touches[0].clientY;
+      startT = Date.now();
+      dy = 0;
+      dragging = false;
+      armed = grab.contains(e.target) || sheet.scrollTop <= 0;
+    };
+    const onMove = (e) => {
+      if (!armed) return;
+      dy = e.touches[0].clientY - startY;
+      if (dy <= 0) {
+        if (dragging) setY(0, false);
+        return;
+      }
+      if (!dragging && dy < 6) return;
+      dragging = true;
+      if (e.cancelable) e.preventDefault();
+      setY(dy, false);
+    };
+    const onEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+      armed = false;
+      const speed = dy / Math.max(1, Date.now() - startT);
+      if (dy > 70 || speed > 0.5) {
+        setY(sheet.offsetHeight, true);
+        window.setTimeout(onClose, 160);
+      } else {
+        setY(0, true);
+      }
+    };
+    sheet.addEventListener('touchstart', onStart, { passive: true });
+    sheet.addEventListener('touchmove', onMove, { passive: false });
+    sheet.addEventListener('touchend', onEnd);
+    sheet.addEventListener('touchcancel', onEnd);
+    return () => {
+      sheet.removeEventListener('touchstart', onStart);
+      sheet.removeEventListener('touchmove', onMove);
+      sheet.removeEventListener('touchend', onEnd);
+      sheet.removeEventListener('touchcancel', onEnd);
+    };
+  }, [onClose]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const items = [
     { view: 'shed',      icon: Icon.droplet,    label: 'My Shed' },
     { view: 'shop',      icon: Icon.check,      label: 'Shopping list', badge: shopCount },
@@ -577,8 +647,10 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feed
   return (
     <>
       <div className="mobile-drawer-backdrop" onClick={onClose} />
-      <div className="mobile-drawer">
-        <div className="mobile-drawer-handle" />
+      <div className="mobile-drawer" ref={sheetRef} role="dialog" aria-label="More">
+        <button type="button" className="mobile-drawer-grab" ref={grabRef} onClick={onClose} aria-label="Close menu">
+          <span className="mobile-drawer-handle" />
+        </button>
         {items.map(item => (
           <div key={item.view} className="mobile-drawer-row">
             <button
@@ -596,14 +668,20 @@ function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feed
                 className={`pin-toggle${pins.includes(item.view) ? ' is-on' : ''}`}
                 aria-pressed={pins.includes(item.view)}
                 aria-label={`${pins.includes(item.view) ? 'Unpin' : 'Pin'} ${item.label} ${pins.includes(item.view) ? 'from' : 'to'} Home`}
-                onClick={() => onTogglePin(item.view)}
+                onClick={() => onTogglePin(item.view, item.label)}
               >
-                {pins.includes(item.view) ? '★' : '☆'}
+                <span className="pin-star" aria-hidden="true">{pins.includes(item.view) ? '★' : '☆'}</span>
+                <span className="pin-word">{pins.includes(item.view) ? 'On Home' : 'Pin'}</span>
               </button>
             )}
           </div>
         ))}
-        {pinNotice && <p className="mobile-drawer-note" role="status">{pinNotice}</p>}
+        <p className="mobile-drawer-note" role="status">
+          {pinNotice || 'Tap ☆ to put a shortcut on your Health Score page.'}
+          {pinNotice && pins.length > 0 && !/Unpin one/.test(pinNotice) && (
+            <button type="button" className="mobile-drawer-note-link" onClick={() => { onNav('health'); onClose(); }}>See Home</button>
+          )}
+        </p>
         <button
           className="mobile-drawer-item"
           onClick={() => { onClose(); onHelp?.(); }}
@@ -2922,9 +3000,11 @@ export default function App() {
       setShed((sh) => ({ ...sh, items: prev }));
     });
   };
-  const handleTogglePin = (view) => {
+  const handleTogglePin = (view, label) => {
     const result = togglePin(pins, view);
-    setPinNotice(result.notice);
+    const name = label || view;
+    setPinNotice(result.notice
+      || (result.pins.includes(view) ? `Pinned ${name} to Home.` : `Removed ${name} from Home.`));
     if (result.pins === pins) return;
     setPins(result.pins);
     try { localStorage.setItem('ypm.pins.v1', JSON.stringify(result.pins)); } catch { /* private mode */ }
@@ -3245,7 +3325,7 @@ export default function App() {
         activeView={activeView}
         onNav={(view) => { setActiveView(view); setMobileDrawerOpen(false); }}
         pendingActions={pendingActions}
-        onMore={() => setMobileDrawerOpen(v => !v)}
+        onMore={() => { setPinNotice(null); setMobileDrawerOpen(v => !v); }}
         onLogTest={goLogTest}
       />
 
@@ -3254,7 +3334,7 @@ export default function App() {
         <MobileMoreDrawer
           activeView={activeView}
           onNav={setActiveView}
-          onClose={() => setMobileDrawerOpen(false)}
+          onClose={() => { setPinNotice(null); setMobileDrawerOpen(false); }}
           onHelp={() => setShowHelp(true)}
           onFeedback={openFeedback}
           feedbackNoteCount={feedbackNoteCount}
