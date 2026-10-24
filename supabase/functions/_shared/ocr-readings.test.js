@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import test from "node:test"
-import { cleanPoolVolume, cleanReadings, cleanTestDate, parseModelJson, parseReading, sanityCheck } from "./ocr-readings.js"
+import { cleanPoolVolume, cleanReadings, cleanTestDate, isBillingError, parseModelJson, parseReading, sanityCheck } from "./ocr-readings.js"
 
 // What a correct read of the two Swimart printout pages looks like.
 const PAGE_1 = '{"ph":7.9,"free_chlorine":0.61,"total_chlorine":0.68,"alkalinity":83,"cyanuric_acid":null,"calcium":null,"salt":4572,"phosphates":null,"tds":null,"confidence":"high","notes":null}'
@@ -122,4 +122,20 @@ test("pool volume reads 39,200 Litres and drops misreads", () => {
   assert.equal(cleanPoolVolume(39.2), null)
   assert.equal(cleanPoolVolume(4000000), null)
   assert.equal(cleanPoolVolume(null), null)
+})
+
+test("an Anthropic account with no credit is not reported as a bad photo", () => {
+  const body = '{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}}'
+  assert.equal(isBillingError(400, body), true)
+  assert.equal(isBillingError(400, '{"error":{"message":"image: could not process image"}}'), false)
+  assert.equal(isBillingError(429, body), false)
+  assert.equal(isBillingError(400, undefined), false)
+})
+
+test("a billing failure costs the owner nothing and says scanning is paused", () => {
+  const src = readFileSync(new URL("../ocr-water-test/index.ts", import.meta.url), "utf8")
+  assert.match(src, /isBillingError\(status, errText\)/)
+  assert.match(src, /code: "OCR_PROVIDER_BILLING"/)
+  // Neither a billing nor a key failure uses up one of the owner's 10 scans an hour.
+  assert.match(src, /!isBillingError\(lastFail\.status, lastFail\.errText\) && lastFail\.status !== 401/)
 })
