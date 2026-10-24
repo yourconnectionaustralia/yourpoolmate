@@ -20,6 +20,7 @@
 import { useState } from 'react';
 import styles from './WaterTrendChart.module.css';
 import { isCareEvent } from '../lib/equipmentCare.js';
+import { DAY_MS, availablePresets, toDay, trendWindow } from '../lib/trendRange.js';
 
 // ── Series config ────────────────────────────────────────────
 // lo/hi = ideal target band. decimals = display precision.
@@ -73,7 +74,21 @@ const valOf = (h, s) => {
   return Number.isFinite(v) ? v : null;
 };
 
-export function WaterTrendChart({ history = [], events = [], gaps = [], saltRange = null, calciumBand = null }) {
+export function WaterTrendChart({ history: allHistory = [], events: allEvents = [], gaps: allGaps = [], saltRange = null, calciumBand = null }) {
+  const [selectedKey, setSelectedKey] = useState('freeChlor');
+  const [active, setActive] = useState(null); // { key, i } | null
+  const [range, setRange] = useState({ preset: 'all', from: '', to: '' });
+
+  // The graph starts on the day of the first test, and the owner can narrow it.
+  // Events and untested-gap bands are cut to the same window.
+  const now = Date.now();
+  const presets = availablePresets(allHistory, now);
+  const effective = range.preset === 'custom' || presets.some(p => p.key === range.preset) ? range : { preset: 'all' };
+  const win = trendWindow({ history: allHistory, events: allEvents, gaps: allGaps, range: effective, now });
+  const { history, events, gaps } = win;
+  const today = toDay(now);
+  const pickRange = (next) => { setRange(next); setActive(null); };
+
   // Salt follows the owner's chlorinator. Calcium follows the surface band
   // (vinyl has no low floor; hard surfaces stay 200–400).
   const seriesList = SERIES.map(s => {
@@ -83,7 +98,7 @@ export function WaterTrendChart({ history = [], events = [], gaps = [], saltRang
     }
     return s;
   });
-  // Which series can actually be shown (has at least one data point).
+  // Which series can actually be shown (has at least one data point in the window).
   const hasSalt = history.some(h => Number.isFinite(h.salt) && h.salt > 0);
   const available = seriesList.filter(s => {
     if (s.saltOnly && !hasSalt) return false;
@@ -91,12 +106,67 @@ export function WaterTrendChart({ history = [], events = [], gaps = [], saltRang
     return history.some(h => valOf(h, s) != null);
   });
 
-  const [selectedKey, setSelectedKey] = useState('freeChlor');
-  const [active, setActive] = useState(null); // { key, i } | null
-
   const isAll = selectedKey === ALL_KEY;
   const series = available.find(s => s.key === selectedKey) || available[0];
-  if (!series) return null;
+
+  const rangeControls = win.firstDay ? (
+    <div className={styles.range}>
+      <div className={styles.chips} role="group" aria-label="Choose a date range">
+        {presets.map(p => (
+          <button
+            key={p.key}
+            type="button"
+            aria-pressed={effective.preset === p.key}
+            className={`${styles.chip} ${effective.preset === p.key ? styles.chipActive : ''}`}
+            onClick={() => pickRange({ preset: p.key, from: '', to: '' })}
+          >
+            {p.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          aria-pressed={effective.preset === 'custom'}
+          className={`${styles.chip} ${effective.preset === 'custom' ? styles.chipActive : ''}`}
+          onClick={() => pickRange({ preset: 'custom', from: win.firstDay, to: today })}
+        >
+          Pick dates
+        </button>
+      </div>
+      {effective.preset === 'custom' && (
+        <div className={styles.rangeDates}>
+          <label className={styles.rangeLabel}>
+            From
+            <input
+              type="date" className={styles.rangeInput}
+              min={win.firstDay} max={today}
+              value={effective.from || win.firstDay}
+              onChange={e => pickRange({ ...effective, from: e.target.value })}
+            />
+          </label>
+          <label className={styles.rangeLabel}>
+            To
+            <input
+              type="date" className={styles.rangeInput}
+              min={win.firstDay} max={today}
+              value={effective.to || today}
+              onChange={e => pickRange({ ...effective, to: e.target.value })}
+            />
+          </label>
+        </div>
+      )}
+      <p className={styles.rangeCaption}>
+        {win.empty
+          ? 'No water tests in these dates. Try a wider range.'
+          : `Showing ${fmtDateYr(win.from)} to ${fmtDateYr(win.to)} · ${history.length} ${history.length === 1 ? 'test' : 'tests'}.${toDay(win.from) === win.firstDay ? '' : ` Your first test was ${fmtDateYr(new Date(`${win.firstDay}T12:00:00`).toISOString())}.`}`}
+      </p>
+    </div>
+  ) : null;
+
+  if (!series) {
+    // Nothing tested at all: nothing to draw. Tests exist but none fall in the
+    // chosen dates: keep the date controls so the range can be changed back.
+    return win.firstDay ? <div className={styles.wrap}>{rangeControls}</div> : null;
+  }
 
   // ── Geometry ──────────────────────────────────────────────
   const W = 720, H = 320;
@@ -104,16 +174,11 @@ export function WaterTrendChart({ history = [], events = [], gaps = [], saltRang
   const x0 = padL, x1 = W - padR, y0 = padT, y1 = H - padB;
   const plotW = x1 - x0, plotH = y1 - y0;
 
-  // Time domain — span the tests, plus any events / gap-ends so they stay on canvas.
-  const times = [
-    ...history.map(h => +new Date(h.createdAt)),
-    ...events.map(e => +new Date(e.date)),
-    ...gaps.flatMap(g => [+new Date(g.start), +new Date(g.end)]),
-  ].filter(Number.isFinite);
-  let tMin = Math.min(...times);
-  let tMax = Math.max(...times);
-  if (!Number.isFinite(tMin)) { tMin = Date.now(); tMax = Date.now(); }
-  if (tMin === tMax) { tMin -= 86400000; tMax += 86400000; } // 1-day pad for single point
+  // Time domain: the chosen window. Never before the first test. A window
+  // under a day wide (one test) is padded so the point sits mid-graph.
+  let tMin = win.from;
+  let tMax = win.to;
+  if (tMax - tMin < DAY_MS) { const mid = (tMin + tMax) / 2; tMin = mid - DAY_MS; tMax = mid + DAY_MS; }
   const xFor = (t) => x0 + ((+new Date(t) - tMin) / (tMax - tMin)) * plotW;
 
   // ── Single-series value domain — data range widened to include the
@@ -166,6 +231,12 @@ export function WaterTrendChart({ history = [], events = [], gaps = [], saltRang
     return { t, x: xFor(t) };
   });
 
+  // Add the year to the axis once the graph spans most of a year.
+  const longSpan = tMax - tMin > 300 * DAY_MS;
+  const fmtTick = (t) => (longSpan
+    ? new Date(t).toLocaleDateString('en-AU', { month: 'short', year: '2-digit' })
+    : fmtDate(t));
+
   const fmtValFor = (s, v) => (s.decimals ? v.toFixed(s.decimals) : Math.round(v).toString());
 
   // Active readout — works in both modes.
@@ -177,6 +248,8 @@ export function WaterTrendChart({ history = [], events = [], gaps = [], saltRang
 
   return (
     <div className={styles.wrap}>
+      {rangeControls}
+
       {/* Chemical toggle chips */}
       <div className={styles.chips} role="tablist" aria-label="Choose a measurement">
         <button
@@ -272,8 +345,9 @@ export function WaterTrendChart({ history = [], events = [], gaps = [], saltRang
 
         {/* X labels */}
         {xLabels.map((t, k) => (
-          <text key={`x-${k}`} x={t.x} y={y1 + 22} className={styles.axisLabel} textAnchor="middle">
-            {fmtDate(t.t)}
+          <text key={`x-${k}`} x={t.x} y={y1 + 22} className={styles.axisLabel}
+                textAnchor={k === 0 ? 'start' : k === xLabels.length - 1 ? 'end' : 'middle'}>
+            {fmtTick(t.t)}
           </text>
         ))}
 
