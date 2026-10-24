@@ -48,7 +48,7 @@ const RANGES: Record<string, { min: number; max: number }> = {
   alkalinity:    { min: 80,   max: 120  },
   cyanuric_acid: { min: 30,   max: 50   },
   calcium:       { min: 200,  max: 400  },
-  salt:          { min: 3000, max: 4500 }, // matches the 3000–4500 target shown in the app UI
+  salt:          { min: 3000, max: 5000 }, // matches the app default; chlorinator bands top out at 5000
 }
 
 // Plausible physical bounds — anything outside is treated as bad input,

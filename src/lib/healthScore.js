@@ -33,16 +33,20 @@ const WEIGHTS_SALTWATER = {
   calciumHardness: 0.075,
 };
 
-// Target ranges (AU residential). Salt matches the 3000–4500 target shown
-// throughout the UI. Calcium 200–400 is the hard-surface band (pebblecrete,
-// concrete, tile, painted concrete). Vinyl is handled separately below.
+// Target ranges (AU residential). Salt is 3000–5000 unless the owner's
+// chlorinator says otherwise: the AstralPool, Zodiac and Pool Controls bands in
+// CHLORINATOR_SALT_RANGES below all top out at 5000, so a pool at 4,600 is not
+// flagged as too salty (it used to be, and the plan said to drain and refill).
+// Pool shop printouts use their own, often higher, bands: those are never used here.
+// Calcium 200–400 is the hard-surface band (pebblecrete, concrete, tile,
+// painted concrete). Vinyl is handled separately below.
 export const SCORE_RANGES = {
   freeChlor:       { min: 1.0,  max: 3.0  },
   pH:              { min: 7.2,  max: 7.6  },
   alkalinity:      { min: 80,   max: 120  },
   cyanuricAcid:    { min: 30,   max: 50   },
   calciumHardness: { min: 200,  max: 400  },
-  salt:            { min: 3000, max: 4500 },
+  salt:            { min: 3000, max: 5000 },
 };
 
 // Setup lists each surface on its own. Fibreglass is not grouped with vinyl,

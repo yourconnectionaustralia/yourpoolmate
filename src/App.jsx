@@ -948,7 +948,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProf
     { key: 'alkalinity',      label: 'Total alkalinity', unit: 'ppm', placeholder: '80–120' },
     { key: 'cyanuricAcid',    label: 'Cyanuric acid',    unit: 'ppm', placeholder: '30–50' },
     { key: 'calciumHardness', label: 'Calcium hardness', unit: 'ppm', placeholder: '200–400' },
-    ...(saltPool ? [{ key: 'salt', label: 'Salt', unit: 'ppm', placeholder: saltRange ? `${saltRange.lo}–${saltRange.hi}` : '3000–4500' }] : []),
+    ...(saltPool ? [{ key: 'salt', label: 'Salt', unit: 'ppm', placeholder: saltRange ? `${saltRange.lo}–${saltRange.hi}` : '3000–5000' }] : []),
     { key: 'totalChlor', label: 'Total chlorine', unit: 'ppm', placeholder: 'optional' },
     { key: 'phosphates', label: 'Phosphates', unit: 'ppb', placeholder: 'optional' },
     { key: 'tds',        label: 'Total dissolved solids', unit: 'ppm', placeholder: 'optional' },
@@ -2352,7 +2352,7 @@ function formatDate(iso) {
 // ─────────────────────────────────────────────────────────────────
 // VOLUME GATE — blocks saving a test until a pool volume is known.
 // ─────────────────────────────────────────────────────────────────
-function VolumeGateModal({ onCancel, onConfirm }) {
+function VolumeGateModal({ onCancel, onConfirm, suggestedL = null }) {
   const [litres, setLitres] = useState('');
   const [dims, setDims] = useState({ length: '', width: '', depth: '' });
 
@@ -2382,6 +2382,15 @@ function VolumeGateModal({ onCancel, onConfirm }) {
             onChange={e => setLitres(e.target.value)}
           />
         </div>
+
+        {suggestedL && (
+          <div style={{ fontSize: 17, marginBottom: 16 }}>
+            Your printout says <strong>{suggestedL.toLocaleString('en-AU')} L</strong>. Shops often estimate, so check it looks right.{' '}
+            <button className="btn btn-ghost btn-sm" type="button" onClick={() => setLitres(String(suggestedL))}>
+              Use this
+            </button>
+          </div>
+        )}
 
         <div style={{ fontSize: 17, color: 'var(--gray-mid)', marginBottom: 8 }}>
           Not sure? Estimate it from the pool's size (metres):
@@ -2512,6 +2521,7 @@ export default function App() {
   const [feedbackOpenToken, setFeedbackOpenToken] = useState(0);
   const [feedbackNoteCount, setFeedbackNoteCount] = useState(0);
   const [pendingTest, setPendingTest] = useState(null); // test awaiting a pool volume
+  const [suggestedVolumeL, setSuggestedVolumeL] = useState(null); // pool size printed on a scanned printout
   const [trialDaysLeft, setTrialDaysLeft] = useState(null);
   const [isPremium, setIsPremium] = useState(false);
   const [plan, setPlan] = useState(null); // 'founding_lifetime' | 'annual' | null
@@ -2783,24 +2793,37 @@ export default function App() {
 
   // Commit a test once we're sure a pool volume exists.
   const finalizeTest = (data, pool = poolProfile) => {
-    setTestData(data);
-    setTestHistory(h => [...h, data]);
+    // A scanned printout can be older than the latest test. Keep the history in
+    // date order and show the newest test as the current one, so an old printout
+    // never replaces a newer result on the Health Score page.
+    const isNewest = !testHistory.some(t => +new Date(t.createdAt) > +new Date(data.createdAt));
+    setTestHistory(h => {
+      const next = sortTests([...h, data]);
+      setTestData(next[next.length - 1]);
+      return next;
+    });
     persistTest(data, pool);
-    setActiveView('health');
+    // An older printout lands in the Chemistry log at its real date.
+    setActiveView(isNewest ? 'health' : 'history');
   };
 
   // Doses are useless without a real pool volume, so a test cannot be saved
   // until one is set. If it's missing, hold the test and open the volume gate.
-  const guardAndSave = (data) => {
+  const guardAndSave = (data, suggested = null) => {
     if (hasVolume(poolProfile)) {
       finalizeTest(data);
     } else {
+      setSuggestedVolumeL(suggested);
       setPendingTest(data);
     }
   };
 
   const handleLogTest = (data) => guardAndSave(data);
-  const handleScanComplete = (data) => guardAndSave({ ...data, source: 'ocr' });
+  const handleScanComplete = (data) => {
+    // The printout's pool size is only a suggestion for the volume prompt.
+    const { printoutVolumeL, ...test } = data;
+    guardAndSave({ ...test, source: 'ocr' }, printoutVolumeL ?? null);
+  };
   const handleVoiceComplete = (data) => guardAndSave({ ...data, source: 'voice' });
 
   // Volume captured in the gate → save to profile, then commit the held test.
@@ -3302,6 +3325,8 @@ export default function App() {
         <WaterTestScanner
           onClose={() => setShowScan(false)}
           onComplete={handleScanComplete}
+          poolVolumeL={hasVolume(poolProfile) ? poolProfile.volumeL : null}
+          history={testHistory}
         />
       )}
 
@@ -3317,6 +3342,7 @@ export default function App() {
         <VolumeGateModal
           onCancel={() => setPendingTest(null)}
           onConfirm={handleVolumeConfirmed}
+          suggestedL={suggestedVolumeL}
         />
       )}
 

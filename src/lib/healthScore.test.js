@@ -116,3 +116,12 @@ test('the edge function mirrors the covered-pool stabiliser rule', () => {
   assert.match(src, /function scoreStabiliser\(value: number, hasCover\?: boolean\)/);
   assert.match(src, /has_cover === true/);
 });
+
+test('salt up to 5000 scores full marks with no chlorinator band; above it does not', () => {
+  const base = { ...BALANCED, salt: 4572 };
+  assert.equal(calculateScore(base, 'Saltwater chlorinator', null, 'Pebblecrete'), 100);
+  assert.equal(calculateScore({ ...base, salt: 5000 }, 'Saltwater chlorinator', null, 'Pebblecrete'), 100);
+  assert.ok(calculateScore({ ...base, salt: 6500 }, 'Saltwater chlorinator', null, 'Pebblecrete') < 100);
+  const src = readFileSync(new URL('../../supabase/functions/calculate-health-score/index.ts', import.meta.url), 'utf8');
+  assert.match(src, /salt:\s+\{ min: 3000, max: 5000 \}/);
+});

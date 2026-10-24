@@ -330,7 +330,7 @@ export function rangeFor(key, ctx = {}, test = {}) {
     case 'cyanuricAcid': return hasCover ? { lo: 0, hi: 50, target: 'up to 50' } : { lo: 30, hi: 50, target: '30–50' };
     case 'calciumHardness': return calciumBand(surface);
     case 'salt': {
-      const r = saltRange || { lo: 3000, hi: 4500 };
+      const r = saltRange || { lo: 3000, hi: 5000 };
       return { lo: r.lo, hi: r.hi, target: `${thousands(r.lo)}–${thousands(r.hi)}` };
     }
     case 'phosphates': return { lo: 0, hi: 200, target: 'under 200' };

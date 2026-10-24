@@ -29,7 +29,7 @@ const SERIES = [
   { key: 'alkalinity',      label: 'Alkalinity',   unit: 'ppm',  lo: 80,   hi: 120,  decimals: 0 },
   { key: 'cyanuricAcid',    label: 'Cyanuric',     unit: 'ppm',  lo: 30,   hi: 50,   decimals: 0 },
   { key: 'calciumHardness', label: 'Calcium',      unit: 'ppm',  lo: 200,  hi: 400,  decimals: 0 },
-  { key: 'salt',            label: 'Salt',         unit: 'ppm',  lo: 3000, hi: 4500, decimals: 0, saltOnly: true },
+  { key: 'salt',            label: 'Salt',         unit: 'ppm',  lo: 3000, hi: 5000, decimals: 0, saltOnly: true },
   { key: 'score',           label: 'Health Score', unit: '/100', lo: 80,   hi: 100,  decimals: 0, isScore: true },
 ];
 

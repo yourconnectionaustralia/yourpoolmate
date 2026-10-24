@@ -62,6 +62,33 @@ export function cleanReadings(parsed) {
   return readings
 }
 
+// The date the water was tested, as YYYY-MM-DD, or null. A date that cannot be
+// right is dropped rather than saved: a misread year would put the test in the
+// wrong place in the owner's record.
+//   - must be a real calendar date
+//   - not in the future (2 days of slack: Australia is ahead of UTC)
+//   - not more than 2 years old
+export function cleanTestDate(v, now = new Date()) {
+  if (typeof v !== "string") return null
+  const m = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return null
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  const date = new Date(Date.UTC(y, mo - 1, d))
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return null
+  const dayMs = 24 * 60 * 60 * 1000
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  if (date.getTime() > today + 2 * dayMs) return null
+  if (date.getTime() < today - 730 * dayMs) return null
+  return v.trim()
+}
+
+// Pool volume in litres as printed on the printout, or null. A pool outside
+// 1,000 to 500,000 L is a misread (a kL figure left unconverted, say).
+export function cleanPoolVolume(v) {
+  const n = parseReading(v)
+  return n !== null && n >= 1000 && n <= 500000 ? Math.round(n) : null
+}
+
 const RANK = { high: 2, medium: 1, low: 0 }
 
 // Cross-checks a printout cannot get wrong. A failed check lowers confidence
