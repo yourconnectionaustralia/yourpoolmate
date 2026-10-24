@@ -26,7 +26,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { cleanReadings, parseModelJson, sanityCheck } from "../_shared/ocr-readings.js"
+import { cleanPoolVolume, cleanReadings, cleanTestDate, parseModelJson, sanityCheck } from "../_shared/ocr-readings.js"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -68,6 +68,8 @@ Return ONLY a JSON object, no other text, with exactly these keys (use null for 
   "salt": number | null,                 // ppm
   "phosphates": number | null,           // ppb or ppm as printed
   "tds": number | null,                  // total dissolved solids, ppm
+  "test_date": string | null,            // the day the water was tested, as YYYY-MM-DD
+  "pool_volume_l": number | null,        // pool volume in litres, as printed
   "confidence": "high" | "medium" | "low",  // your overall read confidence
   "notes": string | null                 // anything ambiguous, e.g. "salt value partially obscured"
 }
@@ -90,6 +92,10 @@ Matching names to keys:
 - cyanuric_acid: "Cyanuric Acid", "CYA", "Stabiliser", "Conditioner" or a brand name such as "Sunscreen (Stabiliser)".
 - calcium: only a line named "Calcium Hardness" (some printouts add "(Salt)"). "Total Hardness" and "Magnesium Hardness" are different tests: do not use them for calcium. If there is no Calcium Hardness line, use null.
 - salt: "Salt" or "Salt Level".
+
+test_date and pool_volume_l:
+- test_date is the day THIS test was done: the "Test date" on the printout, or the date beside the customer or pool number in the page header. It is never the "Previous test" date (e.g. "PREV TEST: 24 March 2026") and never a print date. Australian dates are day first: "15 October 2026" is 2026-10-15. If the day and month could be read either way (e.g. "04/05/2026") or the year is unclear, use null.
+- pool_volume_l is the "Pool Volume" printed in the header, in litres (convert kilolitres: 39.2 kL is 39200). Use null if it is not printed.
 
 Formatting:
 - Plain numbers only, no units and no thousands separators: write 4572, not "4,572" or "4 572".
@@ -419,12 +425,16 @@ serve(async (req) => {
     )
     const confidence = checked.confidence
     const notes = checked.notes
+    const testDate = cleanTestDate(parsed.test_date)
+    const poolVolumeL = cleanPoolVolume(parsed.pool_volume_l)
 
     // ── 6. Log the successful call ────────────────────────────
     await admin.from("ocr_calls").insert({ user_id: user.id, status: "ok" })
 
     return jsonResponse({
       readings,
+      test_date: testDate,
+      pool_volume_l: poolVolumeL,
       confidence,
       notes,
       source: "ocr",

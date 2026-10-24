@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import test from "node:test"
-import { cleanReadings, parseModelJson, parseReading, sanityCheck } from "./ocr-readings.js"
+import { cleanPoolVolume, cleanReadings, cleanTestDate, parseModelJson, parseReading, sanityCheck } from "./ocr-readings.js"
 
 // What a correct read of the two Swimart printout pages looks like.
 const PAGE_1 = '{"ph":7.9,"free_chlorine":0.61,"total_chlorine":0.68,"alkalinity":83,"cyanuric_acid":null,"calcium":null,"salt":4572,"phosphates":null,"tds":null,"confidence":"high","notes":null}'
@@ -86,10 +86,40 @@ test("the function keeps the guards that stop the known misreads", () => {
   assert.match(prompt, /"Total Hardness" and "Magnesium Hardness"/)
   assert.match(prompt, /no thousands separators/)
   assert.match(prompt, /reading of 0 is a real reading/)
+  assert.match(prompt, /"test_date"/)
+  assert.match(prompt, /"pool_volume_l"/)
+  assert.match(prompt, /PREV TEST/)
   // The reply is parsed and cleaned by the shared helpers, not ad hoc.
   assert.match(src, /parseModelJson\(rawText\)/)
   assert.match(src, /cleanReadings\(parsed\)/)
   // A model the key can't use must fall through to the next one, not stop scanning.
   assert.match(src, /result\.status === 404 \|\| result\.status === 403/)
   assert.match(src, /"claude-haiku-4-5-20251001"/)
+})
+
+const NOW = new Date("2026-10-24T02:00:00Z")
+
+test("the test date is kept only when it can be right", () => {
+  assert.equal(cleanTestDate("2026-10-15", NOW), "2026-10-15")
+  // Today, and tomorrow in UTC (it is already tomorrow in Melbourne).
+  assert.equal(cleanTestDate("2026-10-24", NOW), "2026-10-24")
+  assert.equal(cleanTestDate("2026-10-25", NOW), "2026-10-25")
+  assert.equal(cleanTestDate("2026-10-27", NOW), null)
+  assert.equal(cleanTestDate("2027-10-15", NOW), null)
+  assert.equal(cleanTestDate("2024-10-01", NOW), null)
+  assert.equal(cleanTestDate("2024-11-01", NOW), "2024-11-01")
+  assert.equal(cleanTestDate("2026-02-30", NOW), null)
+  assert.equal(cleanTestDate("15 October 2026", NOW), null)
+  assert.equal(cleanTestDate("15/10/2026", NOW), null)
+  assert.equal(cleanTestDate(null, NOW), null)
+  assert.equal(cleanTestDate(20261015, NOW), null)
+})
+
+test("pool volume reads 39,200 Litres and drops misreads", () => {
+  assert.equal(cleanPoolVolume(39200), 39200)
+  assert.equal(cleanPoolVolume("39,200"), 39200)
+  assert.equal(cleanPoolVolume("39,200 Litres"), 39200)
+  assert.equal(cleanPoolVolume(39.2), null)
+  assert.equal(cleanPoolVolume(4000000), null)
+  assert.equal(cleanPoolVolume(null), null)
 })
