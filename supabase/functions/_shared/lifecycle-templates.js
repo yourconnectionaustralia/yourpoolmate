@@ -1,9 +1,14 @@
-// L1–L7 subjects and bodies. Design matches the Oct 2026 marketing refresh:
+// L1–L8 subjects and bodies. Design matches the Oct 2026 marketing refresh:
 // deep-teal hero with a sun-yellow accent, sun buttons, abyss panel for the
 // warranty message. No images (the hero is text only).
 // House rules: hyphens only (no en/em dashes), "test" rather than "log",
 // no photo-scan claims. Enforced by assertOutboundStyle and the tests.
 // Founding copy renders only when foundingMember is true (signup rank, not a client flag).
+//
+// Oct 2026 copy revision: founder story in the welcome, warranty angle toned
+// down (most members are long-time owners keeping their own record), a
+// congratulations first-test email, Ask Mate (AI) introduced, reasons to stay,
+// and the referral ask moved to regular users.
 
 import { FROM_ADDRESS, REPLY_TO } from "./lifecycle-rules.js"
 
@@ -34,11 +39,12 @@ const HERO_GRAD = `linear-gradient(160deg,${OCEAN} 0%,${DEEP} 45%,${DEPTH} 100%)
 const SUBJECTS = {
   L1: "Welcome - your first step takes about 2 minutes",
   L2: "Got a pool shop printout? That's all you need",
-  L3: "Your first test is in - here's what to do with it",
-  L4: "Why your pool warranty cares about your water tests",
+  L3: "Nice work - your first test is in",
+  L4: "Two weeks in - how's it going?",
   L5: "Your free trial ends this week",
   L6: "Welcome aboard - you're all set",
-  L7: "Know another pool owner?",
+  L7: "Share this to a mate with a pool",
+  L8: "Set up your pool so the advice fits it",
 }
 
 export function greetingName(raw) {
@@ -282,11 +288,15 @@ export function testsLabel(count) {
 
 const TRIAL_FOOTER = "You're receiving this because you started a Your Pool Mate trial."
 
+// Shared Ask Mate wording. Mate is AI, and the copy says so plainly.
+const MATE_ASK = "Not sure what a number means, or whether to add something? Ask Mate, the AI pool mate in the app. You'll get a plain-English answer for your pool, without ringing the shop or Googling and getting five different opinions."
+
 function renderL1(name) {
   const preview = "Add one water test and you'll know exactly where your pool stands."
-  const intro = "Thanks for giving Your Pool Mate a go. I built it because I got sick of guessing what my pool needed, and of walking out of the pool shop with chemicals I wasn't sure I needed."
+  const intro = "Thanks for giving Your Pool Mate a go. I've spent a long time working in the pool industry, and I built this for pool owners, not just pool shops. You should be able to understand your own water, keep your own record, and get a straight answer without a trip to the shop."
   const step = "Add one water test. Type in the numbers from your pool shop printout, or read a test strip and enter the results. You'll get a Health Score out of 100, whether it's good to swim, and exactly what to add, and how much, for anything that's out."
-  const record = "Many pool builder and equipment warranties ask for water chemistry records if you ever need to make a claim. Every test you add is dated and kept, so the history is there when you need it."
+  const record = "Every test you add is dated and kept, so over time you'll see how your pool behaves through the seasons and what actually worked. It's your record, and it's there if you ever need it, for a warranty claim or just for your own peace of mind."
+  const mate = "Mate is the AI pool mate inside the app. Ask it about your water, your equipment or the season, and get one plain-English answer that fits your pool. No ringing the shop, and no Googling and getting five different opinions. Mate is AI, so for anything that needs eyes on the pool, a local technician is still the right call."
   const closing = "Anything confusing? Just hit reply. It comes straight to me."
   const text = `Hi ${name},
 
@@ -299,8 +309,10 @@ ${step}
 
 Add your first test: ${TEST_URL}
 
-WHY IT'S WORTH KEEPING A RECORD
 ${record}
+
+MEET MATE
+${mate}
 
 ${plainSignoff(closing)}${plainFooter(false)}`
   const html = shell(SUBJECTS.L1, preview, `
@@ -309,7 +321,8 @@ ${plainSignoff(closing)}${plainFooter(false)}`
           ${para(`You've got a <strong style="color:${DEPTH};">30-day free trial</strong>. No card needed.`)}
           ${callout("Your first step", step)}
           ${button(TEST_URL, "Add your first test")}
-          ${callout("Why it's worth keeping a record", record, { dark: true })}
+          ${para(record)}
+          ${callout("Meet Mate", mate, { dark: true })}
           ${signoff(closing)}
   `, TRIAL_FOOTER, { hero: { eyebrow: "Welcome", h1: ["Let's get your pool ", "sorted", "."] } })
   return { preview, text, html }
@@ -355,37 +368,38 @@ ${plainSignoff(closing)}${plainFooter(false)}`
   return { preview, text, html }
 }
 
+// Sent after the member's first test. They have already seen their score in
+// the app, so this is a congratulations and a nudge to keep going, not a tour.
 function renderL3(name) {
-  const preview = "Your Health Score, what to add, and how often to test from here."
-  const intro = "Your first water test is saved. Open the app to see your Health Score and anything that needs a tweak: what to add, how much, and why."
+  const preview = "The first step is done. Here's how to keep it going."
+  const intro = "Congratulations on adding your first water test. That's the hardest step, and it starts your pool's record. Every test from here makes the picture clearer."
   const tips = [
     "<strong>Test about once a week</strong>, more often in hot weather or when the pool's busy",
     "<strong>Test again after rain, a pool party or a big top-up</strong>. They all shift the chemistry",
     "<strong>Record what you add</strong>, so over time you can see what actually worked",
   ]
-  const shop = "Open the app before you head in. You'll walk in knowing exactly what your water needs, and what it doesn't."
   const closing = "Questions? Hit reply. It comes straight to me."
   const text = `Hi ${name},
 
 ${intro}
 
-See your Health Score: ${APP_URL}
-
-Getting the most out of it:
+Keeping it going:
 ${tips.map((t, i) => `${i + 1}. ${t.replace(/<\/?strong>/g, "")}`).join("\n")}
 
-USE YOUR POOL SHOP SMARTER
-${shop}
+GOT A QUESTION? ASK MATE
+${MATE_ASK}
+
+Ask Mate a question: ${APP_URL}
 
 ${plainSignoff(closing)}${plainFooter(false)}`
   const html = shell(SUBJECTS.L3, preview, `
           ${para(`Hi ${esc(name)},`)}
           ${para(intro)}
-          ${button(APP_URL, "See your Health Score")}
-          ${steps("Getting the most out of it", tips)}
-          ${callout("Use your pool shop smarter", shop)}
+          ${steps("Keeping it going", tips)}
+          ${callout("Got a question? Ask Mate", MATE_ASK)}
+          ${button(APP_URL, "Ask Mate a question")}
           ${signoff(closing)}
-  `, TRIAL_FOOTER, { hero: { eyebrow: "First test done", h1: ["Good start. ", "Here's what's next.", ""] } })
+  `, TRIAL_FOOTER, { hero: { eyebrow: "First step taken", h1: ["Nice work. ", "You're off and running", "."] } })
   return { preview, text, html }
 }
 
@@ -393,11 +407,13 @@ function renderL4(name, founding, testCount) {
   const count = testsLabel(testCount)
   const preview = count && testCount > 0
     ? `Halfway through your trial, with ${count} in your record.`
-    : "Your test history is quietly doing a second job."
+    : "Halfway through your trial, and what keeps getting better."
   const intro = count && testCount > 0
-    ? `You're halfway through your 30-day trial, and you've added ${count} so far. Each one is dated and kept, and that record is doing a second job too.`
-    : "You're about halfway through your 30-day trial. If you've been adding tests, your history is starting to show a pattern, and it's doing a second job too."
-  const warranty = "Many pool builder warranties, and plenty of pump, filter and chlorinator makers, can ask for water chemistry records before they honour a claim. Every test in Your Pool Mate is saved with its date, and you can download the full record as a PDF or spreadsheet from Chemistry in the app."
+    ? `You're halfway through your 30-day trial, and you've added ${count} so far. Each one is dated and kept, so you can start to see how your pool behaves and what actually worked.`
+    : "You're about halfway through your 30-day trial. Once you've added a few tests, you'll start to see how your pool behaves through the week and after rain, and what actually worked."
+  const history = "Your record is yours. Every test is dated and kept, and you can download the full history as a PDF or spreadsheet from Chemistry in the app. Over a season or two you'll see exactly how your pool behaves, and it's there if a pump, filter or builder warranty ever asks for it."
+  const improving = "Your Pool Mate keeps getting better. New features and fixes are added regularly, and most of what gets built next comes from owner feedback. If there's something you'd like it to do, use the feedback button in the app or just hit reply."
+  const mate = "Haven't met Mate yet? It's the AI pool mate in the app. Ask it anything about your water and get a straight answer, without five different opinions."
   const nudge = testCount === 0
     ? "You haven't added a test yet. Your first one takes about a minute, and it starts the record."
     : count
@@ -412,8 +428,13 @@ function renderL4(name, founding, testCount) {
 
 ${intro}
 
-THE PART NOBODY TELLS YOU
-${warranty}
+YOUR POOL'S HISTORY
+${history}
+
+ALWAYS IMPROVING
+${improving}
+
+${mate}
 
 ${nudge}
 
@@ -425,12 +446,14 @@ ${plainSignoff(closing)}${plainFooter(true)}`
   const html = shell(SUBJECTS.L4, preview, `
           ${para(`Hi ${esc(name)},`)}
           ${para(intro)}
-          ${callout("The part nobody tells you", warranty, { dark: true })}
+          ${callout("Your pool's history", history, { dark: true })}
+          ${callout("Always improving", improving)}
+          ${para(mate)}
           ${para(nudge)}
           ${button(TEST_URL, "Add a test")}
           ${para(offerHtml, `font-size:16px;line-height:25px;padding:16px 0;color:${INK};border-top:1px solid ${LINE};`)}
           ${signoff(closing)}
-  `, TRIAL_FOOTER, { hero: { eyebrow: "Two weeks in", h1: ["Your tests are ", "building a record", "."] }, prices: true })
+  `, TRIAL_FOOTER, { hero: { eyebrow: "Two weeks in", h1: ["Your pool's history, ", "all in one place", "."] }, prices: true })
   return { preview, text, html }
 }
 
@@ -446,6 +469,11 @@ function renderL5(name, founding, trialEndsAt, testCount) {
   const offer = founding
     ? { label: "Founding member", price: "$79", terms: "once, lifetime access", note: "Held for you as one of the first 300 to sign up. 30-day refund. After the first 300 it's $49/year." }
     : { label: "Yearly", price: "$49", terms: "per year", note: "That's $49/year, billed once a year. Payments are handled securely by Stripe." }
+  const keep = [
+    "<strong>Your full record</strong>: every test and dose, dated, and downloadable any time",
+    "<strong>Ask Mate</strong>: the AI pool mate is part of membership, so a straight answer is there when you need one",
+    "<strong>Ongoing improvements</strong>: new features keep arriving, and most come from owner feedback",
+  ]
   const how = "Join any time from Profile in the app, or wait and the app will show you how when your trial ends. It takes about a minute, and you pay securely through Stripe."
   const kept = count && testCount > 0 ? `your ${count}, each with its date, ${testCount === 1 ? "stays" : "stay"} saved` : "your test history stays saved"
   const safe = `We never took a card for the trial, so nothing gets charged automatically. If you don't join, your access pauses, but ${kept}, ready if you come back.`
@@ -457,6 +485,9 @@ ${endsHtml.replace(/<[^>]+>/g, "")} If Your Pool Mate has earned its place, here
 
 ${offer.label}: ${offer.price} ${offer.terms}
 ${offer.note}
+
+WHAT YOU KEEP
+${keep.map((k, i) => `${i + 1}. ${k.replace(/<\/?strong>/g, "")}`).join("\n")}
 
 ${how}
 
@@ -470,6 +501,7 @@ ${plainSignoff(closing)}${plainFooter(true)}`
           ${para(`Hi ${esc(name)},`)}
           ${para(`${endsHtml} If Your Pool Mate has earned its place, here's what it costs to keep it:`)}
           ${offerCard(offer)}
+          ${steps("What you keep", keep)}
           ${para(how.replace("Profile", `<strong style="color:${DEPTH};">Profile</strong>`))}
           ${button(APP_URL, cta)}
           ${callout("No surprise charges", safe)}
@@ -487,8 +519,8 @@ function renderL6(name, input, founding) {
   const receiptPlain = receipt ? `\nReceipt: ${receipt}` : ""
   const thanks = "Your membership is active now. Thank you, genuinely. Every member helps me keep building this."
   const next = founding
-    ? "As a founding member, every new feature is yours as it ships. From here, just add a test whenever you check the pool. The longer your history, the more useful your Health Score trend, and the stronger your warranty record."
-    : "From here, just add a test whenever you check the pool. The longer your history, the more useful your Health Score trend, and the stronger your warranty record."
+    ? "As a founding member, every new feature is yours as it ships. From here, just add a test whenever you check the pool. The longer your history, the more useful your Health Score trend, and the clearer the picture of how your pool behaves."
+    : "From here, just add a test whenever you check the pool. The longer your history, the more useful your Health Score trend, and the clearer the picture of how your pool behaves."
   const closing = "If anything looks off with billing or your account, hit reply. It comes straight to me."
   const text = `Hi ${name},
 
@@ -522,10 +554,16 @@ ${plainSignoff(closing)}${plainFooter(true)}`
   return { preview, text, html }
 }
 
-function renderL7(name) {
+// The referral ask. It goes to regular users (5 or more tests, see
+// lifecycle-rules.js) and to paid members, so the opening adapts to whether
+// the test count is known.
+function renderL7(name, testCount) {
+  const count = Number.isInteger(testCount) && testCount >= 5 ? testsLabel(testCount) : null
   const preview = "One quick favour, and I'll only ask once."
-  const ask = "I'll only ask this once. Your Pool Mate is a one-person business, and word of mouth from people like you is how it grows."
-  const who = "If you know someone who's never quite sure what their pool needs (a neighbour, a mate, someone in the family), send them this link:"
+  const ask = count
+    ? `You've added ${count} now, so I'm hoping Your Pool Mate is earning its place. I'll only ask this once. It's a one-person business, and word of mouth from people like you is how it grows.`
+    : "I'll only ask this once. Your Pool Mate is a one-person business, and word of mouth from people like you is how it grows."
+  const who = "If you know a mate, neighbour or family member with a pool, send them this link:"
   const gets = "They'll get a 30-day free trial, no card needed."
   const closing = "If you'd rather not, that's completely fine. Thanks for being here."
   const text = `Hi ${name},
@@ -546,8 +584,62 @@ ${plainSignoff(closing)}${plainFooter(false)}`
           ${para(gets)}
           ${signoff(closing)}
   `, "You're receiving this because you've used Your Pool Mate. We send this ask once.", {
-    hero: { eyebrow: "A quick favour", h1: ["Know another ", "pool owner", "?"] },
+    hero: { eyebrow: "A quick favour", h1: ["Share this to a mate with ", "a pool", "."] },
   })
+  return { preview, text, html }
+}
+
+// The pool setup reminder. Sent once, a few days after sign-up, to anyone who
+// has not saved their pool size and/or any equipment (see lifecycle-rules.js).
+// missingSize / missingEquipment say which parts to ask for. With neither flag
+// set (a manual send) it asks for both.
+function renderL8(name, input = {}) {
+  let needSize = input.missingSize === true
+  let needEquip = input.missingEquipment === true
+  if (!needSize && !needEquip) { needSize = true; needEquip = true }
+  const preview = "A couple of minutes now, and the answers fit your pool."
+  const gap = needSize && needEquip ? "your pool size and your equipment" : needSize ? "your pool size" : "your equipment"
+  const intro = `Your Pool Mate gives better answers when it knows your pool, and right now I'm missing ${gap}. It takes a couple of minutes to add, and you only need to do it once.`
+  const items = []
+  if (needSize) items.push("<strong>Your pool size</strong>: the litres, so every amount fits your pool")
+  if (needEquip) items.push("<strong>Your equipment</strong>: your sanitiser, filter and pump, plus a heater if you have one")
+  const why = needSize && needEquip
+    ? "The amounts the app gives you are worked out for your pool's litres, and Mate uses your pool's details when you ask it something. With them in, you get answers for your pool, not pools in general."
+    : needSize
+      ? "The amounts the app gives you are worked out for your pool's litres. With your size in, \"how much to add\" fits your pool, not an average one."
+      : "Mate uses your pool's details when you ask it something. With your equipment in, you get answers for your pool, not pools in general."
+  const litres = "Not sure of your litres? Pool setup can work it out from your pool's length, width and depth, or use the figure from your builder or pool shop."
+  const where = "Open the app and go to <strong>Pool setup</strong> to add them."
+  const done = "Already done it? Ignore this one. You're on your way."
+  const closing = "Stuck on anything? Hit reply. It comes straight to me."
+  const text = `Hi ${name},
+
+${intro}
+
+What to add:
+${items.map((t, i) => `${i + 1}. ${t.replace(/<\/?strong>/g, "")}`).join("\n")}
+
+WHY IT MATTERS
+${why}
+${needSize ? `\n${litres}\n` : ""}
+${where.replace(/<\/?strong>/g, "")}
+
+Open the app: ${APP_URL}
+
+${done}
+
+${plainSignoff(closing)}${plainFooter(false)}`
+  const html = shell(SUBJECTS.L8, preview, `
+          ${para(`Hi ${esc(name)},`)}
+          ${para(intro)}
+          ${steps("What to add", items)}
+          ${callout("Why it matters", why)}
+          ${needSize ? para(litres) : ""}
+          ${para(where.replace(/<strong>/g, `<strong style="color:${DEPTH};">`))}
+          ${button(APP_URL, "Open the app")}
+          ${para(done, `font-size:15px;line-height:22px;padding-bottom:16px;color:${MID};`)}
+          ${signoff(closing)}
+  `, TRIAL_FOOTER, { hero: { eyebrow: "Quick setup", h1: ["Make it ", "fit your pool", "."] } })
   return { preview, text, html }
 }
 
@@ -575,7 +667,10 @@ export function renderTemplate(template, input = {}) {
       body = renderL6(name, input, founding)
       break
     case "L7":
-      body = renderL7(name)
+      body = renderL7(name, input.testCount)
+      break
+    case "L8":
+      body = renderL8(name, input)
       break
     default:
       throw new Error(`Unknown lifecycle template ${template}`)

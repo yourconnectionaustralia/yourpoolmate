@@ -1,7 +1,7 @@
 // File: supabase/functions/_shared/lifecycle-email.ts
 // Deno runtime — NOT Node.js
 //
-// Shared sender for L1–L7. Used by send-lifecycle-email (sweep + manual)
+// Shared sender for L1–L8. Used by send-lifecycle-email (sweep + manual)
 // and by stripe-webhook (L6, after premium is granted).
 //
 // Allowlist hard-stop: fetch() to Resend runs only after mayCallResend().
@@ -186,8 +186,11 @@ export async function deliverLifecycleEmail(
     allowlistRaw?: string | null
     resendKey?: string | null
     deferSend?: boolean
-    // Tests in the record so far, for L4/L5. Left out, the copy stays general.
+    // Tests in the record so far, for L4/L5/L7. Left out, the copy stays general.
     testCount?: number | null
+    // What the pool setup reminder (L8) asks for. Both left out, it asks for both.
+    missingSize?: boolean
+    missingEquipment?: boolean
     l6?: {
       plan?: string | null
       amountCents?: number | null
@@ -238,6 +241,8 @@ export async function deliverLifecycleEmail(
       receiptUrl: l6.receiptUrl ?? null,
       trialEndsAt: profile?.trial_ends_at ?? null,
       testCount: opts.testCount ?? null,
+      missingSize: opts.missingSize === true,
+      missingEquipment: opts.missingEquipment === true,
     })
 
     if (!email.includes("@")) {
@@ -378,6 +383,12 @@ function normaliseCandidate(row: Record<string, unknown>) {
     test_count: Number(row.test_count ?? 0),
     first_test_at: (row.first_test_at as string | null) ?? null,
     third_test_at: (row.third_test_at as string | null) ?? null,
+    fifth_test_at: (row.fifth_test_at as string | null) ?? null,
+    last_test_at: (row.last_test_at as string | null) ?? null,
+    // null = the database function did not say (migration 023 not run yet, or
+    // the member-triggered path). The rules only act on an exact false.
+    has_pool_size: typeof row.has_pool_size === "boolean" ? row.has_pool_size : null,
+    has_equipment: typeof row.has_equipment === "boolean" ? row.has_equipment : null,
   }
 }
 
@@ -453,6 +464,8 @@ export async function sweepLifecycleEmails(db: Db): Promise<SweepResult> {
       resendKey,
       deferSend: counts.sent >= MAX_SENDS_PER_SWEEP,
       testCount: candidate.test_count,
+      missingSize: candidate.has_pool_size === false,
+      missingEquipment: candidate.has_equipment === false,
       l6: template === "L6" ? { plan: candidate.plan } : undefined,
     })
     counts[bucket(result.status)]++

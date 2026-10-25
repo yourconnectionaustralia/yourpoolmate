@@ -1,9 +1,12 @@
-// Pure eligibility + allowlist rules for L1–L7 lifecycle mail.
+// Pure eligibility + allowlist rules for L1–L8 lifecycle mail.
 // No network, no Deno APIs. Imported by the edge function and by node:test.
 //
 // S1–S3 seasonal emails are manual. They are not template keys here.
+//
+// Oct 2026: L7 (the referral ask) now goes to regular users, 5 or more tests
+// with a recent one, plus paid members. L8 is the pool setup reminder.
 
-export const TEMPLATE_KEYS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7"]
+export const TEMPLATE_KEYS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"]
 
 export const DEFAULT_ALLOWLIST_EMAIL = "yourconnectionaustralia@gmail.com"
 
@@ -24,11 +27,21 @@ export const WINDOWS = {
   l5MaxDays: 30,
   l6MinMinutes: 10,
   l6MaxDays: 7,
+  // Referral ask: the fifth test is 1 to 30 days old, and the latest test is
+  // within the last 14 days (they are still using it, not a one-week wonder).
+  l7MinTests: 5,
   l7TestMinDays: 1,
-  l7TestMaxDays: 21,
+  l7TestMaxDays: 30,
+  l7RecentTestDays: 14,
   l7PaidMinDays: 2,
   l7PaidMaxDays: 21,
   l6GapDays: 2,
+  // Pool setup reminder: 3 to 10 days after sign-up, while pool size or
+  // equipment is still empty.
+  l8MinDays: 3,
+  l8MaxDays: 10,
+  // L7 and L8 are asks, so they wait this long after any other email.
+  quietGapDays: 2,
   standardTrialMinDays: 28,
   standardTrialMaxDays: 40,
   pendingLockMinutes: 15,
@@ -37,7 +50,7 @@ export const WINDOWS = {
 export const MAX_SENDS_PER_SWEEP = 20
 
 const DAY_MS = 24 * 60 * 60 * 1000
-const PRIORITY = ["L1", "L3", "L6", "L2", "L5", "L4", "L7"]
+const PRIORITY = ["L1", "L3", "L6", "L2", "L8", "L5", "L4", "L7"]
 
 export function ageMs(from, now) {
   if (!from) return null
@@ -92,6 +105,24 @@ function l6GapOk(sends, now) {
   return within(l6.created_at, now, WINDOWS.l6GapDays * DAY_MS, Number.POSITIVE_INFINITY)
 }
 
+// True when the time since `from` is known and under maxMs (so "recent").
+function recent(from, now, maxMs) {
+  const age = ageMs(from, now)
+  return age !== null && age < maxMs
+}
+
+// No other email went out (or is going out) in the last quietGapDays. Only
+// mail that was really sent counts: skipped and failed rows are ignored, and
+// an old pending row is a stalled claim, not a send.
+function quietSinceLastSend(sends, now) {
+  const gap = WINDOWS.quietGapDays * DAY_MS
+  return !(sends ?? []).some((row) => {
+    if (row.status === "sent") return recent(row.created_at, now, gap)
+    if (row.status === "pending") return recent(row.created_at, now, WINDOWS.pendingLockMinutes * 60 * 1000)
+    return false
+  })
+}
+
 function isEligible(key, candidate, sends, now) {
   const age = ageMs(candidate.created_at, now)
   switch (key) {
@@ -143,13 +174,18 @@ function isEligible(key, candidate, sends, now) {
         )
     case "L7": {
       if (!l6GapOk(sends, now)) return false
-      const testPath = Number(candidate.test_count) >= 3
+      if (!quietSinceLastSend(sends, now)) return false
+      // Regular users: five or more tests, the fifth added a little while
+      // ago, and a test in the last two weeks.
+      const testPath = Number(candidate.test_count) >= WINDOWS.l7MinTests
         && within(
-          candidate.third_test_at,
+          candidate.fifth_test_at,
           now,
           WINDOWS.l7TestMinDays * DAY_MS,
           WINDOWS.l7TestMaxDays * DAY_MS,
         )
+        && recent(candidate.last_test_at, now, WINDOWS.l7RecentTestDays * DAY_MS)
+      // Paid members keep the ask whatever their test count.
       const paidPath = candidate.is_premium === true
         && within(
           candidate.premium_since,
@@ -158,6 +194,19 @@ function isEligible(key, candidate, sends, now) {
           WINDOWS.l7PaidMaxDays * DAY_MS,
         )
       return testPath || paidPath
+    }
+    case "L8": {
+      // Trial still running, or a member. The database says pool size and
+      // equipment are empty only when the flag is exactly false; a candidate
+      // without the flags (an old database function) is never sent this.
+      if (!quietSinceLastSend(sends, now)) return false
+      const active = candidate.is_premium === true || trialStillOpen(candidate, now)
+      const somethingMissing = candidate.has_pool_size === false || candidate.has_equipment === false
+      return active
+        && somethingMissing
+        && age !== null
+        && age >= WINDOWS.l8MinDays * DAY_MS
+        && age < WINDOWS.l8MaxDays * DAY_MS
     }
     default:
       return false

@@ -1,4 +1,4 @@
-# Lifecycle email (L1-L7)
+# Lifecycle email (L1-L8)
 
 Automated mail for Your Pool Mate. Seasonal emails S1-S3 stay manual. Nothing in this folder sends them.
 
@@ -49,7 +49,8 @@ The sweep runs every 15 minutes from `.github/workflows/lifecycle-email-sweep.ym
 | L4 Mid-trial | About day 14 of a normal 30-day trial, still unpaid |
 | L5 Trial ending | About day 27 of a normal 30-day trial, still unpaid |
 | L6 Paid thanks | Straight after a paid checkout (Stripe webhook). The sweep retries a missed L6 from 10 minutes to 7 days after `premium_since` |
-| L7 Referral | 3 or more tests (the third is 1 to 21 days old) or paid 2 to 21 days ago, and at least 2 days after any L6 row. Once only |
+| L7 Referral ("Share this to a mate with a pool") | A regular user: 5 or more tests, the fifth added 1 to 30 days ago, and a test in the last 14 days. Or a paid member, 2 to 21 days after paying, whatever their test count. Waits 2 days after any other email, including L6. Once only |
+| L8 Pool setup reminder | 3 to 10 days after sign-up, trial still open or a member, and Pool setup has no pool size (litres) or no equipment (no pump saved and no equipment items). Asks only for what is missing. Waits 2 days after any other email. Once only. Needs migration 023; without it, L8 never sends |
 
 Founding paragraphs in L1, L4, and L5 render only when `user_profiles.founding_member` is true.
 
