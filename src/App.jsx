@@ -987,7 +987,7 @@ function writeDoseIds(testKey, ids) {
   } catch { /* non-fatal */ }
 }
 
-function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProfile, saltRange, autoOpenForm, onAutoOpened, stepsLeft = 0, onOpenPlan, rows = [] }) {
+function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, onSpeakTest, poolProfile, saltRange, autoOpenForm, onAutoOpened, stepsLeft = 0, onOpenPlan, rows = [] }) {
   const [showForm, setShowForm] = useState(false);
   const EMPTY_FORM = {
     freeChlor: '', totalChlor: '', pH: '', alkalinity: '', cyanuricAcid: '', calciumHardness: '',
@@ -1073,12 +1073,16 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onSpeakTest, poolProf
   return (
     <div>
       <h1 className="page-title">Water Tests</h1>
-      <p className="page-subtitle">Enter a test, scan a printout, or speak the readings</p>
+      <p className="page-subtitle">Enter a test, read a test strip, scan a printout, or speak the readings</p>
 
       {/* Actions row */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>
           Enter Test Results
+        </button>
+        <button className="btn btn-ghost" onClick={onScanStrip}>
+          <span style={{ display: 'inline-flex' }}>{Icon.camera}</span>
+          Read my test strip
         </button>
         <button className="btn btn-ghost" onClick={onScanTest}>
           <span style={{ display: 'inline-flex' }}>{Icon.camera}</span>
@@ -2536,7 +2540,7 @@ function VolumeGateModal({ onCancel, onConfirm, suggestedL = null }) {
 // ─────────────────────────────────────────────────────────────────
 function HelpSheet({ onClose, onReplayTour }) {
   const steps = [
-    { n: '1', title: 'Enter your test results', body: 'Type the readings in, or scan your pool shop\'s printout with your camera. It fills the numbers in for you.' },
+    { n: '1', title: 'Enter your test results', body: 'Type the readings in, photograph your test strip, or scan your pool shop\'s printout with your camera. It fills the numbers in for you.' },
     { n: '2', title: 'Check your Health Score', body: 'One number out of 100 tells you where your water stands. Green is swim-ready.' },
     { n: '3', title: 'Follow the plan, in order', body: 'Plan lists what to add, in grams and millilitres for your pool. Tap "I added it" as you go. Re-test a day after dosing.' },
     { n: '4', title: 'Keep the shed stocked', body: 'Add what you buy to My Shed and the plan uses it first, tells you when not to buy more, and adds what you\'re short of to the shopping list.' },
@@ -2605,6 +2609,7 @@ export default function App() {
   const [testHistory, setTestHistory] = useState([]);   // all tests
   const [poolProfile, setPoolProfile] = useState(DEFAULT_POOL);
   const [showScan, setShowScan] = useState(false);
+  const [scanMode, setScanMode] = useState('printout'); // 'printout' | 'strip': what the scanner reads
   const [showVoice, setShowVoice] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [feedbackOpenToken, setFeedbackOpenToken] = useState(0);
@@ -2918,7 +2923,8 @@ export default function App() {
   const handleScanComplete = (data) => {
     // The printout's pool size is only a suggestion for the volume prompt.
     const { printoutVolumeL, ...test } = data;
-    guardAndSave({ ...test, source: 'ocr' }, printoutVolumeL ?? null);
+    // A test strip comes back as source 'manual' (a colour match the owner confirmed).
+    guardAndSave({ ...test, source: test.source || 'ocr' }, printoutVolumeL ?? null);
   };
   const handleVoiceComplete = (data) => guardAndSave({ ...data, source: 'voice' });
 
@@ -3232,7 +3238,8 @@ export default function App() {
             <WaterTestsPage
               testData={testData}
               onLogTest={handleLogTest}
-              onScanTest={() => setShowScan(true)}
+              onScanTest={() => { setScanMode('printout'); setShowScan(true); }}
+              onScanStrip={() => { setScanMode('strip'); setShowScan(true); }}
               onSpeakTest={() => setShowVoice(true)}
               poolProfile={poolProfile}
               saltRange={saltRange}
@@ -3438,6 +3445,7 @@ export default function App() {
           onComplete={handleScanComplete}
           poolVolumeL={hasVolume(poolProfile) ? poolProfile.volumeL : null}
           history={testHistory}
+          mode={scanMode}
         />
       )}
 

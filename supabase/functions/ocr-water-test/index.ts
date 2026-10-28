@@ -10,6 +10,12 @@
 // auth, same rate limit, same image rules. Nothing is saved here: the owner
 // checks every line in the app before anything goes in the shed.
 //
+// With { kind: "strip" } it reads a photo of a dipped colour-matching test
+// strip and returns the closest chart step for each pad, with a confidence per
+// pad and a note on the light. The rules live in _shared/strip-chart.js. The
+// reply says kind: "strip" so the app can tell it from an older deploy of this
+// function that does not know the strip kind yet.
+//
 // Security:
 //   - Auth required (valid Supabase JWT)
 //   - Rate limited: 10 calls per user per hour (tracked in public.ocr_calls — migration 005,
@@ -22,11 +28,14 @@
 //   SUPABASE_SERVICE_ROLE_KEY — auto-provided by Supabase
 //   SUPABASE_URL              — auto-provided by Supabase
 // Optional:
-//   OCR_MODEL — tried first when set. Otherwise DEFAULT_MODELS below, in order.
+//   OCR_MODEL   — tried first when set. Otherwise DEFAULT_MODELS below, in order.
+//   STRIP_MODEL — tried first for strip photos only (colour is harder to judge
+//                 than printed numbers, so a stronger model may be worth it).
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cleanPoolVolume, cleanReadings, cleanTestDate, isBillingError, parseModelJson, sanityCheck } from "../_shared/ocr-readings.js"
+import { STRIP_PROMPT, cleanStripScan } from "../_shared/strip-chart.js"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -165,9 +174,10 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function modelCandidates(): string[] {
+function modelCandidates(kind: "test" | "receipt" | "strip"): string[] {
   const preferred = (Deno.env.get("OCR_MODEL") ?? "").trim()
-  const list = preferred ? [preferred, ...DEFAULT_MODELS] : [...DEFAULT_MODELS]
+  const stripModel = kind === "strip" ? (Deno.env.get("STRIP_MODEL") ?? "").trim() : ""
+  const list = [stripModel, preferred, ...DEFAULT_MODELS]
   // de-dupe, keep order
   return [...new Set(list.filter(Boolean))]
 }
@@ -308,7 +318,11 @@ serve(async (req) => {
     const body = await req.json().catch(() => null)
     const imageBase64: unknown = body?.image_base64
     const mediaType: string = body?.media_type ?? "image/jpeg"
-    const kind: "test" | "receipt" = body?.kind === "receipt" ? "receipt" : "test"
+    const kind: "test" | "receipt" | "strip" = body?.kind === "receipt"
+      ? "receipt"
+      : body?.kind === "strip"
+      ? "strip"
+      : "test"
 
     if (typeof imageBase64 !== "string" || imageBase64.length === 0) {
       return jsonResponse({ error: "image_base64 is required", code: "BAD_REQUEST" }, 400)
@@ -346,7 +360,8 @@ serve(async (req) => {
       }, 503)
     }
 
-    const models = modelCandidates()
+    const models = modelCandidates(kind)
+    const prompt = kind === "receipt" ? RECEIPT_PROMPT : kind === "strip" ? STRIP_PROMPT : EXTRACTION_PROMPT
     let lastFail: { status: number; errText: string } | null = null
     let rawText = ""
 
@@ -354,8 +369,7 @@ serve(async (req) => {
       // One retry on transient overload / rate limit for this model
       for (let attempt = 0; attempt < 2; attempt++) {
         const result = await callAnthropic({
-          apiKey, model, mediaType, base64Data,
-          prompt: kind === "receipt" ? RECEIPT_PROMPT : EXTRACTION_PROMPT,
+          apiKey, model, mediaType, base64Data, prompt,
         })
         if (result.ok) {
           rawText = result.rawText
@@ -418,6 +432,25 @@ serve(async (req) => {
         receipt: cleanReceipt(parsed),
         confidence: confidenceOf(parsed.confidence),
         notes: typeof parsed.notes === "string" ? parsed.notes.slice(0, 500) : null,
+        source: "ocr",
+        scans_remaining_this_hour: remaining,
+      })
+    }
+
+    if (kind === "strip") {
+      // Snapped to chart steps, capped by what the photo allows, never trusted
+      // blindly: the owner confirms every value in the app.
+      const strip = cleanStripScan(parsed)
+      await admin.from("ocr_calls").insert({ user_id: user.id, status: "ok" })
+      return jsonResponse({
+        kind: "strip",
+        readings: strip.readings,
+        pad_confidence: strip.pad_confidence,
+        strip_found: strip.strip_found,
+        chart_in_photo: strip.chart_in_photo,
+        lighting: strip.lighting,
+        confidence: strip.confidence,
+        notes: strip.notes,
         source: "ocr",
         scans_remaining_this_hour: remaining,
       })

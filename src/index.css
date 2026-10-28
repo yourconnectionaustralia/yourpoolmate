@@ -1569,6 +1569,15 @@ img, svg { display: block; max-width: 100%; }
 .photo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0 4px; }
 .photo-row-note { color: var(--gray-mid); font-size: 17px; }
 
+/* ── Read my test strip ── */
+.strip-tips { margin: 0 0 16px; padding-left: 22px; font-size: 17px; line-height: 1.45; color: var(--gray-dark); }
+.strip-tips li { margin-bottom: 8px; }
+/* Always visible while a strip is being read: colour in a photo is not colour in the hand. */
+.strip-caveat { margin: 0 0 16px; padding: 12px 14px; font-size: 17px; line-height: 1.45; color: var(--amber); background: var(--amber-bg); border-radius: var(--r-md); }
+.strip-pad-tag { display: inline-block; margin-top: 6px; }
+/* Tags are one line elsewhere. On the scan screens the longer ones must wrap on a phone, not run off the edge. */
+.scanner-panel .tag { white-space: normal; border-radius: 16px; }
+
 /* ── Dose steps: "I added it" ── */
 .dose-step { padding: 14px 0; }
 .dose-step-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
