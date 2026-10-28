@@ -12,11 +12,18 @@
 // anonymous session on first scan (enable "Allow anonymous sign-ins"
 // in Supabase → Authentication → Settings). Anonymous users get a real
 // user id, which is what the 10-scans/hour rate limit keys on.
+//
+// mode="strip" is "Read my test strip": one photo of a dipped colour-matching
+// strip, read by the same Edge Function with kind: "strip". The review screen
+// is the same, but it always shows the lighting caveat, flags every reading the
+// server was not sure of, and saves the test as entered by the owner (the
+// readings are a colour match, not a printed number).
 
 import { useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { compressImage } from '../lib/imageCompress.js';
-import { SCAN_FIELDS, conflictMessage, daysOld, duplicateTest, hasReadings, mergeMeta, mergeScans, volumeNotice } from '../lib/scanMerge.js';
+import { SCAN_FIELDS, blankValues, conflictMessage, daysOld, duplicateTest, hasReadings, mergeMeta, mergeScans, volumeNotice } from '../lib/scanMerge.js';
+import { STRIP_CAVEAT, STRIP_NOT_READY, STRIP_TIPS, isStripReply, stripConfidenceTag, stripDateText, stripFailure, stripReview } from '../lib/stripScan.js';
 import { isoFromDateInput, toDateInput } from '../lib/testFields.js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -47,7 +54,10 @@ async function ensureSession() {
 const MAX_PHOTOS = 4;
 
 // Read one photo. Throws an Error with a plain-English message.
-async function scanPhoto(file, session) {
+// kind 'strip' asks for the test strip reader. An Edge Function deployed before
+// strips existed ignores kind and answers as if the photo were a printout, so a
+// strip reply is only accepted when it says kind: 'strip'.
+async function scanPhoto(file, session, kind = 'test') {
   const { dataUrl, base64, mediaType, blob } = await compressImage(file);
   const res = await fetch(`${SUPABASE_URL}/functions/v1/ocr-water-test`, {
     method: 'POST',
@@ -56,7 +66,9 @@ async function scanPhoto(file, session) {
       'Authorization': `Bearer ${session.access_token}`,
       'apikey': SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify({ image_base64: base64, media_type: mediaType }),
+    body: JSON.stringify(kind === 'strip'
+      ? { image_base64: base64, media_type: mediaType, kind: 'strip' }
+      : { image_base64: base64, media_type: mediaType }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -67,12 +79,15 @@ async function scanPhoto(file, session) {
     }[data.code] || data.error || 'Couldn\'t read the photo right now — please try again.';
     throw new Error(friendly);
   }
+  if (kind === 'strip' && !isStripReply(data)) throw new Error(STRIP_NOT_READY);
   return { dataUrl, blob, data };
 }
 
 // poolVolumeL: the volume in Pool setup, to check against the printout's.
 // history: saved tests, to warn when this printout is already in the record.
-export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = null, history = [] }) {
+// mode: 'printout' (a shop's printed test) or 'strip' (a dipped test strip).
+export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = null, history = [], mode = 'printout' }) {
+  const isStrip = mode === 'strip';
   const [state, setState] = useState('pick'); // pick | scanning | review | adding | error
   const [preview, setPreview] = useState(null);
   const [values, setValues] = useState({});   // app-keyed editable strings
@@ -82,6 +97,7 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
   const [errorMsg, setErrorMsg] = useState('');
   const [photoBlob, setPhotoBlob] = useState(null);
   const [keepPhoto, setKeepPhoto] = useState(true);
+  const [padTags, setPadTags] = useState({});       // strip mode: app key -> { cls, text } for readings to check
   const [progress, setProgress] = useState(null);   // { n, of } while photos are read
   const [notice, setNotice] = useState('');         // review-screen message after adding photos
   const [testDate, setTestDate] = useState(() => toDateInput(new Date().toISOString()));
@@ -97,8 +113,9 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
     const picked = Array.from(e.target.files || []);
     e.target.value = ''; // allow re-picking the same file
     if (!picked.length) return;
-    const files = picked.slice(0, MAX_PHOTOS);
-    const adding = intent.current === 'add' && state === 'review';
+    // A strip is one photo. A printout can run over several pages.
+    const files = picked.slice(0, isStrip ? 1 : MAX_PHOTOS);
+    const adding = !isStrip && intent.current === 'add' && state === 'review';
     setNotice('');
     setErrorMsg('');
     setProgress({ n: 1, of: files.length });
@@ -120,11 +137,13 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
     const read = [];
     let unreadable = 0;
     let lastNote = null;
+    let lastData = null;
     let stopped = '';
     for (let i = 0; i < files.length; i += 1) {
       setProgress({ n: i + 1, of: files.length });
       try {
-        const r = await scanPhoto(files[i], session);
+        const r = await scanPhoto(files[i], session, isStrip ? 'strip' : 'test');
+        lastData = r.data;
         if (hasReadings(r.data.readings)) read.push(r);
         else { unreadable += 1; lastNote = r.data.notes || lastNote; }
       } catch (err) {
@@ -134,9 +153,32 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
     }
 
     if (read.length === 0) {
-      failBack(stopped || (lastNote
-        ? `Couldn't find readings in that photo (${lastNote}). Try a flatter, well-lit shot of the printout.`
-        : 'Couldn\'t find any readings in that photo. Try a flatter, well-lit shot of the printout.'));
+      failBack(stopped || (isStrip
+        ? stripFailure(lastData)
+        : lastNote
+          ? `Couldn't find readings in that photo (${lastNote}). Try a flatter, well-lit shot of the printout.`
+          : 'Couldn\'t find any readings in that photo. Try a flatter, well-lit shot of the printout.'));
+      return;
+    }
+
+    // A test strip: the readings are a colour match, so the server's per-pad
+    // confidence is kept and every uncertain pad is flagged on the review screen.
+    // There is no printed date or pool size on a strip, so the date is today.
+    if (isStrip) {
+      const review = stripReview(read[0].data);
+      setValues({ ...blankValues(), ...review.values });
+      setPadTags(review.padTags);
+      setConfidence(review.confidence);
+      setNotes(review.notes);
+      setScansLeft(typeof read[0].data.scans_remaining_this_hour === 'number' ? read[0].data.scans_remaining_this_hour : null);
+      setPreview(read[0].dataUrl);
+      setPhotoBlob(read[0].blob);
+      setTestDate(toDateInput(new Date().toISOString()));
+      setDateSource('today');
+      setPrintoutVolumeL(null);
+      setNotice('');
+      setProgress(null);
+      setState('review');
       return;
     }
 
@@ -198,23 +240,30 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
     if (values.salt !== '' && values.salt !== undefined) result.salt = num(values.salt);
     if (values.totalChlor !== '' && values.totalChlor !== undefined) result.totalChlor = num(values.totalChlor);
     // The photo is kept with the test as evidence, unless the owner unticked it.
-    if (keepPhoto && photoBlob) result.printout = photoBlob;
+    // A strip photo is never kept: it is not proof of the result, and the saved
+    // record calls a kept photo a printout.
+    if (keepPhoto && photoBlob && !isStrip) result.printout = photoBlob;
+    // A strip is a colour match the owner confirmed, so it is saved as entered
+    // by the owner, not as read from a printout.
+    if (isStrip) result.source = 'manual';
     onComplete(result);
     onClose();
   };
 
-  const confidenceTag = confidence === 'high'
-    ? { cls: 'tag-good', text: 'High confidence' }
-    : confidence === 'medium'
-      ? { cls: 'tag-warn', text: 'Medium confidence — please check the values' }
-      : { cls: 'tag-warn', text: 'Low confidence — please check every value' };
+  const confidenceTag = isStrip
+    ? stripConfidenceTag(confidence)
+    : confidence === 'high'
+      ? { cls: 'tag-good', text: 'High confidence' }
+      : confidence === 'medium'
+        ? { cls: 'tag-warn', text: 'Medium confidence — please check the values' }
+        : { cls: 'tag-warn', text: 'Low confidence — please check every value' };
 
   return (
     // Once photos have been read, a stray tap outside must not throw the
     // readings away: Discard is the only way out of the review screen.
     <div className="modal-backdrop" onClick={state === 'pick' || state === 'error' ? onClose : undefined}>
       <div className="modal-panel modal-panel-tall scanner-panel" onClick={e => e.stopPropagation()}>
-        <div className="modal-title">Scan test results</div>
+        <div className="modal-title">{isStrip ? 'Read my test strip' : 'Scan test results'}</div>
 
         {/* Two hidden inputs. `capture` makes iPhone and Android open the camera
             straight away with no photo library, so the gallery needs its own
@@ -239,8 +288,15 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
         {state === 'pick' && (
           <>
             <div className="modal-body">
-              Take a photo of your pool shop's printed water test. Your Pool Mate reads the values for you — you check them before anything is saved.
+              {isStrip
+                ? 'Take a photo of your dipped test strip and Your Pool Mate matches the colours to the chart. You check the readings before anything is saved.'
+                : 'Take a photo of your pool shop\'s printed water test. Your Pool Mate reads the values for you — you check them before anything is saved.'}
             </div>
+            {isStrip && (
+              <ul className="strip-tips">
+                {STRIP_TIPS.map((tip) => <li key={tip}>{tip}</li>)}
+              </ul>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
               <button
                 type="button"
@@ -259,10 +315,13 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
               >
                 Choose from your photos
               </button>
-              <span style={{ fontSize: 15, color: 'var(--gray-mid)', textAlign: 'center' }}>
-                Printout runs over two pages? Pick up to {MAX_PHOTOS} photos at once.
-              </span>
+              {!isStrip && (
+                <span style={{ fontSize: 15, color: 'var(--gray-mid)', textAlign: 'center' }}>
+                  Printout runs over two pages? Pick up to {MAX_PHOTOS} photos at once.
+                </span>
+              )}
             </div>
+            {isStrip && <p className="strip-caveat" role="note">{STRIP_CAVEAT}</p>}
           </>
         )}
 
@@ -277,7 +336,9 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
             )}
             <div className="dot-loader"><span/><span/><span/></div>
             <span style={{ fontSize: 17, color: 'var(--gray-mid)' }}>
-              {progress && progress.of > 1 ? `Reading photo ${progress.n} of ${progress.of}…` : 'Reading your test results…'}
+              {isStrip
+                ? 'Matching the colours on your strip…'
+                : progress && progress.of > 1 ? `Reading photo ${progress.n} of ${progress.of}…` : 'Reading your test results…'}
             </span>
           </div>
         )}
@@ -285,8 +346,11 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
         {(state === 'review' || state === 'adding') && (
           <>
             <div className="modal-body" style={{ marginBottom: 12 }}>
-              Here's what your shop found. Check the values, fix anything that's off, then use them.
+              {isStrip
+                ? 'Here\'s what your strip matched to. Check each value against the chart on your pack, fix anything that\'s off, then use them.'
+                : 'Here\'s what your shop found. Check the values, fix anything that\'s off, then use them.'}
             </div>
+            {isStrip && <p className="strip-caveat" role="note">{STRIP_CAVEAT}</p>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16, alignItems: 'center' }}>
               <span className={`tag ${confidenceTag.cls}`}>{confidenceTag.text}</span>
               {scansLeft !== null && (
@@ -312,7 +376,7 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
             {volumeNotice(printoutVolumeL, poolVolumeL) && (
               <p role="status" style={{ fontSize: 17, color: 'var(--amber)', marginBottom: 12 }}>{volumeNotice(printoutVolumeL, poolVolumeL)}</p>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 12, marginBottom: 20 }}>
               {FIELD_MAP.filter(f => f.app !== 'salt' || values.salt !== '').map(f => (
                 <div key={f.app} className="input-group">
                   <label className="input-label" htmlFor={`scan-${f.app}`}>
@@ -327,6 +391,9 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
                     value={values[f.app] ?? ''}
                     onChange={e => setValues(v => ({ ...v, [f.app]: e.target.value }))}
                   />
+                  {isStrip && padTags[f.app] && values[f.app] !== '' && (
+                    <span className={`tag ${padTags[f.app].cls} strip-pad-tag`}>{padTags[f.app].text}</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -342,23 +409,30 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
               />
               <p style={{ fontSize: 15, color: 'var(--gray-mid)', marginTop: 6 }}>
                 {dateSource === 'printout' && 'Read from the printout. '}
-                {dateSource === 'today' && 'No date found on the printout, so this is today. Change it if the test was done earlier. '}
+                {dateSource === 'today' && !isStrip && 'No date found on the printout, so this is today. Change it if the test was done earlier. '}
+                {dateSource === 'today' && isStrip && `${stripDateText()} `}
                 {daysOld(testDate) >= 2 && `These readings are ${daysOld(testDate)} days old, so your Health Score page will show them that way.`}
               </p>
             </div>
-            <label className="keep-photo">
-              <input type="checkbox" checked={keepPhoto} onChange={e => setKeepPhoto(e.target.checked)} />
-              <span>Keep {photoBlob ? 'the first photo' : 'this photo'} with the test. It is proof of the result, and only you can see it.</span>
-            </label>
+            {!isStrip && (
+              <label className="keep-photo">
+                <input type="checkbox" checked={keepPhoto} onChange={e => setKeepPhoto(e.target.checked)} />
+                <span>Keep {photoBlob ? 'the first photo' : 'this photo'} with the test. It is proof of the result, and only you can see it.</span>
+              </label>
+            )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => choose(galleryRef, 'add')}>
-                {state === 'adding' && progress ? `Reading photo ${progress.n} of ${progress.of}…` : 'Add more photos'}
-              </button>
-              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => choose(fileRef, 'add')}>
-                Take another photo
-              </button>
-              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => { setNotice(''); setValues({}); setPhotoBlob(null); setPreview(null); setPrintoutVolumeL(null); setDateSource('today'); setTestDate(todayInput); setState('pick'); }}>
-                Start again with a different photo
+              {!isStrip && (
+                <>
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => choose(galleryRef, 'add')}>
+                    {state === 'adding' && progress ? `Reading photo ${progress.n} of ${progress.of}…` : 'Add more photos'}
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => choose(fileRef, 'add')}>
+                    Take another photo
+                  </button>
+                </>
+              )}
+              <button type="button" className="btn btn-ghost btn-sm" disabled={state === 'adding'} onClick={() => { setNotice(''); setValues({}); setPadTags({}); setPhotoBlob(null); setPreview(null); setPrintoutVolumeL(null); setDateSource('today'); setTestDate(todayInput); setState('pick'); }}>
+                {isStrip ? 'Retake the photo' : 'Start again with a different photo'}
               </button>
             </div>
           </>
