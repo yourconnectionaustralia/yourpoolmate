@@ -7,6 +7,7 @@ import GuestOnboarding from './components/GuestOnboarding.jsx';
 import AppTour from './components/AppTour.jsx';
 import { PoolIcon, equipmentIconName } from './components/PoolIcon.jsx';
 import LoadingScreen from './components/LoadingScreen.jsx';
+import AppSkeleton from './components/AppSkeleton.jsx';
 import WaterTrendChart from './components/WaterTrendChart.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import * as db from './lib/db.js';
@@ -3172,7 +3173,10 @@ export default function App() {
   if (trialExpired && !isPremium) {
     return <TrialExpiredScreen pricing={pricing} checkoutReturn={checkoutReturn} />;
   }
-  if (!dataReady) return <LoadingScreen />;
+  // Signed in, trial fine, data still arriving: draw the app's own layout in
+  // grey (skeleton) instead of a spinner. Same early return as before, so
+  // analyticsScreen() still sees "no screen yet" for this stage.
+  if (!dataReady) return <AppSkeleton />;
 
   return (
     <div className="app-shell">

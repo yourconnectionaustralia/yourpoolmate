@@ -1,0 +1,54 @@
+/* File: src/components/Skeleton.module.css */
+
+/* A grey placeholder block with a soft light sweep across it (the "shimmer").
+   Size comes in through custom properties so one rule serves every shape. */
+.block {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  flex-shrink: 0;
+  width: var(--sk-w, 100%);
+  max-width: 100%;
+  height: var(--sk-h, 1em);
+  border-radius: var(--sk-r, var(--radius-sm));
+  background: var(--gray-line);
+}
+
+.block::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.7) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.circle {
+  border-radius: 50%;
+}
+
+/* A ring (donut) instead of a disc — used for the Health Score placeholder.
+   --sk-stroke is the ring thickness. */
+.ring {
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--sk-stroke, 16px)), #000 calc(100% - var(--sk-stroke, 16px) + 1px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - var(--sk-stroke, 16px)), #000 calc(100% - var(--sk-stroke, 16px) + 1px));
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+@keyframes shimmer {
+  to { transform: translateX(100%); }
+}
+
+/* Reduced motion: keep the grey shapes, drop the sweep entirely. */
+@media (prefers-reduced-motion: reduce) {
+  .block::after {
+    animation: none;
+    display: none;
+  }
+}

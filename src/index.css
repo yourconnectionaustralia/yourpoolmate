@@ -1566,6 +1566,7 @@ img, svg { display: block; max-width: 100%; }
 .keep-photo { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 16px; font-size: 17px; line-height: 1.4; color: var(--gray-dark); cursor: pointer; }
 .keep-photo input { width: 24px; height: 24px; margin-top: 2px; flex-shrink: 0; accent-color: var(--water-deep); }
 .printout-photo { display: block; max-width: 100%; max-height: 60vh; margin: 0 auto 16px; border-radius: var(--radius-md, 12px); }
+.printout-skeleton { margin-bottom: 16px; }
 .photo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0 4px; }
 .photo-row-note { color: var(--gray-mid); font-size: 17px; }
 

@@ -1,0 +1,68 @@
+/* File: src/components/AppSkeleton.module.css */
+/* Only the bits the shared shell classes (.topnav, .sidebar, .main-content,
+   .mobile-nav, .card…) don't already cover. Reusing those classes is what
+   keeps the skeleton the exact size of the real screen, so nothing jumps
+   when the data arrives. */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sideLabel {
+  padding: 0 12px;
+  margin-bottom: 8px;
+}
+
+.sideItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 5px 12px;
+}
+
+.pageHead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: 20px;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.heroAction {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.navItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 4px;
+}
