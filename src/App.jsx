@@ -2259,7 +2259,7 @@ function EquipmentPage({ equipment, onAdd, onUpdate, onDelete, autoOpenAdd, onAu
 // ─────────────────────────────────────────────────────────────────
 // IN-APP CHECKOUT
 // Signed-in users pay here. stripe-checkout decides founding ($79 once)
-// vs annual ($49/year) from founding_member. We never send a plan or
+// vs annual ($49/year) from the count of paid founding members. We never send a plan or
 // Price ID, and we never send the user to the marketing site.
 // ─────────────────────────────────────────────────────────────────
 const CHECKOUT_RETURN_KEY = 'ypm_checkout_return';

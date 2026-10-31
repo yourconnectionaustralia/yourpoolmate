@@ -1,7 +1,8 @@
 // In-app Stripe Checkout for signed-in trial users.
 //
-// The edge function `stripe-checkout` chooses the plan from
-// user_profiles.founding_member. The client never sends a plan or a Price ID.
+// The edge function `stripe-checkout` chooses the plan from the number of
+// paid founding members (first 300 paid get $79 lifetime, then $49/year).
+// The client never sends a plan or a Price ID.
 // create_session returns a Stripe-hosted URL; the app navigates there.
 
 const CHECKOUT_HOST = 'checkout.stripe.com'
