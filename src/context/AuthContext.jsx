@@ -198,6 +198,28 @@ export function AuthProvider({ children }) {
     return { data, error }
   }
 
+  /**
+   * One-tap sign-in / sign-up with Google or Apple. The same call serves both:
+   * a new address creates the account (and the 30-day trial via the
+   * handle_new_user trigger), a known address signs straight in.
+   *
+   * On success the browser leaves the page for the provider, so nothing runs
+   * after this resolves. When it comes back, detectSessionInUrl turns the
+   * #access_token hash into a session and onAuthStateChange fires SIGNED_IN.
+   * The provider must be enabled in the Supabase dashboard first; the bare
+   * origin must be in the Redirect URL allow-list (same as the email flows).
+   */
+  async function signInWithProvider(provider) {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        // IMPORTANT: Always use window.location.origin — never hardcode a domain.
+        redirectTo: window.location.origin
+      }
+    })
+    return { data, error }
+  }
+
   async function resetPassword(email) {
     // Sends a recovery email. The link redirects back here with
     // #access_token=...&type=recovery in the URL hash; the SDK
@@ -235,6 +257,7 @@ export function AuthProvider({ children }) {
     signInWithEmail,
     signUpWithEmail,
     signInWithMagicLink,
+    signInWithProvider,
     resetPassword,
     updatePassword,
     resendConfirmation,

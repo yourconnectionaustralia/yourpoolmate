@@ -63,7 +63,7 @@ Two separate Cloudflare Pages projects:
 
 ### Supabase
 - Every table MUST have Row Level Security (RLS) enabled — no exceptions
-- Auth via Supabase Auth (email/password + magic link)
+- Auth via Supabase Auth (email/password + magic link, plus optional Google/Apple one-tap sign-in — buttons are switched on per deploy with `VITE_AUTH_PROVIDERS`, setup in `docs/SOCIAL_SIGNIN_SETUP.md`)
 - Edge Functions live in `supabase/functions/` — Deno runtime, not Node
 - Environment variables via Supabase dashboard secrets (never hardcoded)
 - Rate limiting required on all Edge Functions that call external APIs

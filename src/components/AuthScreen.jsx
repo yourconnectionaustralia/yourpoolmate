@@ -3,6 +3,23 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import styles from './AuthScreen.module.css'
 import { PoolIcon } from './PoolIcon.jsx'
+import {
+  parseEnabledProviders,
+  parseAuthRedirectError,
+  friendlyRedirectError,
+  providerErrorMessage,
+  PROVIDER_LABELS
+} from '../lib/authProviders.js'
+
+// Providers switched on for this deploy: a Cloudflare Pages env var such as
+// VITE_AUTH_PROVIDERS="google,apple". Unset = email only, so a button never
+// appears before its provider is configured in the Supabase dashboard.
+const ENABLED_PROVIDERS = parseEnabledProviders(import.meta.env.VITE_AUTH_PROVIDERS)
+
+// Google and Apple require their own official logo on these buttons. Drop the
+// files from their brand kits into public/auth/ (see docs/SOCIAL_SIGNIN_SETUP.md).
+// Until they exist the logo hides itself and the button shows text only.
+const PROVIDER_LOGOS = { google: '/auth/google.svg', apple: '/auth/apple.svg' }
 
 // Seconds Supabase enforces between confirmation-email resends for the
 // same address. Calling sooner returns an error, so the button is gated.
@@ -71,6 +88,53 @@ function PasswordField({ id, label, value, onChange, placeholder, autoComplete, 
   )
 }
 
+// "Continue with Google / Apple" buttons. "Continue" (not "Sign up" / "Sign in")
+// because the same tap creates a new account or signs an existing one back in,
+// so nobody has to remember which they did last time.
+function SocialButtons({ providers, busy, disabled, error, onSelect }) {
+  if (!providers.length) return null
+  return (
+    <div className={styles.providers}>
+      {providers.map(id => (
+        <button
+          key={id}
+          type="button"
+          className={`${styles.btnProvider} ${id === 'apple' ? styles.btnApple : styles.btnGoogle}`}
+          onClick={() => onSelect(id)}
+          disabled={disabled}
+          aria-busy={busy === id}
+        >
+          <img
+            className={styles.providerLogo}
+            src={PROVIDER_LOGOS[id]}
+            alt=""
+            width="20"
+            height="20"
+            onError={e => { e.currentTarget.style.display = 'none' }}
+          />
+          <span>
+            {busy === id
+              ? `Opening ${PROVIDER_LABELS[id]}…`
+              : `Continue with ${PROVIDER_LABELS[id]}`}
+          </span>
+        </button>
+      ))}
+      {error && <p className={styles.error} role="alert">{error}</p>}
+    </div>
+  )
+}
+
+// Removes the error params Supabase left in the URL so a refresh doesn't
+// show the same message again. Other query params (e.g. utm_*) are kept.
+function stripAuthErrorFromUrl() {
+  try {
+    const url = new URL(window.location.href)
+    for (const k of ['error', 'error_code', 'error_description']) url.searchParams.delete(k)
+    if (parseAuthRedirectError(url.hash, '')) url.hash = ''
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+  } catch { /* cosmetic only */ }
+}
+
 export default function AuthScreen() {
   // Set by Profile just after the account is deleted. Shown once.
   const [accountDeleted] = useState(() => {
@@ -84,6 +148,7 @@ export default function AuthScreen() {
     signInWithEmail,
     signUpWithEmail,
     signInWithMagicLink,
+    signInWithProvider,
     resetPassword,
     updatePassword,
     resendConfirmation,
@@ -96,7 +161,13 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState('')
+  // Starts with a message if we were sent back here by a failed redirect
+  // (user cancelled at Google/Apple, or an email link had expired).
+  const [error, setError] = useState(() =>
+    friendlyRedirectError(parseAuthRedirectError(window.location.hash, window.location.search))
+  )
+  const [providerError, setProviderError] = useState('')
+  const [oauthBusy, setOauthBusy] = useState('') // '' | 'google' | 'apple'
   const [loading, setLoading] = useState(false)
   const [magicSent, setMagicSent] = useState(false)
   const [confirmSent, setConfirmSent] = useState(false)
@@ -113,8 +184,51 @@ export default function AuthScreen() {
     return () => clearTimeout(t)
   }, [cooldown])
 
+  // Clear the error params from the address bar once we've captured them.
+  useEffect(() => {
+    if (parseAuthRedirectError(window.location.hash, window.location.search)) {
+      stripAuthErrorFromUrl()
+    }
+  }, [])
+
+  // Pressing Back from the Google/Apple page restores this screen from the
+  // browser's back/forward cache with the button still saying "Opening…".
+  // Reset it, and also after 10s in case the redirect never happened.
+  useEffect(() => {
+    const onShow = e => { if (e.persisted) setOauthBusy('') }
+    window.addEventListener('pageshow', onShow)
+    return () => window.removeEventListener('pageshow', onShow)
+  }, [])
+
+  useEffect(() => {
+    if (!oauthBusy) return
+    const t = setTimeout(() => setOauthBusy(''), 10000)
+    return () => clearTimeout(t)
+  }, [oauthBusy])
+
+  async function handleProvider(provider) {
+    if (oauthBusy || loading) return
+    setOauthBusy(provider)
+    setError('')
+    setProviderError('')
+    try {
+      const { error } = await signInWithProvider(provider)
+      if (error) {
+        console.error('[auth]', error)
+        setProviderError(providerErrorMessage(error, provider))
+        setOauthBusy('')
+      }
+      // On success the browser is already on its way to the provider.
+    } catch (err) {
+      console.error('[auth] provider sign-in threw:', err)
+      setProviderError('Couldn\'t reach the server — check your connection and try again.')
+      setOauthBusy('')
+    }
+  }
+
   function resetFlowState() {
     setError('')
+    setProviderError('')
     setResendNote('')
     setAlreadyExists(false)
     setConfirmSent(false)
@@ -488,6 +602,8 @@ export default function AuthScreen() {
             <span className={styles.trialNote}>No credit card required</span>
           </div>
 
+          {error && <p className={styles.error} role="alert">{error}</p>}
+
           <div className={styles.actions}>
             <button
               className={styles.btnPrimary}
@@ -606,6 +722,17 @@ export default function AuthScreen() {
           <h2 className={styles.formHeading}>Start your free trial</h2>
           <p className={styles.formSubtext}>30 days free. No credit card.</p>
 
+          <SocialButtons
+            providers={ENABLED_PROVIDERS}
+            busy={oauthBusy}
+            disabled={loading || Boolean(oauthBusy)}
+            error={providerError}
+            onSelect={handleProvider}
+          />
+          {ENABLED_PROVIDERS.length > 0 && (
+            <div className={styles.divider}><span>or use your email</span></div>
+          )}
+
           <form onSubmit={handleSignUp} className={styles.form} noValidate>
             <label className={styles.label} htmlFor="signup-email">Email address</label>
             <input
@@ -658,6 +785,17 @@ export default function AuthScreen() {
           Back
         </button>
         <h2 className={styles.formHeading}>Welcome back</h2>
+
+        <SocialButtons
+          providers={ENABLED_PROVIDERS}
+          busy={oauthBusy}
+          disabled={loading || Boolean(oauthBusy)}
+          error={providerError}
+          onSelect={handleProvider}
+        />
+        {ENABLED_PROVIDERS.length > 0 && (
+          <div className={styles.divider}><span>or sign in with email</span></div>
+        )}
 
         <form onSubmit={handleLogin} className={styles.form} noValidate>
           <label className={styles.label} htmlFor="login-email">Email address</label>
