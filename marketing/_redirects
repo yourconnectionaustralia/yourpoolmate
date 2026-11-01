@@ -1,0 +1,18 @@
+# Canonical URLs match sitemap.xml. These 301s point the .html address at the
+# clean URL only. Pages already does the same hop as a 308 (checked live on
+# 19 Oct 2026: /privacy.html → /privacy, /terms.html → /terms,
+# /index.html → /, and /tools/.../index.html → /tools/.../). Do not add the
+# reverse (clean URL → .html file). Pages serves the HTML file at the
+# extensionless path, so that reverse rule loops.
+#
+# Do not add `/* /index.html 200`. That is the app's SPA fallback
+# (public/_redirects) and it is not part of this marketing build. Without a
+# top-level 404.html, Pages treats the project as a single-page app and
+# returns the homepage with status 200. 404.html is what makes an unknown
+# path a real 404.
+
+/index.html / 301
+/privacy.html /privacy 301
+/terms.html /terms 301
+/tools/pool-volume-calculator/index.html /tools/pool-volume-calculator/ 301
+/tools/chlorine-dose-calculator/index.html /tools/chlorine-dose-calculator/ 301
