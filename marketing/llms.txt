@@ -7,8 +7,8 @@ The marketing site is https://yourpoolmate.com.au/. The app is https://app.yourp
 ## Pricing
 
 - 30-day free trial. No card required to start.
-- The first 300 members pay $79 AUD once for lifetime access.
-- After the first 300 members, access is $49 AUD per year. Cancel anytime.
+- The first 300 paying members pay $79 AUD once for lifetime access.
+- After the first 300 paying members, access is $49 AUD per year. Cancel anytime.
 - Founding-member purchases have a 30-day no-questions-asked refund. Email hello@yourpoolmate.com.au.
 
 ## What it does

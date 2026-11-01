@@ -48,7 +48,7 @@ const RANGES: Record<string, { min: number; max: number }> = {
   alkalinity:    { min: 80,   max: 120  },
   cyanuric_acid: { min: 30,   max: 50   },
   calcium:       { min: 200,  max: 400  },
-  salt:          { min: 3000, max: 4500 }, // matches the 3000–4500 target shown in the app UI
+  salt:          { min: 3000, max: 5000 }, // matches the app default; chlorinator bands top out at 5000
 }
 
 // Plausible physical bounds — anything outside is treated as bad input,
@@ -100,10 +100,19 @@ function scoreCalcium(value: number, surface?: string): number {
   return scoreParam(value, min, max)
 }
 
+// Covered pools: the cover keeps the sun off, so low or no stabiliser is not
+// a fault. High stabiliser still uses the 30–50 band.
+function scoreStabiliser(value: number, hasCover?: boolean): number {
+  const { min, max } = RANGES.cyanuric_acid
+  if (hasCover && value <= max) return 100
+  return scoreParam(value, min, max)
+}
+
 export function calculateScore(
   readings: Record<string, unknown>,
   sanitiserType?: string,
   poolSurface?: string,
+  hasCover?: boolean,
 ): number {
   const weights = isSaltwater(sanitiserType) ? WEIGHTS_SALTWATER : WEIGHTS_DEFAULT
 
@@ -116,7 +125,9 @@ export function calculateScore(
     if (value !== null) {
       const scored = param === "calcium"
         ? scoreCalcium(value, poolSurface)
-        : scoreParam(value, range.min, range.max)
+        : param === "cyanuric_acid"
+          ? scoreStabiliser(value, hasCover)
+          : scoreParam(value, range.min, range.max)
       total += scored * weight
       weightSum += weight
     }
@@ -156,8 +167,8 @@ serve(async (req) => {
     }
 
     const body = await req.json()
-    const { sanitiser_type, pool_surface, ...readings } = body ?? {}
-    const score = calculateScore(readings, sanitiser_type, pool_surface)
+    const { sanitiser_type, pool_surface, has_cover, ...readings } = body ?? {}
+    const score = calculateScore(readings, sanitiser_type, pool_surface, has_cover === true)
 
     return new Response(
       JSON.stringify({ health_score: score }),

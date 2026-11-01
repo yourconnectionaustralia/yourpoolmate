@@ -67,8 +67,9 @@ test('a measured zero still uses the scored warning, not the empty-test line', (
 
 test('the home screen offers a test, not a warning, when nothing is scorable', () => {
   const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
-  assert.match(app, /if \(!testData \|\| emptyTestHeadline\(testData, poolProfile\?\.sanitiser\)\) \{/);
-  assert.match(app, /Log a test now/);
-  assert.match(app, /const headline = scoreHeadline\(score, params\)/);
-  assert.match(app, /return 'Chemistry needs urgent correction\. Hold off swimming for now\.'/);
+  const plan = readFileSync(new URL('./plan.js', import.meta.url), 'utf8');
+  assert.match(app, /if \(!testData \|\| !plan \|\| emptyTestHeadline\(testData, poolProfile\?\.sanitiser\)\) \{/);
+  assert.match(app, /Log your first test/);
+  assert.match(app, /\{plan\.headline\}/);
+  assert.match(plan, /return 'The water needs work before anyone swims\.'/);
 });

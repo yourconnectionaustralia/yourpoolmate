@@ -21,77 +21,95 @@ export const TARGET_MID = {
 };
 
 // Raise-chlorine products, in the same order the dose plan shows them.
-// `amount` is the only place the chlorine factors live.
+// `quantity` is the only place the chlorine factors live.
 export const CHLORINE_RAISE_PRODUCTS = [
   {
     id: 'liquid-chlorine',
     name: 'liquid chlorine (sodium hypochlorite)',
     label: 'Liquid chlorine (sodium hypochlorite)',
-    amount(kl, d) { return fmtVol(kl * 8 * d); },
+    quantity(name, kl, d) { return volume(name, kl * 8 * d); },
   },
   {
     id: 'cal-hypo',
     name: 'granular chlorine (calcium hypochlorite)',
     label: 'Granular chlorine (calcium hypochlorite)',
-    amount(kl, d) { return fmtMass(kl * 1.4 * d); },
+    quantity(name, kl, d) { return mass(name, kl * 1.4 * d); },
   },
 ];
 
-// Dose options for one parameter. `kl` is pool volume in 1000-L units (0 = unknown).
-// `saltMid` overrides the salt target midpoint for the owner's chlorinator.
-export function doseOptions(key, state, val, kl, saltPool, saltMid) {
-  const t = key === 'salt' && saltMid != null ? saltMid : TARGET_MID[key];
-  const d = state === 'low' ? (t - val) : (val - t);
+// The amount the plan tells the owner to add, as a number. Matches what
+// fmtMass / fmtVol print, so stock, costs and the label never disagree.
+export const roundGrams = (g) => (!g || g <= 0) ? 0 : (g >= 1000 ? Math.round(g / 100) * 100 : Math.round(g / 5) * 5);
+export const roundMillilitres = (ml) => (!ml || ml <= 0) ? 0 : (ml >= 1000 ? Math.round(ml / 100) * 100 : Math.round(ml / 10) * 10);
+
+const mass = (name, g) => ({ name, grams: roundGrams(g) || null, millilitres: null });
+const volume = (name, ml) => ({ name, grams: null, millilitres: roundMillilitres(ml) || null });
+const step = (name) => ({ name, grams: null, millilitres: null });
+
+// Dose quantities for one parameter, as numbers. `kl` is pool volume in
+// 1000-L units (0 = unknown). `saltMid` overrides the salt target midpoint
+// for the owner's chlorinator. `target` (optional) overrides the midpoint for
+// any other parameter, e.g. a higher free chlorine aim in high-UV months.
+export function doseQuantities(key, state, val, kl, saltPool, saltMid, target) {
+  const t = key === 'salt' && saltMid != null ? saltMid : (target ?? TARGET_MID[key]);
+  const d = Math.max(0, state === 'low' ? (t - val) : (val - t));
   switch (key) {
     case 'pH':
       return state === 'low'
-        ? [{ name: 'soda ash (sodium carbonate)', amount: fmtMass(kl * 60 * d) }]
+        ? [mass('soda ash (sodium carbonate)', kl * 60 * d)]
         // pH-down rates: HCl ~29 mL/kL per pH-unit (33% acid); dry acid ~38 g/kL
         // per pH-unit (~1.3x HCl by acid equivalence). Verified against a Focus
         // pool-shop analysis (526 mL HCl for a 45 kL pool, pH 7.8->7.4) and
         // carbonate first-principles. Do NOT reset these to 80.
         // Liquid acid is the preferred primary method, so it leads the list.
-        : [{ name: 'hydrochloric acid (liquid)', amount: fmtVol(kl * 29 * d) },
-           { name: 'dry acid (sodium bisulphate)', amount: fmtMass(kl * 38 * d) }];
+        : [volume('hydrochloric acid (liquid)', kl * 29 * d),
+           mass('dry acid (sodium bisulphate)', kl * 38 * d)];
     case 'freeChlor': {
       if (state === 'low') {
-        const o = CHLORINE_RAISE_PRODUCTS.map((p) => ({
-          name: p.name,
-          amount: p.amount(kl, d),
-        }));
-        if (saltPool) o.unshift({ name: 'increase chlorinator output or run time', amount: null });
+        const o = CHLORINE_RAISE_PRODUCTS.map((p) => p.quantity(p.name, kl, d));
+        if (saltPool) o.unshift(step('increase chlorinator output or run time'));
         return o;
       }
       return [
-        { name: 'let chlorine reduce naturally (sunlight)', amount: null },
-        { name: 'chlorine remover (sodium thiosulphate)', amount: fmtMass(kl * 2.5 * d) },
+        step('let chlorine reduce naturally (sunlight)'),
+        mass('chlorine remover (sodium thiosulphate)', kl * 2.5 * d),
       ];
     }
     case 'alkalinity':
       return state === 'low'
-        ? [{ name: 'buffer / bicarb soda (sodium bicarbonate)', amount: fmtMass(kl * 1.7 * d) }]
-        : [{ name: 'dry acid (sodium bisulphate)', amount: fmtMass(kl * 1.9 * d) },
-           { name: 'hydrochloric acid (liquid)', amount: fmtVol(kl * 1.6 * d) }];
+        ? [mass('buffer / bicarb soda (sodium bicarbonate)', kl * 1.7 * d)]
+        : [mass('dry acid (sodium bisulphate)', kl * 1.9 * d),
+           volume('hydrochloric acid (liquid)', kl * 1.6 * d)];
     case 'cyanuricAcid':
       return state === 'low'
-        ? [{ name: 'stabiliser / conditioner (cyanuric acid)', amount: fmtMass(kl * 1.0 * d) }]
-        : [{ name: 'partial drain & refill, or consult your pool professional', amount: null }];
+        ? [mass('stabiliser / conditioner (cyanuric acid)', kl * 1.0 * d)]
+        : [step('partial drain & refill, or consult your pool professional')];
     case 'calciumHardness':
       return state === 'low'
-        ? [{ name: 'calcium chloride (hardness increaser)', amount: fmtMass(kl * 1.5 * d) }]
-        : [{ name: 'partial drain & refill, or consult your pool professional', amount: null },
-           { name: 'scale inhibitor / sequestrant', amount: null }];
+        ? [mass('calcium chloride (hardness increaser)', kl * 1.5 * d)]
+        : [step('partial drain & refill, or consult your pool professional'),
+           step('scale inhibitor / sequestrant')];
     case 'salt':
       return state === 'low'
-        ? [{ name: 'pool salt', amount: fmtMass(kl * 1.0 * d) }]
-        : [{ name: 'partial drain & refill, or consult your pool professional', amount: null }];
+        ? [mass('pool salt', kl * 1.0 * d)]
+        : [step('partial drain & refill, or consult your pool professional')];
     case 'phosphates':
-      return [{ name: 'phosphate remover (lanthanum-based) — dose per product label', amount: null }];
+      return [step('phosphate remover (lanthanum-based) — dose per product label')];
     case 'tds':
-      return [{ name: 'partial drain & refill, or consult your pool professional', amount: null }];
+      return [step('partial drain & refill, or consult your pool professional')];
     default:
-      return [{ name: 'needs attention', amount: null }];
+      return [step('needs attention')];
   }
+}
+
+// Dose options for one parameter, with the printed amount ("540 mL").
+// Same arguments as doseQuantities; grams / millilitres ride along so the
+// plan can draw from the shed and price a dose.
+export function doseOptions(key, state, val, kl, saltPool, saltMid, target) {
+  return doseQuantities(key, state, val, kl, saltPool, saltMid, target).map((o) => ({
+    ...o,
+    amount: o.grams ? fmtMass(o.grams) : o.millilitres ? fmtVol(o.millilitres) : null,
+  }));
 }
 
 /**

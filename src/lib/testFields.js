@@ -9,7 +9,7 @@ export function testFormFields(saltPool, saltRange) {
     { key: 'alkalinity',      label: 'Total alkalinity', unit: 'ppm', placeholder: '80–120' },
     { key: 'cyanuricAcid',    label: 'Cyanuric acid',    unit: 'ppm', placeholder: '30–50' },
     { key: 'calciumHardness', label: 'Calcium hardness', unit: 'ppm', placeholder: '200–400' },
-    ...(saltPool ? [{ key: 'salt', label: 'Salt', unit: 'ppm', placeholder: saltRange ? `${saltRange.lo}–${saltRange.hi}` : '3000–4500' }] : []),
+    ...(saltPool ? [{ key: 'salt', label: 'Salt', unit: 'ppm', placeholder: saltRange ? `${saltRange.lo}–${saltRange.hi}` : '3000–5000' }] : []),
     { key: 'phosphates', label: 'Phosphates', unit: 'ppb', placeholder: 'optional' },
     { key: 'tds',        label: 'Total dissolved solids', unit: 'ppm', placeholder: 'optional' },
   ];
