@@ -117,7 +117,13 @@ test('the app loads this measurement id once, with the cross-domain linker', () 
 });
 
 test('marketing pages keep the tag already on main and gain no second id', () => {
-  for (const file of ['index.html', 'privacy.html', 'terms.html']) {
+  for (const file of [
+    'index.html',
+    'privacy.html',
+    'terms.html',
+    'tools/pool-volume-calculator/index.html',
+    'tools/chlorine-dose-calculator/index.html',
+  ]) {
     const html = readFileSync(new URL(`../../marketing/${file}`, import.meta.url), 'utf8');
     assert.equal(html.includes(`https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`), true);
     assert.equal(html.includes(`gtag('config', '${MEASUREMENT_ID}');`), true);
@@ -513,6 +519,9 @@ test('a test-mode checkout omits value and currency and is marked internal', () 
 test('the live shell wires each event without sending a Stripe session id', () => {
   const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
   const onboarding = readFileSync(new URL('../components/GuestOnboarding.jsx', import.meta.url), 'utf8');
+  // Scanner saves moved out of App.jsx into WaterTestScanner; they still reach
+  // persistTest (and its trackEvent) through App's onSave.
+  const scanner = readFileSync(new URL('../components/WaterTestScanner.jsx', import.meta.url), 'utf8');
   assert.equal(app.includes('trackTrialStartOnce'), true);
   assert.equal(app.includes('supabase.auth.updateUser'), true);
   assert.equal(app.includes('trackCheckoutStarted'), true);
@@ -533,7 +542,7 @@ test('the live shell wires each event without sending a Stripe session id', () =
   assert.equal(persist.includes('.then('), true);
   assert.equal(persist.indexOf('.then(') < persist.indexOf('trackEvent'), true);
   assert.equal(persist.indexOf('trackEvent') < persist.indexOf('.catch('), true);
-  assert.equal(app.includes("source: 'ocr'"), true);
+  assert.equal(scanner.includes("source: 'ocr'"), true);
   assert.equal(app.includes("source: 'voice'"), true);
 
   const past = app.slice(app.indexOf('const handleAddPastTest'), app.indexOf('const handleAddEvent'));

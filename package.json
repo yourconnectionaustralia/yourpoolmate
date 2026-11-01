@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:marketing": "vite serve marketing --port 5174",
+    "dev:marketing": "vite --config vite.marketing.config.js",
     "build": "vite build",
-    "build:marketing": "rm -rf marketing-dist && mkdir -p marketing-dist && find marketing -maxdepth 1 -type f ! -name '.*' -exec cp {} marketing-dist/ \\;",
+    "build:marketing": "node scripts/build-marketing.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

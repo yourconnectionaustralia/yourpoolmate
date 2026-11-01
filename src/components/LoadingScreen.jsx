@@ -1,9 +1,14 @@
 // File: src/components/LoadingScreen.jsx
+//
+// The brief splash while the app checks whether someone is signed in. At this
+// point we don't yet know if they're a member or a visitor, so there's no
+// layout to draw; once we know, a signed-in member gets AppSkeleton instead.
+// No spinner: the logo's gentle pulse says "working".
 import styles from './LoadingScreen.module.css'
 
 export default function LoadingScreen() {
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} aria-busy="true">
       <div className={styles.logo} aria-hidden="true">
         {/* Waterline Ring logo — Crystal Clear water gradient */}
         <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -18,7 +23,7 @@ export default function LoadingScreen() {
         </svg>
       </div>
       <p className={styles.label}>Your Pool Mate</p>
-      <div className={styles.spinner} role="status" aria-label="Loading" />
+      <p className="visually-hidden" role="status">Loading…</p>
     </div>
   )
 }

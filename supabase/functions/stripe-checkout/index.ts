@@ -5,12 +5,18 @@
 //
 // Model (Sep 2026): everyone gets a 30-day free trial. When it ends the user
 // pays inside the app to keep access.
-//   • First 300 users (founding_member = true)  → $79 AUD once, lifetime  (Stripe mode: payment)
+//   • First 300 PAID members                    → $79 AUD once, lifetime  (Stripe mode: payment)
 //   • Everyone after that                        → $49 AUD / year          (Stripe mode: subscription)
+//
+// Founding places are counted on PAYMENT, not signup order (decided 31 Oct
+// 2026): the offer is open while fewer than 300 profiles have
+// plan = 'founding_lifetime'. Only the webhook ever sets that plan.
+// If checkouts overlap near the cap a few extra founding buyers are possible;
+// each buyer is charged exactly the price they were shown.
 //
 // The caller is ALWAYS an authenticated app user (their trial just expired),
 // so this function requires a valid Supabase JWT. Price + plan are decided
-// SERVER-SIDE from the user's founding_member flag — never trusted from the
+// SERVER-SIDE from the paid-founding count — never trusted from the
 // client — so nobody can talk themselves into the founding rate.
 //
 // Actions (POST JSON body):
@@ -47,6 +53,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { stripeSecretIsTestMode as secretKeyIsTestMode } from "./stripe-test-mode.js"
+import { foundingOpen } from "../_shared/founding.js"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -137,7 +144,7 @@ serve(async (req) => {
     )
     const { data: profile, error: profileErr } = await admin
       .from("user_profiles")
-      .select("is_premium, plan, founding_member, trial_ends_at, stripe_customer_id")
+      .select("is_premium, plan, trial_ends_at, stripe_customer_id")
       .eq("id", user.id)
       .single()
 
@@ -146,7 +153,18 @@ serve(async (req) => {
       return jsonResponse({ error: "Profile not found", code: "NO_PROFILE" }, 404)
     }
 
-    const tier = profile.founding_member ? FOUNDING : STANDARD
+    // Founding places are counted on payment. If we can't count, say so
+    // rather than guess a price.
+    const { count: foundingPaid, error: countErr } = await admin
+      .from("user_profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("plan", "founding_lifetime")
+    if (countErr || foundingPaid === null) {
+      console.error("stripe-checkout: founding count failed:", countErr)
+      return jsonResponse({ error: "Couldn't check founding places", code: "COUNT_FAILED" }, 503)
+    }
+
+    const tier = foundingOpen(foundingPaid) ? FOUNDING : STANDARD
 
     // ── 3. Parse action ────────────────────────────────────────────
     const body = await req.json().catch(() => ({}))
@@ -157,7 +175,7 @@ serve(async (req) => {
         plan: tier.plan,
         price_aud: tier.price_aud,
         interval: tier.interval,           // 'year' for standard, null for lifetime
-        founding: profile.founding_member,
+        founding: tier === FOUNDING,
         is_premium: profile.is_premium,
         trial_ends_at: profile.trial_ends_at,
         test_mode: stripeSecretIsTestMode(),
@@ -201,7 +219,18 @@ serve(async (req) => {
       "success_url": `${successUrl}${successUrl.includes("?") ? "&" : "?"}checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       "cancel_url": `${cancelUrl}${cancelUrl.includes("?") ? "&" : "?"}checkout=cancelled`,
       "client_reference_id": user.id,
+      // Checkout Studio settings (hosted page look + fields collected).
+      "ui_mode": "hosted_page",
+      "billing_address_collection": "auto",
+      "phone_number_collection[enabled]": "false",
+      "automatic_tax[enabled]": "false",
       "allow_promotion_codes": "true",
+      "integration_identifier": "hosted_web_0001",
+      "origin_context": "web",
+      "branding_settings[background_color]": "#ffffff",
+      "branding_settings[button_color]": "#0b7799",
+      "branding_settings[font_family]": "default",
+      "branding_settings[border_style]": "rounded",
       // Carry the user id on the session so the webhook knows who paid.
       "metadata[user_id]": user.id,
       "metadata[plan]": tier.plan,
@@ -230,7 +259,13 @@ serve(async (req) => {
       params["customer_email"] = user.email
     }
 
+    if (tier.mode === "payment") {
+      params["submit_type"] = "pay" // Stripe only accepts submit_type in payment mode
+    }
+
     if (tier.mode === "subscription") {
+      params["payment_method_collection"] = "always"
+      params["line_items[0][price_data][recurring][interval]"] = tier.interval!
       // Copy the user id onto the subscription so lifecycle events
       // (renewals, cancellations) can be mapped back to the account.
       params["subscription_data[metadata][user_id]"] = user.id
