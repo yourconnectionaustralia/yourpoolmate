@@ -125,6 +125,8 @@ test("monthly email: counts, score movement, doses and latest readings", () => {
   assert.match(e.text, /Best score 92, lowest 61\./)
   assert.match(e.text, /Doses you added: 3\./)
   assert.match(e.text, /free chlorine 2 ppm, pH 7\.4, alkalinity 100 ppm, calcium 300 ppm/)
+  assert.match(e.text, /as a PDF or spreadsheet, is in the app, in the Chemistry log/)
+  assert.match(e.html, /in the Chemistry log/)
   assert.ok(e.html.includes(UNSUB))
 })
 

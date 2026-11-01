@@ -80,12 +80,15 @@ account via the Stripe webhook.
 | Cohort | Offer | Price | Stripe mode |
 |--------|-------|-------|-------------|
 | Everyone | 30-day hard-countdown free trial | Free | — |
-| First 300 users (by signup order) | Founding — lifetime | $79 AUD once | payment |
-| Users 301+ | Standard — annual | $49 AUD/year | subscription |
+| First 300 PAID members | Founding — lifetime | $79 AUD once | payment |
+| Everyone after that | Standard — annual | $49 AUD/year | subscription |
 
-Founding eligibility is stamped at signup (`user_profiles.founding_member`, `signup_rank`)
-and never shifts. Price is decided **server-side** in the `stripe-checkout` Edge Function —
-never trusted from the client.
+Founding places are counted on **payment**, not signup order (decided 31 Oct 2026). The
+`stripe-checkout` Edge Function offers $79 while fewer than 300 profiles have
+`plan = 'founding_lifetime'` (see `supabase/functions/_shared/founding.js`). Price is decided
+**server-side** — never trusted from the client. `user_profiles.founding_member` is now only
+"the offer was open at signup" and drives the founding note in the L1/L4/L5 emails.
+Trial is a plain 30 days for new signups (migration 023 turned the beta end date off).
 
 **Retired (Sep 2026):** the old "$79 LTD sold via marketing page, 200 spots, $99 FOMO bump,
 $39/yr after" model. The marketing site no longer takes payment — its CTA is "Start free"

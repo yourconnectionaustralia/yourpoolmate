@@ -3,7 +3,9 @@
 // warranty message. No images (the hero is text only).
 // House rules: hyphens only (no en/em dashes), "test" rather than "log",
 // no photo-scan claims. Enforced by assertOutboundStyle and the tests.
-// Founding copy renders only when foundingMember is true (signup rank, not a client flag).
+// Founding copy renders only when foundingMember is true (set at signup while founding
+// places are open, not a client flag). Places are counted on PAYMENT: the first 300 paid
+// members get $79 lifetime. Copy must never say places are held at signup.
 
 import { FROM_ADDRESS, REPLY_TO } from "./lifecycle-rules.js"
 
@@ -404,7 +406,7 @@ function renderL4(name, founding, testCount) {
       ? "Add one a week and the record keeps building. It takes about a minute."
       : "Haven't tested much yet? Now's a good time. It takes about a minute."
   const offerHtml = founding
-    ? `When your trial ends, you can keep going as a <strong style="color:${DEPTH};">founding member</strong> for <strong style="color:${DEPTH};">$79 once</strong>, for life. That price is held for the first 300 people to sign up, and you're one of them. No need to decide today.`
+    ? `When your trial ends, you can keep going as a <strong style="color:${DEPTH};">founding member</strong> for <strong style="color:${DEPTH};">$79 once</strong>, for life. That price is for the first 300 members to pay, then it moves to $49/year. No need to decide today.`
     : `When your trial ends, you can keep going for <strong style="color:${DEPTH};">$49/year</strong>. No need to decide today.`
   const offerPlain = offerHtml.replace(/<[^>]+>/g, "")
   const closing = "If something's confusing or missing, hit reply. I read every one."
@@ -438,13 +440,13 @@ function renderL5(name, founding, trialEndsAt, testCount) {
   const count = testsLabel(testCount)
   const ends = trialEndLabel(trialEndsAt)
   const preview = founding
-    ? "As one of the first 300, your price is $79 once, for life."
+    ? "Founding price: $79 once, for life, for the first 300 members to pay."
     : "Keep your pool records for $49/year."
   const endsHtml = ends
     ? `Your free trial ends on <strong style="color:${DEPTH};">${esc(ends)}</strong>.`
     : "Your free trial ends in a few days."
   const offer = founding
-    ? { label: "Founding member", price: "$79", terms: "once, lifetime access", note: "Held for you as one of the first 300 to sign up. 30-day refund. After the first 300 it's $49/year." }
+    ? { label: "Founding member", price: "$79", terms: "once, lifetime access", note: "The founding price is for the first 300 members to pay. 30-day refund. After that it's $49/year." }
     : { label: "Yearly", price: "$49", terms: "per year", note: "That's $49/year, billed once a year. Payments are handled securely by Stripe." }
   const how = "Join any time from Profile in the app, or wait and the app will show you how when your trial ends. It takes about a minute, and you pay securely through Stripe."
   const kept = count && testCount > 0 ? `your ${count}, each with its date, ${testCount === 1 ? "stays" : "stay"} saved` : "your test history stays saved"
