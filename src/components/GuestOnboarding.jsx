@@ -52,7 +52,7 @@ const FILTER_TYPES = [
   { value: 'DE',         label: 'Diatomaceous earth (DE)' },
 ]
 
-export function GuestOnboarding({ onComplete, onDismiss }) {
+export function GuestOnboarding({ onComplete, onDismiss, onTestSaved }) {
   const { user, setHasPoolProfile } = useAuth()
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -173,6 +173,11 @@ export function GuestOnboarding({ onComplete, onDismiss }) {
 
         const { error: testError } = await supabase.from('water_tests').insert(readings)
         if (testError) throw testError
+        // The row is stored. Tell the shell so first_test_saved can fire.
+        // A throw here must not undo a save that already succeeded.
+        try { onTestSaved?.() } catch (analyticsErr) {
+          console.error('water test analytics failed:', analyticsErr)
+        }
       }
 
       // NOTE: do NOT call setHasPoolProfile(true) here. App renders this
