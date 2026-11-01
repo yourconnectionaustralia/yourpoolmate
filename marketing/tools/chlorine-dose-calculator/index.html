@@ -24,32 +24,36 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/site.css" />
   <link rel="stylesheet" href="/tools/tools.css" />
+  <meta name="theme-color" content="#085E78" />
 </head>
 <body>
 
-<nav>
-  <div class="nav-inner">
-    <a class="nav-logo" href="/">
-      <div class="logo-mark">
-        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <circle cx="8" cy="8" r="5.6" fill="none" stroke="white" stroke-width="1.4"/>
-          <path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/>
-        </svg>
-      </div>
-      Your Pool Mate
-    </a>
-    <button class="nav-btn" type="button" onclick="startFree()">Start free →</button>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-nav" id="site-nav">
+  <div class="inner">
+    <a class="brand" href="/"><span class="brand-mark"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.6" stroke="white" stroke-width="1.4"/><path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/></svg></span>Your Pool Mate</a>
+    <button class="btn btn-sun" type="button" onclick="startFree()">Start free</button>
   </div>
-</nav>
+</header>
 
-<main class="tool">
-  <p class="section-eyebrow">Free tool</p>
-  <h1>Chlorine dose calculator</h1>
-  <p class="lede">From the free chlorine you have now to the free chlorine you want, for your pool's volume. Same amounts the app works out.</p>
+<main id="main">
+<section class="band">
+  <div class="inner">
+    <ol class="crumbs"><li><a href="/">Home</a></li><li>Free tools</li><li aria-current="page">Chlorine dose</li></ol>
+    <span class="eyebrow-chip">Free tool · no sign-up</span>
+    <h1>Chlorine dose calculator</h1>
+    <p class="lede">From the free chlorine you have now to the level you want, for your pool's litres. The same amounts the app works out.</p>
+  </div>
+  <svg class="band-wave" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true"><path fill="currentColor" d="M0 34c120 15 240 22 360 18C540 46 660 18 840 15s300 26 420 32c80 3 140-1 180-7v20H0z"/></svg>
+</section>
 
-  <form class="card" id="dose-form">
+<div class="tool">
+  <form class="card" aria-labelledby="calc-title" id="dose-form">
+    <h2 class="card-title" id="calc-title">Your water</h2>
     <div class="fields">
       <div class="field">
         <label for="current">Current free chlorine (ppm)</label>
@@ -82,42 +86,51 @@
   <section class="explain">
     <h2>How it works</h2>
     <p>Enter the free chlorine you have now, the free chlorine you want, and the pool volume in litres. Pick the product you are adding.</p>
-    <p>The amount is the same figure the app gives when it raises chlorine. It scales with the volume (per 1,000 litres) and the gap in ppm. The app's usual target is 2.0 ppm, the middle of the 1.0–3.0 ppm range. You can aim somewhere else; the gap is worked out the same way.</p>
+    <p>The amount is the same figure the app gives when it raises chlorine. It scales with the volume (per 1,000 litres) and the gap in ppm. This calculator starts at 3.0 ppm, the top of the 1.0–3.0 ppm range. That suits an uncovered outdoor pool with stabiliser: stabiliser holds some chlorine back, and NSW public-pool rules use 3.0 ppm for stabilised outdoor pools.</p>
+    <p>Keep your pool under a cover with no stabiliser? Set the target to 1.5–2.0 ppm. The cover keeps the sun off the chlorine, and lower chlorine helps the cover last. Anywhere from 1.0 to 3.0 ppm is in range.</p>
     <p>Liquid chlorine (sodium hypochlorite) and granular chlorine (calcium hypochlorite) are the chlorine products the app calculates. It does not ask for a percentage strength — there is one figure for liquid chlorine.</p>
     <p class="safety">Always follow the product label directions. <span id="app-safety"></span></p>
   </section>
 
-  <section class="trial">
-    <h2>A dose plan for the whole test</h2>
-    <p>Your Pool Mate lines up chlorine with the rest of the water test, for your pool, and keeps the record. The trial is free for 30 days.</p>
-    <button class="btn-cta" type="button" onclick="startFree()">Start free — 30-day trial</button>
-  </section>
+<section class="related" aria-labelledby="related-title">
+  <h2 id="related-title">Not sure of your litres?</h2>
+  <a href="/tools/pool-volume-calculator/"><span aria-hidden="true" style="font-size:30px">📏</span><div>Pool volume calculator<span>Work it out from the shape and depth</span></div><span class="arrow" aria-hidden="true">→</span></a>
+</section>
+
+<section class="trial" aria-labelledby="trial-title">
+  <h2 id="trial-title">A dose plan for the whole test</h2>
+  <p>Your Pool Mate lines chlorine up with pH, alkalinity and the rest of the test, in the right order for your pool, and keeps the record. The trial is free for 30 days.</p>
+  <button class="btn-cta" type="button" onclick="startFree()">Start free — 30-day trial</button>
+</section>
+</div>
 </main>
 
-<footer>
-  <div class="footer-inner">
-    <a class="footer-logo" href="/">
-      <div class="logo-mark">
-        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <circle cx="8" cy="8" r="5.6" fill="none" stroke="white" stroke-width="1.4"/>
-          <path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/>
-        </svg>
-      </div>
-      Your Pool Mate
-    </a>
-    <span class="footer-copy">© 2026 Your Pool Mate. Australian owned.</span>
-    <div class="footer-links">
+<footer class="site-footer">
+  <div class="inner">
+    <a class="brand" href="/"><span class="brand-mark"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.6" stroke="white" stroke-width="1.4"/><path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/></svg></span>Your Pool Mate</a>
+    <span>© 2026 Your Pool Mate · Australian owned</span>
+    <nav class="footer-links" aria-label="Footer">
       <a href="/tools/pool-volume-calculator/">Pool volume</a>
-      <a href="/tools/chlorine-dose-calculator/">Chlorine dose</a>
+      <a href="/tools/chlorine-dose-calculator/" aria-current="page">Chlorine dose</a>
       <a href="/privacy.html">Privacy</a>
       <a href="/terms.html">Terms</a>
       <a href="mailto:hello@yourpoolmate.com.au">Contact</a>
-    </div>
+    </nav>
   </div>
 </footer>
 
+<script>
+  // Nav turns white once the header band scrolls away.
+  (() => {
+    const nav = document.getElementById('site-nav');
+    const onScroll = () => nav.classList.toggle('solid', window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
+
 <script type="module">
-import { CHLORINE_RAISE_PRODUCTS, TARGET_MID, chlorineRaiseDose } from '/tools/lib/dosing.js';
+import { CHLORINE_RAISE_PRODUCTS, chlorineRaiseDose } from '/tools/lib/dosing.js';
 import { safetyLineFor } from '/tools/lib/dosingSafety.js';
 import { TOOL_CHLORINE, createToolUseGate, trackToolUsed } from '/tools/lib/toolAnalytics.js';
 
@@ -130,7 +143,12 @@ const result = document.getElementById('result');
 const error = document.getElementById('error');
 const gate = createToolUseGate();
 
-targetInput.value = TARGET_MID.freeChlor.toFixed(1);
+// Start at the top of the 1.0–3.0 ppm band.
+const DEFAULT_TARGET_PPM = 3.0;
+targetInput.value = DEFAULT_TARGET_PPM.toFixed(1);
+// Arriving from the volume calculator: fill in the litres it worked out.
+const litresParam = Number(new URLSearchParams(window.location.search).get('litres'));
+if (Number.isFinite(litresParam) && litresParam > 0 && litresParam < 10000000) volumeInput.value = String(Math.round(litresParam));
 document.getElementById('app-safety').textContent = safetyLineFor('freeChlor', 'low');
 
 for (const item of CHLORINE_RAISE_PRODUCTS) {

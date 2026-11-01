@@ -9,7 +9,7 @@ const pickProfile = (p) => ({
   postcode: p?.postcode ?? null,
 });
 
-export function buildMyData({ email, profile, pool, tests, equipment, events, now = new Date() }) {
+export function buildMyData({ email, profile, pool, tests, equipment, events, shed, shopping_list: shoppingList, now = new Date() }) {
   return {
     about: 'Your Pool Mate: a copy of the information held about your account. Printout photos are not inside this file; the PDF water record on the Chemistry page includes them.',
     exportedAt: now.toISOString(),
@@ -30,6 +30,8 @@ export function buildMyData({ email, profile, pool, tests, equipment, events, no
     waterTests: tests || [],
     equipment: equipment || [],
     events: events || [],
+    shed: shed || [],
+    shoppingList: shoppingList || [],
   };
 }
 

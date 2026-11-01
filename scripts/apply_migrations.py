@@ -118,7 +118,12 @@ def preflight():
         "pool_profiles": ["user_id", "pool_shape", "volume_litres",
                           "sanitiser_type", "filter_type", "has_heater", "has_spa"],
         "equipment": ["user_id", "type", "brand", "model"],
-        "pool_events": ["user_id", "event_type", "title", "occurred_at"],
+        "pool_events": ["user_id", "event_type", "title", "occurred_at",
+                        "test_id", "step_key", "product", "grams", "millilitres",
+                        "cost_aud", "shed_draw"],
+        "shed_items": ["user_id", "product_key", "label", "pack_amount",
+                       "pack_unit", "packs", "price_aud", "bought_at"],
+        "shop_items": ["user_id", "product", "quantity", "status", "source"],
         "user_profiles": ["id", "is_premium", "trial_ends_at",
                           "first_name", "last_name", "address", "suburb", "postcode"],
         # Written by the lifecycle edge function (migration 016), not the PWA.

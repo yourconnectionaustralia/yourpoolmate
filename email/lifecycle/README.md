@@ -7,6 +7,10 @@ Automated mail for Your Pool Mate. Seasonal emails S1-S3 stay manual. Nothing in
 
 Pricing in the copy: 30-day free trial, first 300 members `$79` lifetime, then `$49/year`.
 
+**Live copy (Oct 2026):** the subjects and bodies that actually send now live in
+`supabase/functions/_shared/lifecycle-templates.js`, redesigned to match the marketing
+refresh. The `L*.md` files in this folder are the earlier approved drafts, kept for history.
+
 ## Allowlist
 
 Resend is called only when `mayCallResend()` is true: the address is on the allowlist and `RESEND_API_KEY` is set.

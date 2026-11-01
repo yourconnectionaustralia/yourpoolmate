@@ -36,6 +36,45 @@
   color: #fff;
 }
 
+/* ── Date range ── */
+.range {
+  margin-bottom: 6px;
+}
+
+.rangeDates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.rangeLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-dark);
+}
+
+.rangeInput {
+  min-height: 48px;
+  padding: 0 12px;
+  font-family: var(--font-ui);
+  font-size: 1.0625rem;
+  color: var(--gray-dark);
+  background: #fff;
+  border: 1px solid var(--gray-line);
+  border-radius: 8px;
+}
+
+.rangeCaption {
+  margin: 0 0 14px;
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--gray-mid);
+}
+
 /* ── Readout ── */
 .readout {
   display: flex;

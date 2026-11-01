@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { compressImage } from '../lib/imageCompress.js';
+import { Skeleton } from './Skeleton.jsx';
 import {
   formFromTest, isoFromDateInput, testFormFields, testFromForm, toDateInput, validateReadings, EMPTY_TEST_FORM,
 } from '../lib/testFields.js';
@@ -13,11 +14,12 @@ import {
 // Shows one printout photo. The link is fetched when it opens and expires in minutes.
 export function PrintoutViewer({ path, getUrl, onClose }) {
   const [url, setUrl] = useState(null);
+  const [loaded, setLoaded] = useState(false); // the picture itself has finished downloading
   const [problem, setProblem] = useState('');
   useEffect(() => {
     let live = true;
-    getUrl(path).then(u => { if (live) setUrl(u); })
-      .catch(() => { if (live) setProblem("Couldn't open that photo. Check your connection and try again."); });
+    const fail = () => { if (live) setProblem("Couldn't open that photo. Check your connection and try again."); };
+    getUrl(path).then(u => { if (live) setUrl(u); }).catch(fail);
     return () => { live = false; };
   }, [path, getUrl]);
   return (
@@ -25,9 +27,24 @@ export function PrintoutViewer({ path, getUrl, onClose }) {
       <div className="modal-panel modal-panel-tall" role="dialog" aria-modal="true" aria-label="Printout photo"
            onClick={e => e.stopPropagation()}>
         <div className="modal-title">Printout photo</div>
-        {!url && !problem && <p className="modal-body">Opening…</p>}
+        {/* Grey block while the link is fetched AND while the photo downloads. */}
+        {!loaded && !problem && (
+          <div className="printout-skeleton" role="status">
+            <Skeleton height="50vh" radius="var(--radius-md)" />
+            <span className="visually-hidden">Opening photo…</span>
+          </div>
+        )}
         {problem && <p role="alert" className="test-editor-problem">{problem}</p>}
-        {url && <img className="printout-photo" src={url} alt="Photo of the pool shop printout for this test" />}
+        {url && !problem && (
+          <img
+            className="printout-photo"
+            src={url}
+            alt="Photo of the pool shop printout for this test"
+            style={loaded ? undefined : { display: 'none' }}
+            onLoad={() => setLoaded(true)}
+            onError={() => setProblem("Couldn't open that photo. Check your connection and try again.")}
+          />
+        )}
         <div className="modal-actions"><button className="btn btn-primary btn-sm" onClick={onClose}>Close</button></div>
       </div>
     </div>
