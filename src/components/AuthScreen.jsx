@@ -3,6 +3,13 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import styles from './AuthScreen.module.css'
 import { PoolIcon } from './PoolIcon.jsx'
+import {
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_RULES_ERROR,
+  PASSWORD_RULES_HINT,
+  isPasswordRuleError,
+  passwordProblem,
+} from '../lib/passwordRules.js'
 
 // Seconds Supabase enforces between confirmation-email resends for the
 // same address. Calling sooner returns an error, so the button is gated.
@@ -14,10 +21,6 @@ const RESEND_COOLDOWN_SECONDS = 60
  * request this after 47 seconds") are not usable by our audience.
  * The original is always logged so it stays debuggable.
  */
-// Must match Supabase Auth > Sign In / Providers > Email > Minimum password length.
-const MIN_PASSWORD_LENGTH = 10
-const PASSWORD_TOO_SHORT = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`
-
 function friendlyAuthError(error) {
   const raw = error?.message || ''
   console.error('[auth]', error)
@@ -28,8 +31,8 @@ function friendlyAuthError(error) {
   if (/error sending|smtp|confirmation email|recovery email/i.test(raw)) {
     return "We couldn't send that email just now. Please try again in a moment."
   }
-  if (/password/i.test(raw) && /at least|should be|characters/i.test(raw)) {
-    return PASSWORD_TOO_SHORT
+  if (isPasswordRuleError(error)) {
+    return PASSWORD_RULES_ERROR
   }
   if (/invalid.*email|unable to validate email/i.test(raw)) {
     return "That email address doesn't look right — please check it."
@@ -128,8 +131,13 @@ export default function AuthScreen() {
 
   async function handleSignUp(e) {
     e.preventDefault()
-    setLoading(true)
     setError('')
+    const problem = passwordProblem(password)
+    if (problem) {
+      setError(problem)
+      return
+    }
+    setLoading(true)
     const { data, error } = await signUpWithEmail(email, password)
 
     if (error) {
@@ -222,8 +230,9 @@ export default function AuthScreen() {
   async function handleUpdatePassword(e) {
     e.preventDefault()
     setError('')
-    if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      setError(PASSWORD_TOO_SHORT)
+    const problem = passwordProblem(newPassword)
+    if (problem) {
+      setError(problem)
       return
     }
     if (newPassword !== confirmPassword) {
@@ -275,10 +284,11 @@ export default function AuthScreen() {
               autoComplete="new-password"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
-              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+              placeholder="Choose a new password"
               minLength={MIN_PASSWORD_LENGTH}
               required
             />
+            <p className={styles.formSubtext}>{PASSWORD_RULES_HINT}</p>
 
             <PasswordField
               id="confirm-password"
@@ -629,10 +639,11 @@ export default function AuthScreen() {
               autoComplete="new-password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+              placeholder="Choose a password"
               minLength={MIN_PASSWORD_LENGTH}
               required
             />
+            <p className={styles.formSubtext}>{PASSWORD_RULES_HINT}</p>
 
             {error && <p className={styles.error} role="alert">{error}</p>}
 
