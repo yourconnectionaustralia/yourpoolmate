@@ -18,7 +18,7 @@
 // S1–S3 are not accepted.
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.2"
 import { isTemplateKey } from "../_shared/lifecycle-rules.js"
 import { deliverLifecycleEmail, sweepLifecycleEmails, sweepMemberEmails } from "../_shared/lifecycle-email.ts"
 import { handleUnsubscribe, recurringSweep } from "../_shared/recurring-email.ts"

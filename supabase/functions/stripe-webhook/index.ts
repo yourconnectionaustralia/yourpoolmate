@@ -28,7 +28,7 @@
 //   SUPABASE_SERVICE_ROLE_KEY  — auto-provided
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.2"
 import { sendPaidThanks } from "../_shared/lifecycle-email.ts"
 
 const SIGNATURE_TOLERANCE_SECONDS = 60 * 5 // reject events older than 5 min
@@ -44,14 +44,18 @@ async function verifyStripeSignature(
 ): Promise<boolean> {
   if (!sigHeader) return false
 
+  // While a webhook secret is being rotated Stripe sends two v1 signatures.
+  // Accept the event if any one of them matches.
   const parts: Record<string, string> = {}
+  const v1s: string[] = []
   for (const kv of sigHeader.split(",")) {
     const [k, v] = kv.split("=")
-    if (k && v) (parts[k.trim()] ??= v.trim())
+    if (!k || !v) continue
+    if (k.trim() === "v1") v1s.push(v.trim())
+    else (parts[k.trim()] ??= v.trim())
   }
   const t = parts["t"]
-  const v1 = parts["v1"]
-  if (!t || !v1) return false
+  if (!t || v1s.length === 0) return false
 
   // Replay window
   const age = Math.abs(Math.floor(Date.now() / 1000) - Number(t))
@@ -65,11 +69,15 @@ async function verifyStripeSignature(
   const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`${t}.${rawBody}`))
   const expected = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("")
 
-  // Constant-time compare
-  if (expected.length !== v1.length) return false
-  let diff = 0
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ v1.charCodeAt(i)
-  return diff === 0
+  // Constant-time compare against each v1 signature
+  let matched = false
+  for (const v1 of v1s) {
+    if (expected.length !== v1.length) continue
+    let diff = 0
+    for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ v1.charCodeAt(i)
+    if (diff === 0) matched = true
+  }
+  return matched
 }
 
 const admin = () => createClient(
@@ -124,8 +132,15 @@ serve(async (req) => {
   try {
     switch (event.type) {
       // ── Initial purchase (lifetime or first subscription payment) ──
-      case "checkout.session.completed": {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
         const s = event.data.object
+        // A delayed payment method (bank debit, say) sends "completed" before the money
+        // arrives. Wait for async_payment_succeeded instead of granting access early.
+        if (!["paid", "no_payment_required"].includes(s.payment_status)) {
+          console.log(`Checkout ${s.id} not paid yet (${s.payment_status}); waiting for async_payment_succeeded`)
+          break
+        }
         const userId: string | undefined = s.metadata?.user_id ?? s.client_reference_id
         const plan: string = s.metadata?.plan ?? (s.mode === "subscription" ? "annual" : "founding_lifetime")
         if (!userId) { console.warn("checkout.session.completed with no user_id"); break }

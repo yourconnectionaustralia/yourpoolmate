@@ -3,8 +3,8 @@
 //
 // Deletes a member's account and everything tied to it. Order matters:
 //   1. cancel any live Stripe subscription (so nobody keeps being billed with no account)
-//   2. delete their printout photos from storage
-//   3. delete feedback they sent (those rows would otherwise be kept, unlinked)
+//   2. delete their photos from storage (printouts, and the old test-photos bucket)
+//   3. delete feedback and suggestions they sent (those rows would otherwise be kept)
 //   4. delete the auth user. Foreign keys cascade to profile, pool, tests,
 //      equipment, events, email history and reminder history.
 // Any failure stops the run and reports which step. Every step is safe to run
@@ -22,7 +22,13 @@ interface Opts {
   fetchFn?: typeof fetch
 }
 
-const BUCKET = "printouts"
+// One folder per member in each bucket: <bucket>/<user_id>/...
+// test-photos is no longer used by the app, but an old file may still sit in it,
+// and the bucket may be deleted from the dashboard later, so a missing one is fine.
+const BUCKETS: { name: string; optional: boolean }[] = [
+  { name: "printouts", optional: false },
+  { name: "test-photos", optional: true },
+]
 
 async function cancelSubscription(subId: string, key: string, fetchFn: typeof fetch): Promise<void> {
   const headers = { Authorization: `Bearer ${key}` }
@@ -36,15 +42,17 @@ async function cancelSubscription(subId: string, key: string, fetchFn: typeof fe
   if (!del.ok && del.status !== 404) throw new Error(`Stripe cancel HTTP ${del.status}`)
 }
 
-async function removePrintouts(db: Db, userId: string): Promise<void> {
-  // One folder per member: printouts/<user_id>/<test_id>.jpg. List in pages
-  // until it is empty, so nothing is left however many photos there are.
+async function removePhotos(db: Db, bucket: string, userId: string, optional: boolean): Promise<void> {
+  // List in pages until it is empty, so nothing is left however many photos there are.
   for (let round = 0; round < 50; round++) {
-    const list = await db.storage.from(BUCKET).list(userId, { limit: 100 })
-    if (list.error) throw list.error
+    const list = await db.storage.from(bucket).list(userId, { limit: 100 })
+    if (list.error) {
+      if (optional && /not found/i.test(String(list.error.message ?? ""))) return
+      throw list.error
+    }
     const names = (list.data ?? []).map((f: { name: string }) => `${userId}/${f.name}`)
     if (!names.length) return
-    const removed = await db.storage.from(BUCKET).remove(names)
+    const removed = await db.storage.from(bucket).remove(names)
     if (removed.error) throw removed.error
   }
   throw new Error("Too many photos to remove in one run")
@@ -77,20 +85,27 @@ export async function deleteAccount(
 
   // 2. Photos
   try {
-    await removePrintouts(db, user.id)
+    for (const b of BUCKETS) await removePhotos(db, b.name, user.id, b.optional)
   } catch (err) {
     console.error("delete-account: storage step failed:", (err as Error).message)
     return { ok: false, code: "STORAGE", message: "We couldn't remove your saved photos, so your account was not deleted yet." }
   }
 
-  // 3. Feedback they sent
+  // 3. Feedback and suggestions they sent
   try {
     const a = await db.from("feedback").delete().eq("user_id", user.id)
     if (a.error) throw a.error
+    const s = await db.from("suggestions").delete().eq("user_id", user.id)
+    if (s.error) throw s.error
     const email = String(user.email ?? "").trim().toLowerCase()
     if (email) {
-      const b = await db.from("feedback_rounds").delete().ilike("submitted_by", email)
+      // ilike treats _ and % as wildcards: escape them so an address like
+      // "a_b@x.com" can only ever match itself, never someone else's rows.
+      const literal = email.replace(/[\\%_]/g, (c) => "\\" + c)
+      const b = await db.from("feedback_rounds").delete().ilike("submitted_by", literal)
       if (b.error) throw b.error
+      const c = await db.from("suggestions").delete().ilike("user_email", literal)
+      if (c.error) throw c.error
     }
   } catch (err) {
     console.error("delete-account: feedback step failed:", (err as Error).message)

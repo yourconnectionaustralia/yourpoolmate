@@ -12,15 +12,16 @@
 // Limits (service role counts them, so owners can't reset their own):
 //   - CHAT_SESSIONS_PER_MONTH new chats a month (default 5), reset on the 1st, Melbourne time
 //   - CHAT_QUESTIONS_PER_SESSION questions per chat (default 10)
-//   - A failed answer is not saved, so it never uses up a chat or a question.
+//   - A failed answer is given back: its chat slot and question are removed again.
 //
-// Who: members, and owners whose free trial is still running.
+// Who: members, and owners whose free trial is still running. Guests (anonymous
+// sign-ins) are not let in: they cost nothing to create.
 //
 // Secrets: ANTHROPIC_API_KEY (shared with ocr-water-test). Optional CHAT_MODEL
 // is tried first, then DEFAULT_MODELS (Haiku: quick and cheap for chat).
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.2"
 import { isBillingError } from "../_shared/ocr-readings.js"
 import {
   SYSTEM_PROMPT,
@@ -121,6 +122,9 @@ serve(async (req) => {
     )
     const { data: { user } } = await userClient.auth.getUser()
     if (!user) return jsonResponse({ error: "Unauthorised", code: "INVALID_TOKEN" }, 401)
+    if (user.is_anonymous) {
+      return jsonResponse({ error: "Ask Mate comes with an account.", code: "NOT_ENTITLED" }, 403)
+    }
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
 
@@ -205,41 +209,75 @@ serve(async (req) => {
       console.error("pool-chat: ANTHROPIC_API_KEY is missing or malformed")
       return jsonResponse({ error: "Mate is having a break right now. Try again later.", code: "CHAT_UNAVAILABLE" }, 503)
     }
+    // Hold the chat slot (new chats) and the question before calling Claude, so
+    // parallel requests can't slip under the limits. Both are given back if the answer fails.
+    let sid = sessionId
+    let newSession = false
+    if (!sid) {
+      const claim = await admin.rpc("claim_chat_session", {
+        p_user: user.id,
+        p_limit: limits.chatsPerMonth,
+        p_from: win.from.toISOString(),
+        p_to: win.to.toISOString(),
+        p_title: titleFrom(question),
+      })
+      if (claim.error) {
+        console.error("pool-chat claim failed:", claim.error.message)
+        return jsonResponse({ error: "Internal error", code: "SERVER_ERROR" }, 500)
+      }
+      if (!claim.data) {
+        return jsonResponse({
+          ...allowance,
+          error: `You've used your ${limits.chatsPerMonth} chats for this month. More on ${allowance.resets_on}.`,
+          code: "CHAT_LIMIT",
+        }, 429)
+      }
+      sid = claim.data as string
+      newSession = true
+    }
+    const held = await admin.from("chat_messages")
+      .insert({ session_id: sid, user_id: user.id, role: "user", content: question })
+      .select("id")
+      .single()
+    if (held.error) {
+      console.error("pool-chat question insert failed:", held.error.message)
+      if (newSession) await admin.from("chat_sessions").delete().eq("id", sid)
+      return jsonResponse({ error: "Internal error", code: "SERVER_ERROR" }, 500)
+    }
+    const giveBack = async () => {
+      await admin.from("chat_messages").delete().eq("id", held.data.id)
+      if (newSession) await admin.from("chat_sessions").delete().eq("id", sid)
+    }
+
     const turns: Turn[] = [...history, { role: "user", content: question }]
     let answer = ""
     let lastFail: { status: number; errText: string } | null = null
-    for (const model of modelCandidates()) {
-      const result = await callClaude(apiKey, model, context, turns)
-      if (result.ok) {
-        lastFail = null
-        answer = result.stopReason === "refusal" || !result.text
-          ? "Sorry, I can't help with that one. Ask me anything about your pool water, equipment or this app."
-          : result.text
-        break
+    try {
+      for (const model of modelCandidates()) {
+        const result = await callClaude(apiKey, model, context, turns)
+        if (result.ok) {
+          lastFail = null
+          answer = result.stopReason === "refusal" || !result.text
+            ? "Sorry, I can't help with that one. Ask me anything about your pool water, equipment or this app."
+            : result.text
+          break
+        }
+        lastFail = { status: result.status, errText: result.errText }
+        if (result.status !== 404 && result.status !== 403) break
       }
-      lastFail = { status: result.status, errText: result.errText }
-      if (result.status !== 404 && result.status !== 403) break
+    } catch (err) {
+      await giveBack()
+      throw err
     }
-    if (lastFail) return providerError(lastFail.status, lastFail.errText)
+    if (lastFail) {
+      await giveBack()
+      return providerError(lastFail.status, lastFail.errText)
+    }
 
-    // ── 6. Save (only after a good answer) ───────────────────
-    let sid = sessionId
-    if (!sid) {
-      const created = await admin.from("chat_sessions")
-        .insert({ user_id: user.id, title: titleFrom(question) })
-        .select("id")
-        .single()
-      if (created.error) {
-        console.error("pool-chat session insert failed:", created.error.message)
-        return jsonResponse({ error: "Internal error", code: "SERVER_ERROR" }, 500)
-      }
-      sid = created.data.id
-    }
-    const now = Date.now()
-    const saved = await admin.from("chat_messages").insert([
-      { session_id: sid, user_id: user.id, role: "user", content: question, created_at: new Date(now).toISOString() },
-      { session_id: sid, user_id: user.id, role: "assistant", content: answer.slice(0, 8000), created_at: new Date(now + 1).toISOString() },
-    ])
+    // ── 6. Save the answer (the question is already held) ────
+    const saved = await admin.from("chat_messages").insert({
+      session_id: sid, user_id: user.id, role: "assistant", content: answer.slice(0, 8000),
+    })
     if (saved.error) console.error("pool-chat message insert failed:", saved.error.message)
     await admin.from("chat_sessions").update({ updated_at: new Date().toISOString() }).eq("id", sid)
 

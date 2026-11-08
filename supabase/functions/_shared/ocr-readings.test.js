@@ -140,6 +140,38 @@ test("a billing failure costs the owner nothing and says scanning is paused", ()
   const src = readFileSync(new URL("../ocr-water-test/index.ts", import.meta.url), "utf8")
   assert.match(src, /isBillingError\(status, errText\)/)
   assert.match(src, /code: "OCR_PROVIDER_BILLING"/)
-  // Neither a billing nor a key failure uses up one of the owner's 10 scans an hour.
-  assert.match(src, /!isBillingError\(lastFail\.status, lastFail\.errText\) && lastFail\.status !== 401/)
+  // Neither a billing nor a key failure uses up one of the owner's scans an hour:
+  // the claim made before the call is marked "refunded", which never counts.
+  assert.match(src, /isBillingError\(lastFail\.status, lastFail\.errText\) \|\| lastFail\.status === 401 \? "refunded" : "error"/)
+  // And the reply no longer tells members anything about our Anthropic account.
+  assert.doesNotMatch(src, /no credit/)
+  assert.doesNotMatch(src, /detail:/)
+})
+
+test("scans are claimed atomically, with guest, per-address and overall ceilings", () => {
+  const src = readFileSync(new URL("../ocr-water-test/index.ts", import.meta.url), "utf8")
+  assert.match(src, /admin\.rpc\("claim_ocr_call"/)
+  assert.match(src, /p_anonymous: isGuest/)
+  assert.match(src, /GUEST_RATE_LIMIT = 3/)
+  // The old count-then-insert check, which parallel requests could all pass, is gone.
+  assert.doesNotMatch(src, /\.from\("ocr_calls"\)\s*\.insert/)
+})
+
+test("Ask Mate keeps guests out and claims each new chat atomically", () => {
+  const src = readFileSync(new URL("../pool-chat/index.ts", import.meta.url), "utf8")
+  assert.match(src, /user\.is_anonymous/)
+  assert.match(src, /admin\.rpc\("claim_chat_session"/)
+})
+
+test("the checkout webhook waits for delayed payments and accepts any v1 signature", () => {
+  const src = readFileSync(new URL("../stripe-webhook/index.ts", import.meta.url), "utf8")
+  assert.match(src, /checkout\.session\.async_payment_succeeded/)
+  assert.match(src, /\["paid", "no_payment_required"\]\.includes\(s\.payment_status\)/)
+  assert.match(src, /v1s\.push/)
+})
+
+test("the checkout return URL is checked by origin, not by prefix", () => {
+  const src = readFileSync(new URL("../stripe-checkout/index.ts", import.meta.url), "utf8")
+  assert.match(src, /new URL\(raw\)\.origin === new URL\(base\)\.origin/)
+  assert.doesNotMatch(src, /\.startsWith\(appUrl\)/)
 })

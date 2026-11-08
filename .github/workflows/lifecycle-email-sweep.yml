@@ -16,6 +16,10 @@ on:
     - cron: "*/15 * * * *"
   workflow_dispatch:
 
+# The job only calls the edge function. It never needs to touch the repo.
+permissions:
+  contents: read
+
 concurrency:
   group: lifecycle-email-sweep
   cancel-in-progress: false

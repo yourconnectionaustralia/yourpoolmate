@@ -48,7 +48,7 @@
 //                                (default https://app.yourpoolmate.com.au)
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.2"
 import { foundingOpen } from "../_shared/founding.js"
 
 const CORS_HEADERS = {
@@ -197,8 +197,12 @@ serve(async (req) => {
     // Only accept a same-app return URL from the client; otherwise fall back.
     const rawSuccess = typeof body?.successUrl === "string" ? body.successUrl : ""
     const rawCancel = typeof body?.cancelUrl === "string" ? body.cancelUrl : ""
-    const successUrl = rawSuccess.startsWith(appUrl) ? rawSuccess : appUrl
-    const cancelUrl = rawCancel.startsWith(appUrl) ? rawCancel : appUrl
+    // Compare real origins. A prefix check lets "https://app.example.com.evil.test" through.
+    const sameOrigin = (raw: string, base: string) => {
+      try { return new URL(raw).origin === new URL(base).origin } catch { return false }
+    }
+    const successUrl = sameOrigin(rawSuccess, appUrl) ? rawSuccess : appUrl
+    const cancelUrl = sameOrigin(rawCancel, appUrl) ? rawCancel : appUrl
 
     // ── 4. Build the Checkout Session ──────────────────────────────
     const params: Record<string, string | number | undefined | null> = {

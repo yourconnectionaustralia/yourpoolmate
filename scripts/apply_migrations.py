@@ -152,7 +152,20 @@ def preflight():
               "earlier migration — that reverts everything after it.")
         sys.exit(1)
 
-    print("preflight ok — every column the app writes exists")
+    # Second safety net (read-only): a table without row-level security is open
+    # to anyone holding the public key. Fail the build rather than ship one.
+    open_tables = run_sql(
+        "select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace "
+        "where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity;"
+    ) or []
+    if open_tables:
+        print("::error::These public tables have row-level security OFF (anyone with the public key can read them):")
+        for r in open_tables:
+            print(f"::error::  {r['relname']}")
+        print("::error::Fix with a NEW migration: alter table ... enable row level security, plus policies.")
+        sys.exit(1)
+
+    print("preflight ok — every column the app writes exists, and every public table has RLS on")
 
 
 def main():
