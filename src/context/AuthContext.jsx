@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { getCaptchaToken, primeCaptcha } from '../lib/captcha.js'
+import { shouldSyncName } from '../lib/authName.js'
 
 const AuthContext = createContext(null)
 
@@ -84,7 +85,7 @@ export function AuthProvider({ children }) {
       // Check if user has paid (premium tier)
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('is_premium, trial_ends_at')
+        .select('is_premium, trial_ends_at, first_name, last_name')
         .eq('id', user.id)
         .single()
 
@@ -100,6 +101,18 @@ export function AuthProvider({ children }) {
         setTrialExpired(true)
       } else {
         setTrialExpired(false)
+      }
+
+      // A brand-new account arrives with a name (sign-up form, or Google).
+      // Copy it onto the profile once; never overwrite a name or refill an
+      // old account. Best effort: a failure here must not block sign-in.
+      const names = shouldSyncName({ user, profile })
+      if (names) {
+        const { error: nameError } = await supabase
+          .from('user_profiles')
+          .update({ first_name: names.firstName, last_name: names.lastName })
+          .eq('id', user.id)
+        if (nameError) console.warn('Saving the sign-up name failed:', nameError)
       }
 
       // Check if user has a pool profile (drives onboarding trigger).
@@ -138,8 +151,10 @@ export function AuthProvider({ children }) {
     return { data, error }
   }
 
-  async function signUpWithEmail(email, password) {
+  async function signUpWithEmail(email, password, names = {}) {
     const captchaToken = await getCaptchaToken()
+    const firstName = (names.firstName ?? '').trim()
+    const lastName = (names.lastName ?? '').trim()
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -150,7 +165,14 @@ export function AuthProvider({ children }) {
         // Supabase Redirect URL allow-list must contain the bare origin too —
         // a "/**" entry alone does NOT match it.
         emailRedirectTo: window.location.origin,
-        captchaToken
+        captchaToken,
+        // Stored on the auth user so the greeting works straight away, and
+        // copied onto the profile on first sign-in (see checkUserStatus).
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          full_name: [firstName, lastName].filter(Boolean).join(' ')
+        }
       }
     })
     return { data, error }
@@ -189,6 +211,20 @@ export function AuthProvider({ children }) {
       options: {
         emailRedirectTo: window.location.origin,
         captchaToken
+      }
+    })
+    return { data, error }
+  }
+
+  // Redirects the whole page to Google and back, so on success this never
+  // returns. Captcha does not apply to OAuth. A first-time Google sign-in
+  // creates the account (and starts the trial) like email sign-up does.
+  async function signInWithGoogle() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        // IMPORTANT: bare origin, same as the email flows (see signUpWithEmail).
+        redirectTo: window.location.origin
       }
     })
     return { data, error }
@@ -251,6 +287,7 @@ export function AuthProvider({ children }) {
     recoveryMode,
     signInWithEmail,
     signUpWithEmail,
+    signInWithGoogle,
     signInWithMagicLink,
     resetPassword,
     updatePassword,
