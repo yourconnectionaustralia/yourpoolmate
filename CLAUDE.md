@@ -245,6 +245,7 @@ These are never up for debate within a session:
 6. **Accessibility is pre-launch non-negotiable** — 44px taps, 4.5:1 contrast
 7. **Value-led conversion, not urgency-led** — scarcity is real (first 300 users get the $79 lifetime founding rate), never manufactured panic
 8. **Clear water is the outcome, not the motivation** — copy must speak to independence, warranty protection, safety confidence, and asset value — not "keep your pool clean"
+9. **Every Supabase sign-in call carries a captcha token** — `signInWithPassword`, `signUp`, `signInWithOtp`, `resetPasswordForEmail`, `resend` and `signInAnonymously` must pass `captchaToken` from `getCaptchaToken()` (`src/lib/captcha.js`). Supabase Captcha (Cloudflare Turnstile) rejects them without it. A test in `src/lib/captcha.test.js` fails if one is missing.
 
 ---
 

@@ -1,6 +1,7 @@
 // File: src/context/AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { getCaptchaToken, primeCaptcha } from '../lib/captcha.js'
 
 const AuthContext = createContext(null)
 
@@ -29,6 +30,9 @@ export function AuthProvider({ children }) {
         setTimeout(() => checkUserStatus(session.user), 0)
       } else {
         setLoading(false)
+        // Signed out: the next thing they do is sign in or sign up, which
+        // needs a captcha token. Load Turnstile now so that tap isn't slow.
+        primeCaptcha()
       }
     }).catch((err) => {
       console.error('getSession failed:', err)
@@ -125,11 +129,17 @@ export function AuthProvider({ children }) {
   }
 
   async function signInWithEmail(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const captchaToken = await getCaptchaToken()
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken }
+    })
     return { data, error }
   }
 
   async function signUpWithEmail(email, password) {
+    const captchaToken = await getCaptchaToken()
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -139,7 +149,8 @@ export function AuthProvider({ children }) {
         // NOTE: the bare origin (no trailing slash) is what gets sent, so the
         // Supabase Redirect URL allow-list must contain the bare origin too —
         // a "/**" entry alone does NOT match it.
-        emailRedirectTo: window.location.origin
+        emailRedirectTo: window.location.origin,
+        captchaToken
       }
     })
     return { data, error }
@@ -171,17 +182,20 @@ export function AuthProvider({ children }) {
    * so the UI must gate this behind a visible countdown.
    */
   async function resendConfirmation(email) {
+    const captchaToken = await getCaptchaToken()
     const { data, error } = await supabase.auth.resend({
       type: 'signup',
       email,
       options: {
-        emailRedirectTo: window.location.origin
+        emailRedirectTo: window.location.origin,
+        captchaToken
       }
     })
     return { data, error }
   }
 
   async function signInWithMagicLink(email) {
+    const captchaToken = await getCaptchaToken()
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -192,7 +206,8 @@ export function AuthProvider({ children }) {
         // path. Leaving this at its default (true) means a typo'd address
         // silently creates a SECOND empty account and starts a second
         // 30-day trial — which then has no pool data and no payment path.
-        shouldCreateUser: false
+        shouldCreateUser: false,
+        captchaToken
       }
     })
     return { data, error }
@@ -203,8 +218,10 @@ export function AuthProvider({ children }) {
     // #access_token=...&type=recovery in the URL hash; the SDK
     // (detectSessionInUrl: true) turns that into a real session and
     // fires the PASSWORD_RECOVERY event handled above.
+    const captchaToken = await getCaptchaToken()
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin
+      redirectTo: window.location.origin,
+      captchaToken
     })
     return { data, error }
   }
