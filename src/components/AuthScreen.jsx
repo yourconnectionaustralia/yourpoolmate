@@ -14,6 +14,10 @@ const RESEND_COOLDOWN_SECONDS = 60
  * request this after 47 seconds") are not usable by our audience.
  * The original is always logged so it stays debuggable.
  */
+// Must match Supabase Auth > Sign In / Providers > Email > Minimum password length.
+const MIN_PASSWORD_LENGTH = 10
+const PASSWORD_TOO_SHORT = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`
+
 function friendlyAuthError(error) {
   const raw = error?.message || ''
   console.error('[auth]', error)
@@ -25,7 +29,7 @@ function friendlyAuthError(error) {
     return "We couldn't send that email just now. Please try again in a moment."
   }
   if (/password/i.test(raw) && /at least|should be|characters/i.test(raw)) {
-    return 'Password must be at least 8 characters.'
+    return PASSWORD_TOO_SHORT
   }
   if (/invalid.*email|unable to validate email/i.test(raw)) {
     return "That email address doesn't look right — please check it."
@@ -218,8 +222,8 @@ export default function AuthScreen() {
   async function handleUpdatePassword(e) {
     e.preventDefault()
     setError('')
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters.')
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      setError(PASSWORD_TOO_SHORT)
       return
     }
     if (newPassword !== confirmPassword) {
@@ -271,8 +275,8 @@ export default function AuthScreen() {
               autoComplete="new-password"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              minLength={8}
+              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+              minLength={MIN_PASSWORD_LENGTH}
               required
             />
 
@@ -283,7 +287,7 @@ export default function AuthScreen() {
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               placeholder="Re-enter your new password"
-              minLength={8}
+              minLength={MIN_PASSWORD_LENGTH}
               required
             />
 
@@ -625,8 +629,8 @@ export default function AuthScreen() {
               autoComplete="new-password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="Choose a password"
-              minLength={8}
+              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+              minLength={MIN_PASSWORD_LENGTH}
               required
             />
 
