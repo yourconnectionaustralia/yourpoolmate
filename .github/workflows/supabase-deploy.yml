@@ -30,7 +30,7 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       PROJECT_REF: chmjvbuesynicrmtkrqp
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Migrations run ONLY on a manual workflow_dispatch — never on push.
       # (A job can't carry its own trigger, so the gate lives on the step.)
