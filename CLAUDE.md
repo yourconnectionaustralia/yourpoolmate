@@ -240,7 +240,7 @@ These are never up for debate within a session:
 1. **B2B never before B2C traction** — don't build B2B features until local consumer density exists
 2. **Guest trial is 30-day hard countdown** — no indefinite free access, no soft gates (changed from 7 days, June 2026: weekly testing cadence meant a 7-day trial showed users one test and zero trend value)
 3. **Light mode is the consumer default** — outdoor Australian usability
-4. **RLS on every Supabase table** — no exceptions
+4. **RLS on every Supabase table** — no exceptions. Since migration 025 new tables get **no automatic grants**: beside the policies, add `grant select, insert, update, delete on public.<table> to authenticated;` (only the verbs the app needs). Without it the app fails with "permission denied for table". The Deploy Supabase preflight fails the build if any public table has RLS off.
 5. **Deno, not Node** — all Edge Functions use Deno runtime
 6. **Accessibility is pre-launch non-negotiable** — 44px taps, 4.5:1 contrast
 7. **Value-led conversion, not urgency-led** — scarcity is real (first 300 users get the $79 lifetime founding rate), never manufactured panic

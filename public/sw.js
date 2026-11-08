@@ -9,7 +9,7 @@
 // Bump CACHE_VERSION on any release that changes cached assets — old caches
 // are deleted on activate.
 
-const CACHE_VERSION = 'ypm-v3-plan-shed';
+const CACHE_VERSION = 'ypm-v4-hardening';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/logo.svg', '/icon-192.png'];
 
 self.addEventListener('install', (event) => {
@@ -39,8 +39,11 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_VERSION).then((c) => c.put('/', copy));
+          // Only keep a good page, so an offline member is never served an error.
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_VERSION).then((c) => c.put('/', copy));
+          }
           return res;
         })
         .catch(() => caches.match('/').then((c) => c || caches.match('/index.html')))

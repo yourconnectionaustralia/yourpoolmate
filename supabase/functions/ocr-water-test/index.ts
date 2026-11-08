@@ -18,8 +18,11 @@
 //
 // Security:
 //   - Auth required (valid Supabase JWT)
-//   - Rate limited: 10 calls per user per hour (tracked in public.ocr_calls — migration 005,
-//     service-role only — users can't reset their own counter)
+//   - Rate limited, one atomic claim per call (public.claim_ocr_call, migration 025;
+//     public.ocr_calls is service-role only, so nobody can reset their own counter):
+//       members 10 an hour, guests (anonymous sign-ins) 3 an hour,
+//       20 an hour per network address (kept only as a salted hash),
+//       300 an hour across everyone.
 //   - Image capped at 4MB base64 (~3MB binary)
 //
 // Required secrets (Supabase dashboard → Edge Functions → Secrets,
@@ -33,7 +36,7 @@
 //                 than printed numbers, so a stronger model may be worth it).
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.2"
 import { cleanPoolVolume, cleanReadings, cleanTestDate, isBillingError, parseModelJson, sanityCheck } from "../_shared/ocr-readings.js"
 import { STRIP_PROMPT, cleanStripScan } from "../_shared/strip-chart.js"
 
@@ -46,7 +49,10 @@ const CORS_HEADERS = {
 const JSON_HEADERS = { ...CORS_HEADERS, "Content-Type": "application/json" }
 
 const MAX_BASE64_CHARS = 4 * 1024 * 1024 // ~3MB binary image
-const RATE_LIMIT = 10                     // calls
+const RATE_LIMIT = 10                     // calls an hour, members
+const GUEST_RATE_LIMIT = 3                // calls an hour, guests (anonymous sign-ins)
+const IP_RATE_LIMIT = 20                  // calls an hour from one network address
+const GLOBAL_RATE_LIMIT = 300             // calls an hour across everyone
 const RATE_WINDOW_MINUTES = 60
 const ALLOWED_MEDIA_TYPES = new Set([
   "image/jpeg", "image/png", "image/webp", "image/gif",
@@ -174,6 +180,40 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+// The caller's network address, as a salted hash (never stored in the clear).
+// Unknown address: null, so the per-address check is skipped instead of
+// lumping every unknown caller into one bucket.
+async function clientIpHash(req: Request): Promise<string | null> {
+  const ip = req.headers.get("cf-connecting-ip")
+    ?? req.headers.get("x-forwarded-for")?.split(",")[0].trim()
+    ?? ""
+  if (!ip) return null
+  const salt = Deno.env.get("IP_HASH_SALT") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ip + salt))
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("")
+}
+
+function rateLimitedResponse(verdict: string, isGuest: boolean): Response {
+  if (verdict === "global") {
+    return jsonResponse({
+      error: "Scanning is busy right now. Try again in a few minutes, or type the readings in.",
+      code: "RATE_LIMITED",
+    }, 429)
+  }
+  if (verdict === "ip") {
+    return jsonResponse({
+      error: "There have been a lot of scans from this connection. Try again in a little while.",
+      code: "RATE_LIMITED",
+    }, 429)
+  }
+  return jsonResponse({
+    error: isGuest
+      ? `You've used the ${GUEST_RATE_LIMIT} free guest scans for this hour. Create a free account for more, or try again in a little while.`
+      : `Scan limit reached (${RATE_LIMIT}/hour). Try again in a little while.`,
+    code: "RATE_LIMITED",
+  }, 429)
+}
+
 function modelCandidates(kind: "test" | "receipt" | "strip"): string[] {
   const preferred = (Deno.env.get("OCR_MODEL") ?? "").trim()
   const stripModel = kind === "strip" ? (Deno.env.get("STRIP_MODEL") ?? "").trim() : ""
@@ -219,6 +259,8 @@ async function callAnthropic(opts: {
   return { ok: true, rawText }
 }
 
+// Provider detail (billing, key, model) goes to the server log only. Members
+// get a plain message that says nothing about our account.
 function providerErrorResponse(status: number, errText: string): Response {
   const snippet = errText.slice(0, 300)
   console.error("Anthropic API error:", status, snippet)
@@ -227,21 +269,18 @@ function providerErrorResponse(status: number, errText: string): Response {
     return jsonResponse({
       error: "Scanning is paused right now — you can still type the readings in.",
       code: "OCR_PROVIDER_BILLING",
-      detail: "The Anthropic account has no credit. Add credit at console.anthropic.com → Plans & Billing.",
     }, 503)
   }
   if (status === 401 || status === 403) {
     return jsonResponse({
       error: "Scanning isn't available right now — you can still type the readings in.",
       code: "OCR_PROVIDER_AUTH",
-      detail: "Anthropic rejected the API key (check GitHub Actions secret ANTHROPIC_API_KEY and Supabase secrets).",
     }, 503)
   }
   if (status === 404) {
     return jsonResponse({
       error: "Scanning isn't available right now — you can still type the readings in.",
       code: "OCR_MODEL_NOT_FOUND",
-      detail: "Anthropic model not found — set OCR_MODEL or update DEFAULT_MODELS.",
     }, 503)
   }
   if (status === 429) {
@@ -254,7 +293,6 @@ function providerErrorResponse(status: number, errText: string): Response {
     return jsonResponse({
       error: "Couldn't read that photo — try a flatter, well-lit shot.",
       code: "OCR_BAD_IMAGE",
-      detail: snippet,
     }, 400)
   }
   return jsonResponse({
@@ -289,30 +327,11 @@ serve(async (req) => {
       return jsonResponse({ error: "Unauthorised", code: "INVALID_TOKEN" }, 401)
     }
 
-    // ── 2. Rate limit (service role — tamper-proof) ──────────
+    // ── 2. Service-role client (the scan quota below runs on it) ──
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     )
-
-    const windowStart = new Date(Date.now() - RATE_WINDOW_MINUTES * 60_000).toISOString()
-    const { count, error: countError } = await admin
-      .from("ocr_calls")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .gte("created_at", windowStart)
-
-    if (countError) {
-      console.error("ocr rate-limit count error:", countError)
-      return jsonResponse({ error: "Internal error", code: "SERVER_ERROR" }, 500)
-    }
-    if ((count ?? 0) >= RATE_LIMIT) {
-      await admin.from("ocr_calls").insert({ user_id: user.id, status: "rejected" })
-      return jsonResponse({
-        error: `Scan limit reached (${RATE_LIMIT}/hour). Try again in a little while.`,
-        code: "RATE_LIMITED",
-      }, 429)
-    }
 
     // ── 3. Validate input ─────────────────────────────────────
     const body = await req.json().catch(() => null)
@@ -356,8 +375,46 @@ serve(async (req) => {
       return jsonResponse({
         error: "Scanning isn't available right now — you can still type the readings in.",
         code: "OCR_PROVIDER_AUTH",
-        detail: "ANTHROPIC_API_KEY format looks wrong — replace the GitHub Actions / Supabase secret.",
       }, 503)
+    }
+
+    // ── 4b. Claim a scan: lock, count and record in one step ──
+    // Done just before the paid call, so a bad request or a missing key never
+    // uses up a scan, and parallel requests cannot all slip under the limit.
+    const isGuest = user.is_anonymous === true
+    const { data: verdict, error: claimError } = await admin.rpc("claim_ocr_call", {
+      p_user: user.id,
+      p_ip_hash: await clientIpHash(req),
+      p_anonymous: isGuest,
+      p_member_limit: RATE_LIMIT,
+      p_guest_limit: GUEST_RATE_LIMIT,
+      p_ip_limit: IP_RATE_LIMIT,
+      p_global_limit: GLOBAL_RATE_LIMIT,
+      p_minutes: RATE_WINDOW_MINUTES,
+    })
+    if (claimError) {
+      console.error("ocr claim error:", claimError.message)
+      return jsonResponse({ error: "Internal error", code: "SERVER_ERROR" }, 500)
+    }
+    if (verdict !== "ok") {
+      console.warn("ocr rate limit:", verdict, "guest=", isGuest)
+      return rateLimitedResponse(String(verdict), isGuest)
+    }
+    // Settles the claim once the call is done: ok, error, or refunded (our own
+    // billing or key failure, which must not cost the member a scan).
+    const settle = async (status: "ok" | "error" | "refunded") => {
+      const { error } = await admin.rpc("finish_ocr_call", { p_user: user.id, p_status: status })
+      if (error) console.error("ocr settle error:", error.message)
+    }
+    const scansLeft = async (): Promise<number | null> => {
+      const since = new Date(Date.now() - RATE_WINDOW_MINUTES * 60_000).toISOString()
+      const { count, error } = await admin.from("ocr_calls")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("created_at", since)
+        .not("status", "in", "(rejected,refunded)")
+      if (error || count === null) return null
+      return Math.max(0, (isGuest ? GUEST_RATE_LIMIT : RATE_LIMIT) - count)
     }
 
     const models = modelCandidates(kind)
@@ -403,9 +460,7 @@ serve(async (req) => {
     if (lastFail) {
       // A billing or key failure is ours, not theirs: it must not use up one of
       // the owner's scans for the hour.
-      if (!isBillingError(lastFail.status, lastFail.errText) && lastFail.status !== 401) {
-        await admin.from("ocr_calls").insert({ user_id: user.id, status: "error" })
-      }
+      await settle(isBillingError(lastFail.status, lastFail.errText) || lastFail.status === 401 ? "refunded" : "error")
       return providerErrorResponse(lastFail.status, lastFail.errText)
     }
 
@@ -416,7 +471,7 @@ serve(async (req) => {
       parsed = parseModelJson(rawText)
     } catch {
       console.error("OCR returned unparseable output:", rawText.slice(0, 200))
-      await admin.from("ocr_calls").insert({ user_id: user.id, status: "error" })
+      await settle("error")
       return jsonResponse({
         error: "Couldn't read values from that photo — try a clearer shot",
         code: "OCR_PARSE_ERROR",
@@ -424,10 +479,10 @@ serve(async (req) => {
     }
 
     const confidenceOf = (v: unknown) => ["high", "medium", "low"].includes(String(v)) ? String(v) : "low"
-    const remaining = Math.max(0, RATE_LIMIT - (count ?? 0) - 1)
+    const remaining = await scansLeft()
 
     if (kind === "receipt") {
-      await admin.from("ocr_calls").insert({ user_id: user.id, status: "ok" })
+      await settle("ok")
       return jsonResponse({
         receipt: cleanReceipt(parsed),
         confidence: confidenceOf(parsed.confidence),
@@ -441,7 +496,7 @@ serve(async (req) => {
       // Snapped to chart steps, capped by what the photo allows, never trusted
       // blindly: the owner confirms every value in the app.
       const strip = cleanStripScan(parsed)
-      await admin.from("ocr_calls").insert({ user_id: user.id, status: "ok" })
+      await settle("ok")
       return jsonResponse({
         kind: "strip",
         readings: strip.readings,
@@ -470,7 +525,7 @@ serve(async (req) => {
     const poolVolumeL = cleanPoolVolume(parsed.pool_volume_l)
 
     // ── 6. Log the successful call ────────────────────────────
-    await admin.from("ocr_calls").insert({ user_id: user.id, status: "ok" })
+    await settle("ok")
 
     return jsonResponse({
       readings,

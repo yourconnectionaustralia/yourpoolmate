@@ -119,6 +119,15 @@ interface Send {
   defer: boolean
 }
 
+// Unsubscribe links are signed with their own UNSUBSCRIBE_SECRET, so the sweep's
+// bearer token (LIFECYCLE_CRON_SECRET) is never also a signing key. Until
+// UNSUBSCRIBE_SECRET is set the old secret signs, and it keeps verifying links
+// already sent after the new one is set.
+function unsubscribeSecrets(): string[] {
+  return [Deno.env.get("UNSUBSCRIBE_SECRET"), Deno.env.get("LIFECYCLE_CRON_SECRET")]
+    .filter((s): s is string => Boolean(s))
+}
+
 async function deliver(db: Db, s: Send): Promise<"sent" | "skipped" | "failed" | "not_configured" | "deferred" | "already"> {
   if (!isAllowlisted(s.email, s.allowlistRaw)) {
     await recordSkip(db, s.userId, s.kind, s.periodKey, s.email, "allowlist")
@@ -127,7 +136,7 @@ async function deliver(db: Db, s: Send): Promise<"sent" | "skipped" | "failed" |
   if (!mayCallResend(s.email, s.allowlistRaw, Boolean(s.resendKey))) return "not_configured"
   if (s.defer) return "deferred"
 
-  const secret = Deno.env.get("LIFECYCLE_CRON_SECRET") ?? ""
+  const secret = unsubscribeSecrets()[0] ?? ""
   if (!secret) return "not_configured"
   if ((await claim(db, s.userId, s.kind, s.periodKey, s.email)) !== "go") return "already"
 
@@ -316,10 +325,13 @@ const LABEL: Record<string, string> = {
 // GET shows a confirm button, so a mail scanner opening the link changes nothing.
 // POST (the button, or a mail app's one-click) does the unsubscribe.
 export async function handleUnsubscribe(db: Db, req: Request): Promise<Response> {
-  const secret = Deno.env.get("LIFECYCLE_CRON_SECRET") ?? ""
   const url = new URL(req.url)
   const token = url.searchParams.get("u") ?? ""
-  const who = secret ? await verifyUnsubscribe(secret, token) : null
+  let who: Awaited<ReturnType<typeof verifyUnsubscribe>> = null
+  for (const secret of unsubscribeSecrets()) {
+    who = await verifyUnsubscribe(secret, token)
+    if (who) break
+  }
   if (!who || !(KINDS as string[]).includes(who.kind)) {
     return page("That link didn't work", "<p>It may have been cut short. You can turn reminders and reports off any time in the app: Profile, then Reminders. Or reply to the email and we'll do it for you.</p>", 400)
   }
