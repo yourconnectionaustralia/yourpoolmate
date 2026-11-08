@@ -38,33 +38,34 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: python3 scripts/apply_migrations.py
 
-      # Pinned to the exact commit the last green run used. Dependabot keeps it current.
-      # TODO: replace `latest` with an exact CLI release (see github.com/supabase/cli/releases)
-      # once you've picked one that deploys cleanly.
+      # The action is pinned to a commit and the CLI to an exact release, so a new CLI
+      # version can't break the deploy overnight. CLI v3 asks before it changes a hosted
+      # project and can't ask in CI, so every deploy and secrets call below passes --yes.
+      # To upgrade: change `version`, then run this workflow once by hand.
       - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
-          version: latest
+          version: 3.0.0
 
       - name: Deploy edge functions
         run: |
-          supabase functions deploy calculate-health-score --project-ref "$PROJECT_REF" --use-api
-          supabase functions deploy ocr-water-test --project-ref "$PROJECT_REF" --use-api
-          supabase functions deploy pool-chat --project-ref "$PROJECT_REF" --use-api
+          supabase functions deploy calculate-health-score --project-ref "$PROJECT_REF" --use-api --yes
+          supabase functions deploy ocr-water-test --project-ref "$PROJECT_REF" --use-api --yes
+          supabase functions deploy pool-chat --project-ref "$PROJECT_REF" --use-api --yes
           # stripe-checkout is called by signed-in app users → keep JWT verification.
-          supabase functions deploy stripe-checkout --project-ref "$PROJECT_REF" --use-api
+          supabase functions deploy stripe-checkout --project-ref "$PROJECT_REF" --use-api --yes
           # stripe-webhook is called by Stripe (no Supabase JWT) → verify by signature instead.
-          supabase functions deploy stripe-webhook --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
+          supabase functions deploy stripe-webhook --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
           # send-lifecycle-email is called by the sweep workflow (no user JWT).
           # delete-account is called by signed-in app users → keep JWT verification.
-          supabase functions deploy delete-account --project-ref "$PROJECT_REF" --use-api
-          supabase functions deploy send-lifecycle-email --project-ref "$PROJECT_REF" --use-api --no-verify-jwt
+          supabase functions deploy delete-account --project-ref "$PROJECT_REF" --use-api --yes
+          supabase functions deploy send-lifecycle-email --project-ref "$PROJECT_REF" --use-api --no-verify-jwt --yes
 
       - name: Set OCR secret (skipped if not configured)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           if [ -n "$ANTHROPIC_API_KEY" ]; then
-            supabase secrets set ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" --project-ref "$PROJECT_REF"
+            supabase secrets set ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" --project-ref "$PROJECT_REF" --yes
           else
             echo "::warning::ANTHROPIC_API_KEY repo secret not set — OCR function will return NOT_CONFIGURED"
           fi
@@ -80,22 +81,22 @@ jobs:
           STRIPE_PRICE_ANNUAL: ${{ secrets.STRIPE_PRICE_ANNUAL }}
         run: |
           if [ -n "$STRIPE_SECRET_KEY" ]; then
-            supabase secrets set STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" --project-ref "$PROJECT_REF"
+            supabase secrets set STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY" --project-ref "$PROJECT_REF" --yes
           else
             echo "::warning::STRIPE_SECRET_KEY repo secret not set — checkout will return NOT_CONFIGURED"
           fi
           if [ -n "$STRIPE_WEBHOOK_SECRET" ]; then
-            supabase secrets set STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET" --project-ref "$PROJECT_REF"
+            supabase secrets set STRIPE_WEBHOOK_SECRET="$STRIPE_WEBHOOK_SECRET" --project-ref "$PROJECT_REF" --yes
           else
             echo "::warning::STRIPE_WEBHOOK_SECRET repo secret not set — webhook will reject all events"
           fi
           if [ -n "$STRIPE_PRICE_FOUNDING" ]; then
-            supabase secrets set STRIPE_PRICE_FOUNDING="$STRIPE_PRICE_FOUNDING" --project-ref "$PROJECT_REF"
+            supabase secrets set STRIPE_PRICE_FOUNDING="$STRIPE_PRICE_FOUNDING" --project-ref "$PROJECT_REF" --yes
           else
             echo "::warning::STRIPE_PRICE_FOUNDING repo secret not set — founding checkout will use inline price_data"
           fi
           if [ -n "$STRIPE_PRICE_ANNUAL" ]; then
-            supabase secrets set STRIPE_PRICE_ANNUAL="$STRIPE_PRICE_ANNUAL" --project-ref "$PROJECT_REF"
+            supabase secrets set STRIPE_PRICE_ANNUAL="$STRIPE_PRICE_ANNUAL" --project-ref "$PROJECT_REF" --yes
           else
             echo "::warning::STRIPE_PRICE_ANNUAL repo secret not set — annual checkout will use inline price_data"
           fi
@@ -107,17 +108,17 @@ jobs:
           LIFECYCLE_CRON_SECRET: ${{ secrets.LIFECYCLE_CRON_SECRET }}
         run: |
           if [ -n "$RESEND_API_KEY" ]; then
-            supabase secrets set RESEND_API_KEY="$RESEND_API_KEY" --project-ref "$PROJECT_REF"
+            supabase secrets set RESEND_API_KEY="$RESEND_API_KEY" --project-ref "$PROJECT_REF" --yes
           else
             echo "::warning::RESEND_API_KEY repo secret not set — lifecycle mail will not call Resend"
           fi
           if [ -n "$EMAIL_ALLOWLIST" ]; then
-            supabase secrets set EMAIL_ALLOWLIST="$EMAIL_ALLOWLIST" --project-ref "$PROJECT_REF"
+            supabase secrets set EMAIL_ALLOWLIST="$EMAIL_ALLOWLIST" --project-ref "$PROJECT_REF" --yes
           else
             echo "::warning::EMAIL_ALLOWLIST repo secret not set — edge function keeps the default inbox only (yourconnectionaustralia@gmail.com)"
           fi
           if [ -n "$LIFECYCLE_CRON_SECRET" ]; then
-            supabase secrets set LIFECYCLE_CRON_SECRET="$LIFECYCLE_CRON_SECRET" --project-ref "$PROJECT_REF"
+            supabase secrets set LIFECYCLE_CRON_SECRET="$LIFECYCLE_CRON_SECRET" --project-ref "$PROJECT_REF" --yes
           else
             echo "::warning::LIFECYCLE_CRON_SECRET repo secret not set — sweep and manual sends will return 503"
           fi
