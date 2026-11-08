@@ -46,6 +46,47 @@ function friendlyAuthError(error) {
   return 'Something went wrong — please try again in a moment.'
 }
 
+// The droplet-in-a-circle mark used on every auth screen.
+function BrandMark({ size = 56 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="auth-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#0B7799" />
+          <stop offset="100%" stopColor="#085E78" />
+        </linearGradient>
+      </defs>
+      <circle cx="24" cy="24" r="17" fill="none" stroke="url(#auth-grad)" strokeWidth="3.2" />
+      <path d="M7.3 27 Q 15.65 23 24 27 T 40.7 27 A 17 17 0 0 1 7.3 27 Z" fill="url(#auth-grad)" />
+    </svg>
+  )
+}
+
+// Text only on purpose: Google's own "G" button artwork has to come from
+// Google's branding guidelines, so it is not drawn here.
+function GoogleButton({ onClick, disabled }) {
+  return (
+    <button type="button" className={styles.btnGoogle} onClick={onClick} disabled={disabled}>
+      Continue with Google
+    </button>
+  )
+}
+
+function LegalLine() {
+  return (
+    <p className={styles.legal}>
+      By continuing you agree to our{' '}
+      <a href="https://yourpoolmate.com.au/terms" target="_blank" rel="noopener noreferrer">Terms</a>
+      {' '}and{' '}
+      <a href="https://yourpoolmate.com.au/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+    </p>
+  )
+}
+
+function OrDivider({ children = 'or' }) {
+  return <div className={styles.divider}><span>{children}</span></div>
+}
+
 // Password input with a built-in show/hide toggle.
 // Each field manages its own visibility so toggling one doesn't reveal another.
 function PasswordField({ id, label, value, onChange, placeholder, autoComplete, minLength, required }) {
@@ -93,6 +134,7 @@ export default function AuthScreen() {
   const {
     signInWithEmail,
     signUpWithEmail,
+    signInWithGoogle,
     signInWithMagicLink,
     resetPassword,
     updatePassword,
@@ -102,6 +144,8 @@ export default function AuthScreen() {
   } = useAuth()
 
   const [mode, setMode] = useState('start') // 'start' | 'signup' | 'login' | 'magic' | 'reset'
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -132,16 +176,32 @@ export default function AuthScreen() {
     setResetSent(false)
   }
 
+  async function handleGoogle() {
+    setError('')
+    setLoading(true)
+    const { error } = await signInWithGoogle()
+    if (error) {
+      console.error('[auth] google', error)
+      setError("Google sign-in isn't working just now. You can use your email instead.")
+      setLoading(false)
+    }
+    // On success the browser is already on its way to Google.
+  }
+
   async function handleSignUp(e) {
     e.preventDefault()
     setError('')
+    if (!firstName.trim()) {
+      setError('Please tell us your first name.')
+      return
+    }
     const problem = passwordProblem(password)
     if (problem) {
       setError(problem)
       return
     }
     setLoading(true)
-    const { data, error } = await signUpWithEmail(email, password)
+    const { data, error } = await signUpWithEmail(email, password, { firstName, lastName })
 
     if (error) {
       setError(friendlyAuthError(error))
@@ -460,18 +520,7 @@ export default function AuthScreen() {
       <div className={styles.wrap}>
         <div className={styles.card}>
           <div className={styles.hero}>
-            <div className={styles.logoMark} aria-hidden="true">
-              <svg width="64" height="64" viewBox="0 0 48 48" fill="none">
-                <defs>
-                  <linearGradient id="auth-grad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#0B7799" />
-                    <stop offset="100%" stopColor="#085E78" />
-                  </linearGradient>
-                </defs>
-                <circle cx="24" cy="24" r="17" fill="none" stroke="url(#auth-grad)" strokeWidth="3.2" />
-                <path d="M7.3 27 Q 15.65 23 24 27 T 40.7 27 A 17 17 0 0 1 7.3 27 Z" fill="url(#auth-grad)" />
-              </svg>
-            </div>
+            <div className={styles.logoHalo}><BrandMark size={52} /></div>
             <h1 className={styles.heading}>Your Pool Mate</h1>
             <p className={styles.tagline}>Your pool. Your mate. Your water, sorted.</p>
           </div>
@@ -481,29 +530,31 @@ export default function AuthScreen() {
             </p>
           )}
 
-          <div className={styles.valueProps}>
-            <div className={styles.prop}>
+          <ul className={styles.valueProps}>
+            <li className={styles.prop}>
               <span className={styles.propIcon}><PoolIcon name="droplet" size={20} /></span>
               <span>Know your pool's health at a glance</span>
-            </div>
-            <div className={styles.prop}>
+            </li>
+            <li className={styles.prop}>
               <span className={styles.propIcon}><PoolIcon name="target" size={20} /></span>
               <span>Exactly what chemicals to add — no guessing</span>
-            </div>
-            <div className={styles.prop}>
+            </li>
+            <li className={styles.prop}>
               <span className={styles.propIcon}><PoolIcon name="clipboard" size={20} /></span>
               <span>Protect your pool warranty with timestamped records</span>
-            </div>
-            <div className={styles.prop}>
+            </li>
+            <li className={styles.prop}>
               <span className={styles.propIcon}><PoolIcon name="camera" size={20} /></span>
               <span>Scan your pool shop test — auto-fills in seconds</span>
-            </div>
-          </div>
+            </li>
+          </ul>
 
           <div className={styles.trialBadge}>
             <span className={styles.trialDays}>30 days free</span>
             <span className={styles.trialNote}>No credit card required</span>
           </div>
+
+          {error && <p className={styles.error} role="alert">{error}</p>}
 
           <div className={styles.actions}>
             <button
@@ -512,6 +563,7 @@ export default function AuthScreen() {
             >
               Start free trial
             </button>
+            <GoogleButton onClick={handleGoogle} disabled={loading} />
             <button
               className={styles.btnSecondary}
               onClick={() => { resetFlowState(); setMode('login') }}
@@ -519,6 +571,8 @@ export default function AuthScreen() {
               I already have an account
             </button>
           </div>
+
+          <LegalLine />
         </div>
       </div>
     )
@@ -620,10 +674,42 @@ export default function AuthScreen() {
           <button className={styles.backBtn} onClick={() => { resetFlowState(); setMode('start') }} aria-label="Back">
             Back
           </button>
+          <div className={styles.brandRow}><BrandMark size={36} /></div>
           <h2 className={styles.formHeading}>Start your free trial</h2>
           <p className={styles.formSubtext}>30 days free. No credit card.</p>
 
+          <GoogleButton onClick={handleGoogle} disabled={loading} />
+          <OrDivider>or sign up with email</OrDivider>
+
           <form onSubmit={handleSignUp} className={styles.form} noValidate>
+            <div className={styles.nameRow}>
+              <div>
+                <label className={styles.label} htmlFor="signup-first-name">First name</label>
+                <input
+                  id="signup-first-name"
+                  className={styles.input}
+                  type="text"
+                  autoComplete="given-name"
+                  value={firstName}
+                  onChange={e => setFirstName(e.target.value)}
+                  maxLength={80}
+                  required
+                />
+              </div>
+              <div>
+                <label className={styles.label} htmlFor="signup-last-name">Last name <span className={styles.optional}>(optional)</span></label>
+                <input
+                  id="signup-last-name"
+                  className={styles.input}
+                  type="text"
+                  autoComplete="family-name"
+                  value={lastName}
+                  onChange={e => setLastName(e.target.value)}
+                  maxLength={80}
+                />
+              </div>
+            </div>
+
             <label className={styles.label} htmlFor="signup-email">Email address</label>
             <input
               id="signup-email"
@@ -659,6 +745,8 @@ export default function AuthScreen() {
             </button>
           </form>
 
+          <LegalLine />
+
           <p className={styles.switchMode}>
             Already have an account?{' '}
             <button className={styles.linkBtn} onClick={() => { resetFlowState(); setMode('login') }}>Sign in</button>
@@ -675,7 +763,11 @@ export default function AuthScreen() {
         <button className={styles.backBtn} onClick={() => { resetFlowState(); setMode('start') }} aria-label="Back">
           Back
         </button>
+        <div className={styles.brandRow}><BrandMark size={36} /></div>
         <h2 className={styles.formHeading}>Welcome back</h2>
+
+        <GoogleButton onClick={handleGoogle} disabled={loading} />
+        <OrDivider>or sign in with email</OrDivider>
 
         <form onSubmit={handleLogin} className={styles.form} noValidate>
           <label className={styles.label} htmlFor="login-email">Email address</label>
@@ -720,8 +812,6 @@ export default function AuthScreen() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-
-        <div className={styles.divider}><span>or</span></div>
 
         <button
           className={styles.btnGhost}

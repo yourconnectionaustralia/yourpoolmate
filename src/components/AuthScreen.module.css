@@ -1,5 +1,6 @@
 /* File: src/components/AuthScreen.module.css */
-/* Crystal Clear (Concept 3) — Albert Sans, water gradient, white card on mist */
+/* Crystal Clear — Albert Sans, water gradient, white card on a soft water wash.
+   Phone first: the card gets more room on small screens, more air on larger ones. */
 
 .wrap {
   display: flex;
@@ -7,23 +8,53 @@
   align-items: center;
   justify-content: center;
   min-height: 100dvh;
-  background: var(--gray-bg);
-  padding: max(var(--space-8), env(safe-area-inset-top)) var(--space-4)
-           max(var(--space-8), env(safe-area-inset-bottom));
+  background:
+    radial-gradient(120% 55% at 50% 0%, #D6EEF6 0%, rgba(214, 238, 246, 0) 70%),
+    var(--gray-bg);
+  padding: max(var(--space-6), env(safe-area-inset-top)) var(--space-3)
+           max(var(--space-6), env(safe-area-inset-bottom));
 }
 
-/* Centred card holds every auth state */
-.card {
+/* Centred card holds the start screen; .formWrap holds every form state.
+   Both share one look: white, soft shadow, a thin water-gradient edge on top. */
+.card,
+.formWrap {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   max-width: 440px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
   background: var(--white);
   border: 1px solid var(--gray-line);
-  border-radius: var(--r-lg);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-card);
-  padding: var(--space-10) var(--space-8);
+}
+
+.card::before,
+.formWrap::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: var(--grad-water);
+}
+
+.card {
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-5) var(--space-6);
+}
+
+.formWrap {
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-5);
+}
+
+@media (min-width: 480px) {
+  .wrap { padding-left: var(--space-4); padding-right: var(--space-4); }
+  .card { padding: var(--space-10) var(--space-8) var(--space-8); }
+  .formWrap { padding: var(--space-8); }
 }
 
 /* ── Hero ──────────────────────────────────────────────────── */
@@ -34,13 +65,26 @@
   text-align: center;
 }
 
-.logoMark {
-  margin-bottom: var(--space-4);
+.logoHalo {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  margin-bottom: var(--space-5);
+  border-radius: 50%;
+  background: var(--water-pale);
+  box-shadow: 0 0 0 8px rgba(234, 246, 250, 0.6);
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  margin-top: calc(var(--space-1) * -1);
 }
 
 .heading {
   font-family: var(--font-heading);
-  font-size: 2rem;
+  font-size: clamp(1.75rem, 7vw, 2.125rem);
   font-weight: 800;
   letter-spacing: -0.5px;
   color: var(--water-deep);
@@ -49,55 +93,63 @@
 }
 
 .tagline {
-  font-size: var(--text-body-sm);
+  font-size: 1rem;
   color: var(--gray-mid);
+  line-height: 1.4;
 }
 
 /* ── Value props ───────────────────────────────────────────── */
 .valueProps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .prop {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-3);
-  font-size: var(--text-body-sm);
+  font-size: 1rem;
   color: var(--gray-dark);
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
 .propIcon {
   flex-shrink: 0;
-  margin-top: 1px;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--water-pale);
   color: var(--color-ocean);
 }
 
 /* ── Trial badge ───────────────────────────────────────────── */
 .trialBadge {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
+  gap: 2px;
+  text-align: center;
   background: var(--water-pale);
-  border: 1px solid var(--water-light);
-  border-radius: var(--r-full);
-  padding: var(--space-2) var(--space-5);
-  width: fit-content;
-  align-self: center;
+  border: 1px solid rgba(63, 168, 224, 0.35);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-5);
 }
 
 .trialDays {
-  font-weight: 600;
-  font-size: var(--text-body-sm);
+  font-weight: 700;
+  font-size: 1.125rem;
   color: var(--water-deep);
 }
 
 .trialNote {
-  font-size: 1.0625rem;
+  font-size: var(--text-body-sm);
   color: var(--gray-mid);
 }
 
@@ -108,87 +160,102 @@
   gap: var(--space-3);
 }
 
+.legal {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--gray-mid);
+  text-align: center;
+  margin: 0;
+}
+
+.legal a {
+  color: var(--gray-mid);
+  text-decoration: underline;
+}
+
+.legal a:hover { color: var(--water-deep); }
+
 /* ── Buttons ───────────────────────────────────────────────── */
-.btnPrimary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 44px;
-  padding: var(--space-3) var(--space-6);
-  background: var(--grad-water);
-  color: var(--white);
-  font-family: var(--font-ui);
-  font-size: 1.0625rem;
-  font-weight: 600;
-  border-radius: var(--r-md);
-  border: none;
-  cursor: pointer;
-  transition: filter var(--transition-base), transform var(--transition-base);
-}
-
-.btnPrimary:hover  { filter: brightness(0.94); transform: translateY(-1px); }
-.btnPrimary:active { transform: scale(0.98); }
-.btnPrimary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-
-.btnSecondary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 44px;
-  padding: var(--space-3) var(--space-6);
-  background: var(--gray-bg);
-  color: var(--gray-dark);
-  font-family: var(--font-ui);
-  font-size: 1.0625rem;
-  font-weight: 500;
-  border-radius: var(--r-md);
-  border: 1px solid var(--gray-line);
-  cursor: pointer;
-  transition: background var(--transition-base);
-}
-
-.btnSecondary:hover { background: var(--gray-line); }
-
+.btnPrimary,
+.btnSecondary,
+.btnGoogle,
 .btnGhost {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 44px;
+  min-height: 52px;
   padding: var(--space-3) var(--space-6);
+  font-family: var(--font-ui);
+  font-size: 1.0625rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-base), border-color var(--transition-base),
+              box-shadow var(--transition-base), transform var(--transition-base),
+              filter var(--transition-base);
+}
+
+.btnPrimary:focus-visible,
+.btnSecondary:focus-visible,
+.btnGoogle:focus-visible,
+.btnGhost:focus-visible {
+  outline: 3px solid rgba(11, 119, 153, 0.35);
+  outline-offset: 2px;
+}
+
+.btnPrimary {
+  background: var(--grad-water);
+  color: var(--white);
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 6px 16px rgba(8, 94, 120, 0.28);
+}
+
+.btnPrimary:hover  { filter: brightness(0.94); transform: translateY(-1px); }
+.btnPrimary:active { transform: scale(0.98); box-shadow: 0 3px 8px rgba(8, 94, 120, 0.25); }
+.btnPrimary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btnGoogle {
+  background: var(--white);
+  color: var(--gray-dark);
+  font-weight: 500;
+  border: 1.5px solid var(--color-border-strong);
+}
+
+.btnGoogle:hover { background: var(--gray-bg); border-color: var(--water-mid); }
+.btnGoogle:active { transform: scale(0.98); }
+.btnGoogle:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btnSecondary {
+  background: transparent;
+  color: var(--water-deep);
+  font-weight: 500;
+  border: 1.5px solid transparent;
+}
+
+.btnSecondary:hover { background: var(--water-pale); }
+
+.btnGhost {
   background: transparent;
   color: var(--water-mid);
-  font-family: var(--font-ui);
   font-size: var(--text-body-sm);
   font-weight: 500;
-  border-radius: var(--r-md);
-  border: 1px solid var(--water-light);
-  cursor: pointer;
-  transition: background var(--transition-base);
+  min-height: 48px;
+  border: 1.5px solid var(--water-light);
 }
 
 .btnGhost:hover { background: var(--water-pale); }
 
-/* ── Form ──────────────────────────────────────────────────── */
-.formWrap {
-  max-width: 440px;
-  width: 100%;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  background: var(--white);
-  border: 1px solid var(--gray-line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-8);
+@media (prefers-reduced-motion: reduce) {
+  .btnPrimary:hover,
+  .btnPrimary:active,
+  .btnGoogle:active { transform: none; }
 }
 
+/* ── Form ──────────────────────────────────────────────────── */
 .formHeading {
   font-family: var(--font-heading);
-  font-size: 1.5rem;
+  font-size: 1.625rem;
   font-weight: 800;
   letter-spacing: -0.4px;
   color: var(--water-deep);
@@ -208,32 +275,46 @@
   gap: var(--space-3);
 }
 
+/* First and last name sit side by side when there is room, stacked on phones. */
+.nameRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-3);
+}
+
 .label {
   display: block;
-  font-size: 17px;
-  font-weight: 500;
-  color: var(--gray-mid);
-  text-transform: uppercase;
-  letter-spacing: var(--ls-eyebrow);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-dark);
   margin-bottom: var(--space-1);
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--gray-mid);
 }
 
 .input {
   width: 100%;
-  min-height: 44px;
+  min-height: 50px;
   padding: var(--space-3) var(--space-4);
   font-family: var(--font-ui);
   font-size: 1.0625rem;
   color: var(--gray-dark);
   background: var(--white);
-  border: 1.5px solid var(--gray-line);
-  border-radius: var(--r-md);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
   outline: none;
-  transition: border-color var(--transition-base);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
   appearance: none;
 }
 
-.input:focus   { border-color: var(--water-mid); }
+.input:focus {
+  border-color: var(--water-mid);
+  box-shadow: 0 0 0 3px rgba(11, 119, 153, 0.18);
+}
+
 .input::placeholder { color: var(--gray-light); }
 
 /* ── Password field with show/hide toggle ──────────────────── */
@@ -269,11 +350,12 @@
 .passwordToggle:focus-visible { outline: 2px solid var(--water-mid); outline-offset: 2px; }
 
 .error {
-  font-size: 1.0625rem;
+  font-size: 1rem;
+  line-height: 1.4;
   color: var(--red);
   background: var(--red-bg);
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--r-sm);
+  border-radius: var(--radius-md);
 }
 
 /* ── Misc ──────────────────────────────────────────────────── */
@@ -297,8 +379,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  color: var(--gray-light);
-  font-size: 1.0625rem;
+  color: var(--gray-mid);
+  font-size: var(--text-body-sm);
 }
 
 .divider::before, .divider::after {
