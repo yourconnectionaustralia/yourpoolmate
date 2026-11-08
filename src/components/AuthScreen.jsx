@@ -25,6 +25,9 @@ function friendlyAuthError(error) {
   const raw = error?.message || ''
   console.error('[auth]', error)
 
+  if (error?.code === 'captcha_failed' || /captcha/i.test(raw)) {
+    return "We couldn't confirm you're a real person. Refresh the page and try again."
+  }
   if (/rate limit|too many|for security purposes|after \d+ seconds/i.test(raw)) {
     return 'Too many attempts just now — wait a minute and try again.'
   }

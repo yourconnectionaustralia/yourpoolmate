@@ -25,6 +25,7 @@ import { compressImage } from '../lib/imageCompress.js';
 import { SCAN_FIELDS, blankValues, conflictMessage, daysOld, duplicateTest, hasReadings, mergeMeta, mergeScans, volumeNotice } from '../lib/scanMerge.js';
 import { STRIP_CAVEAT, STRIP_NOT_READY, STRIP_TIPS, isStripReply, stripConfidenceTag, stripDateText, stripFailure, stripReview } from '../lib/stripScan.js';
 import { isoFromDateInput, toDateInput } from '../lib/testFields.js';
+import { getCaptchaToken } from '../lib/captcha.js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -44,7 +45,8 @@ const CameraIcon = (
 async function ensureSession() {
   const { data: { session } } = await supabase.auth.getSession();
   if (session) return session;
-  const { data, error } = await supabase.auth.signInAnonymously();
+  const captchaToken = await getCaptchaToken();
+  const { data, error } = await supabase.auth.signInAnonymously({ options: { captchaToken } });
   if (error || !data?.session) {
     throw new Error('Couldn\'t start a secure session. Check your connection and try again.');
   }
