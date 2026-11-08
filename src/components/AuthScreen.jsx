@@ -3,6 +3,13 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import styles from './AuthScreen.module.css'
 import { PoolIcon } from './PoolIcon.jsx'
+import {
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_RULES_ERROR,
+  PASSWORD_RULES_HINT,
+  isPasswordRuleError,
+  passwordProblem,
+} from '../lib/passwordRules.js'
 
 // Seconds Supabase enforces between confirmation-email resends for the
 // same address. Calling sooner returns an error, so the button is gated.
@@ -24,8 +31,8 @@ function friendlyAuthError(error) {
   if (/error sending|smtp|confirmation email|recovery email/i.test(raw)) {
     return "We couldn't send that email just now. Please try again in a moment."
   }
-  if (/password/i.test(raw) && /at least|should be|characters/i.test(raw)) {
-    return 'Password must be at least 8 characters.'
+  if (isPasswordRuleError(error)) {
+    return PASSWORD_RULES_ERROR
   }
   if (/invalid.*email|unable to validate email/i.test(raw)) {
     return "That email address doesn't look right — please check it."
@@ -124,8 +131,13 @@ export default function AuthScreen() {
 
   async function handleSignUp(e) {
     e.preventDefault()
-    setLoading(true)
     setError('')
+    const problem = passwordProblem(password)
+    if (problem) {
+      setError(problem)
+      return
+    }
+    setLoading(true)
     const { data, error } = await signUpWithEmail(email, password)
 
     if (error) {
@@ -218,8 +230,9 @@ export default function AuthScreen() {
   async function handleUpdatePassword(e) {
     e.preventDefault()
     setError('')
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters.')
+    const problem = passwordProblem(newPassword)
+    if (problem) {
+      setError(problem)
       return
     }
     if (newPassword !== confirmPassword) {
@@ -271,10 +284,11 @@ export default function AuthScreen() {
               autoComplete="new-password"
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              minLength={8}
+              placeholder="Choose a new password"
+              minLength={MIN_PASSWORD_LENGTH}
               required
             />
+            <p className={styles.formSubtext}>{PASSWORD_RULES_HINT}</p>
 
             <PasswordField
               id="confirm-password"
@@ -283,7 +297,7 @@ export default function AuthScreen() {
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               placeholder="Re-enter your new password"
-              minLength={8}
+              minLength={MIN_PASSWORD_LENGTH}
               required
             />
 
@@ -626,9 +640,10 @@ export default function AuthScreen() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="Choose a password"
-              minLength={8}
+              minLength={MIN_PASSWORD_LENGTH}
               required
             />
+            <p className={styles.formSubtext}>{PASSWORD_RULES_HINT}</p>
 
             {error && <p className={styles.error} role="alert">{error}</p>}
 
