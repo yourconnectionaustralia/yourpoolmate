@@ -1547,6 +1547,44 @@ img, svg { display: block; max-width: 100%; }
 .btn-danger { background: var(--red); color: #fff; }
 .btn-danger:hover { filter: brightness(0.92); }
 
+/* ── Add past results: the picker and the pool shop CSV import ── */
+.past-choice { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.past-choice-btn {
+  width: 100%; height: auto; min-height: 64px; padding: 12px 16px;
+  flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px;
+  text-align: left; white-space: normal;
+}
+/* A later global rule centres every .btn label; the :not() lifts this above it. */
+.btn.past-choice-btn:not(.btn-nav) { text-align: left; }
+.past-choice-title { font-size: 17px; font-weight: 600; color: var(--gray-dark); line-height: 1.35; }
+.past-choice-note { font-size: 17px; font-weight: 400; color: var(--gray-mid); line-height: 1.4; }
+
+.import-panel .modal-actions {
+  position: sticky; bottom: -28px; z-index: 1; flex-wrap: wrap;
+  margin: 12px -24px -28px; padding: 12px 24px 20px;
+  background: var(--white); border-top: 1px solid var(--gray-line);
+}
+.import-stack { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 16px; }
+.import-note { margin: 0 0 12px; font-size: 17px; line-height: 1.45; color: var(--gray-mid); }
+.import-file { overflow-wrap: anywhere; color: var(--gray-dark); font-weight: 600; }
+.import-callout { margin-bottom: 12px; }
+.import-preview {
+  list-style: none; margin: 0 0 12px; padding: 0;
+  border: 1px solid var(--gray-line); border-radius: var(--r-md);
+}
+.import-preview li { padding: 10px 12px; border-bottom: 1px solid var(--gray-line); font-size: 17px; line-height: 1.4; color: var(--gray-mid); }
+.import-preview li:last-child { border-bottom: none; }
+.import-preview strong { display: block; font-weight: 600; color: var(--gray-dark); }
+.import-skipped { margin: 0 0 12px; padding-left: 22px; font-size: 17px; line-height: 1.45; color: var(--gray-dark); }
+.import-columns { margin: 0 0 12px; border: 1px solid var(--gray-line); border-radius: var(--r-md); }
+.import-columns summary { padding: 11px 12px; min-height: 44px; box-sizing: border-box; cursor: pointer; font-size: 17px; font-weight: 600; color: var(--gray-dark); }
+.import-columns-body { display: grid; gap: 12px; padding: 4px 12px 14px; }
+/* .input removes the native arrow; these boxes must look tappable. */
+.import-columns select.input {
+  padding-right: 40px;
+  background: var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10' viewBox='0 0 16 10'%3E%3Cpath d='M2 2l6 6 6-6' fill='none' stroke='%234E6671' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center;
+}
+
 /* ── History list ── */
 .test-list { display: flex; flex-direction: column; }
 .test-row {

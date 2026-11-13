@@ -14,6 +14,7 @@ import * as db from './lib/db.js';
 import { memberFormFromRow } from './lib/memberProfile.js';
 import MemberProfileForm from './components/MemberProfileForm.jsx';
 import TestEditor, { PrintoutViewer } from './components/TestEditor.jsx';
+import ImportShopCsv, { AddPastChoice } from './components/ImportShopCsv.jsx';
 import InstallGuide from './components/InstallGuide.jsx';
 import { ReminderOffer, ReminderSettings } from './components/ReminderSettings.jsx';
 import AccountData from './components/AccountData.jsx';
@@ -2638,6 +2639,8 @@ export default function App() {
   const wantsTestLink = useRef(wantsTestForm(window.location.search));
   const [photoViewer, setPhotoViewer] = useState(null); // printout photo path being viewed
   const [editor, setEditor] = useState(null); // { mode: 'edit', test } | { mode: 'add' }
+  const [pastChoice, setPastChoice] = useState(false); // "Add past results": type one in, or import a pool shop CSV
+  const [importOpen, setImportOpen] = useState(false); // the pool shop CSV import screen
   const [openTestForm, setOpenTestForm] = useState(false); // one-shot: open the log form on the Tests page
   const [openEquipmentForm, setOpenEquipmentForm] = useState(false); // one-shot: open the add-equipment form
   const [tourActive, setTourActive] = useState(false); // post-onboarding walkthrough
@@ -3034,6 +3037,20 @@ export default function App() {
     setHistorySorted([...testHistory, { ...test, id, printoutPath }]);
     setEditor(null);
   };
+  // Pool shop CSV import: the checked tests are saved in batches, each scored
+  // like any other test. Whatever did save is shown even if a later batch fails
+  // (the error carries it), so a second try adds only the rest.
+  const handleImportTests = async (tests) => {
+    const asRow = (s) => ({ ...s.test, id: s.id, printoutPath: null });
+    try {
+      const saved = await db.saveTestsBulk(user.id, poolProfile?.id, tests, scoreOne);
+      setHistorySorted([...testHistory, ...saved.map(asRow)]);
+      return saved.length;
+    } catch (err) {
+      if (err?.saved?.length) setHistorySorted([...testHistory, ...err.saved.map(asRow)]);
+      throw err;
+    }
+  };
 
   const handleAddEvent = (event) => {
     db.addEvent(user.id, poolProfile?.id, event)
@@ -3316,7 +3333,7 @@ export default function App() {
               onAddEvent={handleAddEvent}
               onDeleteEvent={handleDeleteEvent}
               onEditTest={(test) => setEditor({ mode: 'edit', test })}
-              onAddPastTest={() => setEditor({ mode: 'add' })}
+              onAddPastTest={() => setPastChoice(true)}
               onViewPrintout={setPhotoViewer}
               owner={memberDetails}
               getPhotoUrl={db.printoutUrl}
@@ -3562,6 +3579,20 @@ export default function App() {
           onDelete={handleDeleteTest}
           getPhotoUrl={db.printoutUrl}
           onCancel={() => setEditor(null)}
+        />
+      )}
+      {pastChoice && (
+        <AddPastChoice
+          onType={() => { setPastChoice(false); setEditor({ mode: 'add' }); }}
+          onImport={() => { setPastChoice(false); setImportOpen(true); }}
+          onCancel={() => setPastChoice(false)}
+        />
+      )}
+      {importOpen && (
+        <ImportShopCsv
+          existingTests={testHistory}
+          onImport={handleImportTests}
+          onClose={() => setImportOpen(false)}
         />
       )}
       {photoViewer && (

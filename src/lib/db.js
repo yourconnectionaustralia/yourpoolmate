@@ -59,8 +59,8 @@ export async function loadTests(userId) {
   return (data || []).map(rowToTest);
 }
 
-export async function saveTest(userId, poolId, test, healthScore) {
-  const row = {
+function testInsertRow(userId, poolId, test, healthScore) {
+  return {
     user_id: userId,
     pool_id: poolId || null,
     // ?? not || — a 0 reading (e.g. no chlorine) is real data, not "untested".
@@ -77,10 +77,34 @@ export async function saveTest(userId, poolId, test, healthScore) {
     source:         test.source || 'manual', // manual | ocr | voice | shop_import
     tested_at:      test.createdAt || new Date().toISOString(),
   };
+}
+
+export async function saveTest(userId, poolId, test, healthScore) {
   const { data, error } = await supabase
-    .from('water_tests').insert(row).select('id').single();
+    .from('water_tests').insert(testInsertRow(userId, poolId, test, healthScore)).select('id').single();
   if (error) throw error;
   return data.id;
+}
+
+// Add many past results in one go (the pool shop CSV import), 100 to a request.
+// Returns [{ id, test }] in the order given. If a request fails part-way, the
+// ones already saved are on the error as `err.saved` (same shape), so the screen
+// can show them and a second try adds only what is left.
+const BULK_CHUNK = 100;
+export async function saveTestsBulk(userId, poolId, tests, scoreFn) {
+  const saved = [];
+  for (let i = 0; i < tests.length; i += BULK_CHUNK) {
+    const chunk = tests.slice(i, i + BULK_CHUNK);
+    const rows = chunk.map((t) => testInsertRow(userId, poolId, t, scoreFn ? scoreFn(t) : null));
+    const { data, error } = await supabase.from('water_tests').insert(rows).select('id');
+    const failure = error || (data?.length === chunk.length ? null : new Error('Not every test was saved.'));
+    if (failure) {
+      failure.saved = saved;
+      throw failure;
+    }
+    data.forEach((r, j) => saved.push({ id: r.id, test: chunk[j] }));
+  }
+  return saved;
 }
 
 function testToRow(test, healthScore) {
