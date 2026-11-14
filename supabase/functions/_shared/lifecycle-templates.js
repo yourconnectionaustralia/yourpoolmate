@@ -14,7 +14,6 @@ export const APP_URL = "https://app.yourpoolmate.com.au"
 export const TEST_URL = `${APP_URL}/?test=1`
 const SITE_URL = "https://yourpoolmate.com.au"
 const HELLO = "hello@yourpoolmate.com.au"
-const ABN = "ABN 61 264 129 127"
 
 // Brand tokens (marketing site :root)
 const FONT = "'Albert Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"
@@ -98,7 +97,7 @@ export function trialEndLabel(value) {
 }
 
 function assertOutboundStyle(template, blob) {
-  if (blob.includes("—") || blob.includes("–")) {
+  if (blob.includes("—") || blob.includes("–") || /&(mdash|ndash|#8212|#8211|#x2014|#x2013);/i.test(blob)) {
     throw new Error(`lifecycle ${template} contains a dash that is not a hyphen`)
   }
   if (/\blog\b/i.test(blob)) throw new Error(`lifecycle ${template} uses "log"`)
@@ -195,7 +194,7 @@ export function signoff(closingHtml) {
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
                 <td style="border-top:1px solid ${LINE};padding-top:20px;font-family:${FONT};">
                   <p style="margin:0;font-size:17px;line-height:24px;font-weight:700;color:${DEPTH};">James</p>
-                  <p style="margin:0;font-size:15px;line-height:22px;color:${MID};">Founder, Your Pool Mate</p>
+                  <p style="margin:0;font-size:15px;line-height:22px;color:${MID};">Your Pool Mate</p>
                   <p style="margin:0;font-size:15px;line-height:22px;"><a href="mailto:${HELLO}" style="color:${OCEAN};text-decoration:underline;">${HELLO}</a></p>
                 </td>
               </tr></table>
@@ -250,7 +249,7 @@ export function shell(title, preview, rows, footer, { hero, prices = false } = {
           <tr>
             <td align="center" style="padding:22px 16px 12px;font-family:${FONT};font-size:13px;line-height:20px;color:${MID};">
               ${reason}<a href="${APP_URL}" style="color:${MID};text-decoration:underline;">Open the app</a> &middot; <a href="${SITE_URL}/privacy.html" style="color:${MID};text-decoration:underline;">Privacy</a><br />
-              Your Pool Mate &middot; ${ABN} &middot; Australian owned${aud}
+              Your Pool Mate &middot; Australian owned${aud}
             </td>
           </tr>
         </table>
@@ -265,12 +264,12 @@ export function plainSignoff(closing) {
   return `${closing}
 
 James
-Founder, Your Pool Mate
+Your Pool Mate
 ${HELLO}`
 }
 
 function plainFooter(prices) {
-  return `\n\n--\nYour Pool Mate · ${ABN} · Australian owned${prices ? "\nAll prices are in Australian dollars." : ""}`
+  return `\n\n--\nYour Pool Mate · Australian owned${prices ? "\nAll prices are in Australian dollars." : ""}`
 }
 
 // "3 tests", or null when the count is unknown (a manual send without it).
@@ -284,13 +283,16 @@ const TRIAL_FOOTER = "You're receiving this because you started a Your Pool Mate
 
 function renderL1(name) {
   const preview = "Add one water test and you'll know exactly where your pool stands."
-  const intro = "Thanks for giving Your Pool Mate a go. I built it because I got sick of guessing what my pool needed, and of walking out of the pool shop with chemicals I wasn't sure I needed."
+  const intro = "Thanks for giving Your Pool Mate a go. I built it because so many pool owners test at home as well as at the pool shop, but you only ever get the record from the shop, not what's happened in between."
+  const split = "And if you visit more than one shop, your records are split. Your Pool Mate keeps your pool in your control."
   const step = "Add one water test. Type in the numbers from your pool shop printout, or read a test strip and enter the results. You'll get a Health Score out of 100, whether it's good to swim, and exactly what to add, and how much, for anything that's out."
   const record = "Many pool builder and equipment warranties ask for water chemistry records if you ever need to make a claim. Every test you add is dated and kept, so the history is there when you need it."
   const closing = "Anything confusing? Just hit reply. It comes straight to me."
   const text = `Hi ${name},
 
 ${intro}
+
+${split}
 
 You've got a 30-day free trial. No card needed.
 
@@ -306,6 +308,7 @@ ${plainSignoff(closing)}${plainFooter(false)}`
   const html = shell(SUBJECTS.L1, preview, `
           ${para(`Hi ${esc(name)},`)}
           ${para(intro)}
+          ${para(split)}
           ${para(`You've got a <strong style="color:${DEPTH};">30-day free trial</strong>. No card needed.`)}
           ${callout("Your first step", step)}
           ${button(TEST_URL, "Add your first test")}
@@ -356,34 +359,30 @@ ${plainSignoff(closing)}${plainFooter(false)}`
 }
 
 function renderL3(name) {
-  const preview = "Your Health Score, what to add, and how often to test from here."
-  const intro = "Your first water test is saved. Open the app to see your Health Score and anything that needs a tweak: what to add, how much, and why."
-  const tips = [
-    "<strong>Test about once a week</strong>, more often in hot weather or when the pool's busy",
-    "<strong>Test again after rain, a pool party or a big top-up</strong>. They all shift the chemistry",
-    "<strong>Record what you add</strong>, so over time you can see what actually worked",
-  ]
-  const shop = "Open the app before you head in. You'll walk in knowing exactly what your water needs, and what it doesn't."
+  const preview = "Two parts of Your Pool Mate worth knowing about: Ask Mate and My Shed."
+  const intro = "Your first water test is saved, so you've already seen your Health Score. Here are two other parts of Your Pool Mate that are worth a look."
+  const askMate = "Ask any pool question in plain English, like why the water's gone cloudy, or how long after adding chlorine you can swim. Ask Mate knows your pool's size and your latest readings, so the answer fits your pool."
+  const shed = "Add the chemicals you've already got on hand. Your plan uses them first, tells you when there's no need to buy more, and adds anything you're short of to your shopping list."
   const closing = "Questions? Hit reply. It comes straight to me."
   const text = `Hi ${name},
 
 ${intro}
 
-See your Health Score: ${APP_URL}
+ASK MATE
+${askMate}
 
-Getting the most out of it:
-${tips.map((t, i) => `${i + 1}. ${t.replace(/<\/?strong>/g, "")}`).join("\n")}
+MY SHED
+${shed}
 
-USE YOUR POOL SHOP SMARTER
-${shop}
+Try Ask Mate: ${APP_URL}
 
 ${plainSignoff(closing)}${plainFooter(false)}`
   const html = shell(SUBJECTS.L3, preview, `
           ${para(`Hi ${esc(name)},`)}
           ${para(intro)}
-          ${button(APP_URL, "See your Health Score")}
-          ${steps("Getting the most out of it", tips)}
-          ${callout("Use your pool shop smarter", shop)}
+          ${callout("Ask Mate", askMate)}
+          ${callout("My Shed", shed, { dark: true })}
+          ${button(APP_URL, "Try Ask Mate")}
           ${signoff(closing)}
   `, TRIAL_FOOTER, { hero: { eyebrow: "First test done", h1: ["Good start. ", "Here's what's next.", ""] } })
   return { preview, text, html }
@@ -524,7 +523,7 @@ ${plainSignoff(closing)}${plainFooter(true)}`
 
 function renderL7(name) {
   const preview = "One quick favour, and I'll only ask once."
-  const ask = "I'll only ask this once. Your Pool Mate is a one-person business, and word of mouth from people like you is how it grows."
+  const ask = "I'll only ask this once. Your Pool Mate isn't run by any big business, and word of mouth from people like you is how it grows."
   const who = "If you know someone who's never quite sure what their pool needs (a neighbour, a mate, someone in the family), send them this link:"
   const gets = "They'll get a 30-day free trial, no card needed."
   const closing = "If you'd rather not, that's completely fine. Thanks for being here."

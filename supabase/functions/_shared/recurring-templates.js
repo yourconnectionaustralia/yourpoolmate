@@ -7,7 +7,7 @@ import {
 import { dayName } from "./recurring-rules.js"
 
 function assertStyle(kind, blob) {
-  if (blob.includes("—") || blob.includes("–")) throw new Error(`${kind} contains a dash that is not a hyphen`)
+  if (blob.includes("—") || blob.includes("–") || /&(mdash|ndash|#8212|#8211|#x2014|#x2013);/i.test(blob)) throw new Error(`${kind} contains a dash that is not a hyphen`)
   if (/\blog\b/i.test(blob)) throw new Error(`${kind} uses "log"`)
   if (/photo/i.test(blob)) throw new Error(`${kind} mentions a photo`)
   if (blob.includes("{{") || blob.includes("undefined") || blob.includes("NaN")) throw new Error(`${kind} has an unreplaced field`)
