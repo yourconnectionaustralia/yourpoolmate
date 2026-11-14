@@ -73,7 +73,7 @@ Phase 4: Closed-loop marketplace (in-app bookings / purchases)
 
 ### B2C Pricing — in-app paywall model (updated Sep 2026)
 **No payment up front.** Everyone signs up and gets the 30-day free trial. When the
-trial ends, an in-app paywall (`TrialExpiredScreen` in `src/App.jsx`) takes payment —
+trial ends, an in-app paywall (`TrialExpiredScreen` in `src/app/screens/TrialExpiredScreen.jsx`) takes payment —
 the user is authenticated at that point, so fulfilment grants premium straight to their
 account via the Stripe webhook.
 
@@ -166,30 +166,11 @@ The guest onboarding trigger exists but is **not wired into the app flow**. New 
 
 ---
 
-## JUNE 2026 REVIEW — FIXES SHIPPED IN THIS FOLDER
+## DEPLOYMENT
 
-| Fix | File | Action needed to go live |
-|-----|------|--------------------------|
-| **CRITICAL: premium escalation closed** — users could set `is_premium = true` / extend their own trial via the API | `supabase/migrations/004_security_fixes.sql` | Auto-applied by GitHub Action |
-| Trial 7 → 30 days (DB + all in-app copy) | same migration + `src/App.jsx`, `src/components/AuthScreen.jsx` | Auto-applied |
-| Feedback hardening (auth required, length caps, 10/hour throttle; feedback_rounds size caps) | same migration | Auto-applied |
-| **OCR edge function built** — Claude Vision, auth, 10 scans/user/hour (`ocr_calls`, migration 005) | `supabase/functions/ocr-water-test/index.ts` | Auto-deployed by GitHub Action; needs `ANTHROPIC_API_KEY` secret. Scanner UI in the app is NOT yet built — next app task |
-| Real PWA: manifest + service worker + PNG icons (app was NOT installable on Android before) | `public/manifest.webmanifest`, `public/sw.js`, `public/icon-*.png`, `index.html`, `src/main.jsx` | Commit to GitHub repo |
-| Health Score now scores salt for saltwater/mineral pools | `supabase/functions/calculate-health-score/index.ts` | Redeploy edge function; app should pass `sanitiser_type` in the request |
-| Landing page: false claims removed (climate intelligence → warranty records; "unlimited pools" → "complete history"), unsourced $ stats removed, 4.5:1 contrast fix, visible test-mode ribbon, 30-day-trial FAQ | `marketing/index.html` | Commit to marketing repo |
-| Privacy + Terms pages (drafts — get them reviewed before launch; Claude is not a lawyer) | `marketing/privacy.html`, `marketing/terms.html` | Commit to marketing repo |
-
-**Deployment model (June 2026 — replaces GitHub web-UI pasting):**
-- This folder is a git clone of `github.com/yourconnectionaustralia/yourpoolmate`. Claude commits and pushes directly from Cowork sessions (James provides a GitHub fine-grained token per session — never stored).
-- Cloudflare Pages auto-deploys the frontend on push, as before.
-- `.github/workflows/supabase-deploy.yml` auto-applies new `supabase/migrations/*.sql` and deploys edge functions on every push that touches `supabase/**`. Migrations 001–003 are baselined (they were applied manually pre-CI).
-- Repo migrations 002/003 (feedback_rounds, pool_setup_fields) already existed — the review fixes are migrations **004** and **005**.
-
-**Open actions only James can do:**
-1. **Add repo secrets** (GitHub → repo → Settings → Secrets and variables → Actions): `SUPABASE_ACCESS_TOKEN` and `ANTHROPIC_API_KEY`. Then re-run the failed "Deploy Supabase" action.
-2. Install the updated skills — click "Save skill" on the five `.skill` files Claude provides (no pasting).
-3. **Stripe go-live:** add repo secrets `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` (Actions secrets), create the Stripe webhook endpoint pointing at the `stripe-webhook` function (events: checkout.session.completed, customer.subscription.updated/deleted, invoice.paid, invoice.payment_failed), then run the "Deploy Supabase" workflow manually to apply migration 014. Test with card 4242…, then swap test keys for live.
-4. **Launch timing decision:** recommendation is warm-up + fixes over winter, founding launch Sep–Oct pre-season, geo-concentrated (Melbourne metro first) so postcode clusters can reach the ≥50-user B2B threshold. A national winter launch fills no clusters and undermines real scarcity.
+- Cloudflare Pages auto-deploys the frontend on every push to `main`.
+- `.github/workflows/supabase-deploy.yml`: edge functions redeploy on push to `main` when `supabase/**` changes. **Migrations never run on push**: James runs them from the workflow's manual "Run workflow" button.
+- Secrets are set in Supabase (edge function secrets), Cloudflare Pages (`VITE_*`) and GitHub Actions secrets. Never put keys in the repo or in project or chat files.
 
 ---
 
@@ -208,7 +189,12 @@ The guest onboarding trigger exists but is **not wired into the app flow**. New 
 
 ---
 
-## V3 CODE MAP (Oct 2026)
+## CODE MAP
+
+- `src/App.jsx`: app root only (auth/session, all state and handlers, view switching). Everything else it used to hold now lives in `src/app/`, moved verbatim in a structure-only refactor (Nov 2026).
+- `src/app/`: `pages/` (HealthScorePage, WaterTestsPage, ChemistryLogPage, SetupPage, SeasonalTipsPage, EquipmentPage, EquipmentForm), `nav/` (Sidebar, MobileNav, MobileMoreDrawer), `overlays/` (VolumeGateModal, HelpSheet), `screens/TrialExpiredScreen`, `checkout/Checkout.jsx` (in-app Stripe button and return note), `data/` (equipment lists, pool options and DEFAULT_POOL, seasonal tips), `icons.jsx`, `visuals.jsx` (LogoMark and the home-screen HealthScoreRing), `helpers.js`.
+- `src/components/` holds the larger screens and widgets. `components/HealthScoreRing.jsx` (used by ReportView) is a different component from the one in `src/app/visuals.jsx`.
+- Source-shape tests read App.jsx plus `src/app/**` through `src/testing/appSource.js`. Add new UI files under `src/app/` so those tests still see them.
 
 - Dose plan logic: `src/lib/plan.js` (order, amounts, swim call, chlorine aim by state/month, chlorinator estimate, LSI). Dose factors stay in `src/lib/dosing.js` only.
 - Shed / shopping list / costs logic: `src/lib/shed.js`. Stock left is always computed (bought − dose draws), never stored.
