@@ -280,3 +280,71 @@ test('4,572 ppm salt with no chlorinator on file is in range, so no drain-and-re
   const own = planContext({ pool: { ...POOL, sanitiser: 'Saltwater chlorinator' }, saltRange: { lo: 900, hi: 2000 }, postcode: '3144', now: APR });
   assert.equal(buildPlan({ ...BALANCED, salt: 4572 }, own, APR).steps.some((st) => st.key === 'salt' && st.state === 'high'), true);
 });
+
+// ── How does your pool look? ─────────────────────────────────
+
+test('perfectly balanced water that looks green is not safe to swim', () => {
+  const ctx = planContext({ pool: POOL, postcode: '3186', now: APR });
+  const plan = buildPlan({ ...BALANCED, poolLook: 'green', createdAt: APR.toISOString() }, ctx, APR);
+  assert.equal(plan.steps.length, 0);
+  assert.equal(plan.score, 55, 'green water holds the score in the act-now band');
+  assert.equal(plan.swim.tone, 'wait');
+  assert.match(plan.swim.title, /green/);
+  assert.match(plan.headline, /readings are in range, but the water does not look right/);
+  assert.equal(plan.look.key, 'green');
+  assert.equal(plan.watchouts[0], plan.look.body);
+});
+
+test('cloudy water changes the swim call the same way', () => {
+  const ctx = planContext({ pool: POOL, postcode: '3186', now: APR });
+  const plan = buildPlan({ ...BALANCED, poolLook: 'cloudy', createdAt: APR.toISOString() }, ctx, APR);
+  assert.equal(plan.swim.tone, 'wait');
+  assert.match(plan.swim.title, /cloudy/);
+  assert.equal(plan.score, 69, 'cloudy water keeps the score out of green');
+  assert.match(plan.headline, /readings are in range, but the water does not look right/);
+});
+
+test('a score saved with the test is used as is, cap included', () => {
+  const ctx = planContext({ pool: POOL, postcode: '3186', now: APR });
+  const plan = buildPlan({ ...BALANCED, poolLook: 'green', healthScore: 55, createdAt: APR.toISOString() }, ctx, APR);
+  assert.equal(plan.score, 55);
+});
+
+test('out-of-balance water that looks clear gets no extra warning', () => {
+  const ctx = planContext({ pool: POOL, postcode: '3186', now: APR });
+  const plan = buildPlan({ freeChlor: 2, pH: 7.4, alkalinity: 60, cyanuricAcid: 40, calciumHardness: 300, poolLook: 'clear', createdAt: APR.toISOString() }, ctx, APR);
+  assert.equal(plan.look, null);
+  assert.ok(plan.steps.length > 0, 'the numbers still drive the plan');
+  assert.doesNotMatch(plan.headline, /does not look right/);
+});
+
+test('green water with readings off is an act-now call and does not claim the readings are fine', () => {
+  const ctx = planContext({ pool: POOL, postcode: '3186', now: APR });
+  const plan = buildPlan({ freeChlor: 2, pH: 7.4, alkalinity: 60, cyanuricAcid: 40, calciumHardness: 300, poolLook: 'green', createdAt: APR.toISOString() }, ctx, APR);
+  assert.ok(plan.score < 60);
+  assert.match(plan.headline, /needs work before anyone swims/);
+  assert.doesNotMatch(plan.look.body, /readings are in range/i);
+  assert.ok(plan.steps.length > 0, 'the numbers still drive the plan');
+});
+
+test('cloudy water with readings off says both things', () => {
+  const ctx = planContext({ pool: POOL, postcode: '3186', now: APR });
+  const plan = buildPlan({ freeChlor: 2, pH: 7.4, alkalinity: 60, cyanuricAcid: 40, calciumHardness: 300, poolLook: 'cloudy', createdAt: APR.toISOString() }, ctx, APR);
+  assert.ok(plan.score >= 60 && plan.score <= 69);
+  assert.match(plan.headline, /Some readings need attention, and the water does not look right/);
+  assert.doesNotMatch(plan.look.body, /readings are in range/i);
+});
+
+test('chlorine rules still win over the look', () => {
+  const fresh = new Date(APR.getTime() - 3600e3).toISOString();
+  assert.equal(swimVerdict({ freeChlor: 6, pH: 7.4, poolLook: 'green', createdAt: fresh }, 70, 'Autumn', APR).title, 'Wait — chlorine is high');
+  assert.equal(swimVerdict({ freeChlor: 0.4, pH: 7.4, poolLook: 'cloudy', createdAt: fresh }, 70, 'Autumn', APR).title, "Don't swim yet");
+  assert.match(swimVerdict({ freeChlor: 2, pH: 7.4, poolLook: 'cloudy', createdAt: fresh }, 95, 'Autumn', APR).title, /cloudy/);
+});
+
+test('a test with no answer behaves exactly as before', () => {
+  const ctx = planContext({ pool: POOL, postcode: '3186', now: APR });
+  const plan = buildPlan({ ...BALANCED, createdAt: APR.toISOString() }, ctx, APR);
+  assert.equal(plan.look, null);
+  assert.equal(plan.swim.tone, 'good');
+});

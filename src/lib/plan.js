@@ -14,6 +14,7 @@
 import { doseOptions } from './dosing.js';
 import { safetyLineFor, DOSE_PLAN_GUIDANCE } from './dosingSafety.js';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool } from './healthScore.js';
+import { isMurkyLook, lookView, murkySwimCall } from './poolLook.js';
 
 export { DOSE_PLAN_GUIDANCE };
 
@@ -501,6 +502,10 @@ export function swimVerdict(test, score, season, now = new Date()) {
   const staleAfter = season === 'Winter' ? 14 : season === 'Autumn' ? 10 : 7;
   if (fc != null && fc > 5) return { tone: 'wait', title: 'Wait — chlorine is high', detail: 'Keep everyone out until free chlorine is back under 5 ppm.' };
   if (fc != null && fc < 1) return { tone: 'wait', title: "Don't swim yet", detail: 'Free chlorine is under 1 ppm, so the water is not sanitised.' };
+  // Green or cloudy water is a no-swim whatever the numbers say: the readings
+  // cannot see algae, a failing filter or a swimmer in trouble on the bottom.
+  const murky = murkySwimCall(test.poolLook);
+  if (murky) return murky;
   if (fc == null) return { tone: 'unknown', title: 'Test chlorine before a swim', detail: 'This test has no free chlorine reading, and that is the one that says the water is sanitised.' };
   if (ph != null && (ph < 7.2 || ph > 7.6)) return { tone: 'wait', title: 'Fix pH before a long swim', detail: 'pH outside 7.2–7.6 stings eyes and skin, and it dulls the chlorine.' };
   if (score < 60) return { tone: 'wait', title: 'Hold off swimming', detail: 'The Health Score is in the act-now band. Follow the plan, then re-test.' };
@@ -508,9 +513,15 @@ export function swimVerdict(test, score, season, now = new Date()) {
   return { tone: 'good', title: 'Safe to swim on these readings', detail: 'Free chlorine and pH are in range. Re-test if the pool has been busy or it has rained.' };
 }
 
-function headlineFor(score, rows, swim) {
+function headlineFor(score, rows, swim, look = null) {
   if (score == null) return 'Log a water test and this becomes a number you can trust.';
   const off = rows.filter((r) => r.state === 'low' || r.state === 'high').length;
+  // What the owner can see outranks a good score: numbers in range do not make green water fine.
+  // Green water holds the score under 60 by itself, so in-range readings still get this line.
+  if (isMurkyLook(look)) {
+    if (off === 0) return 'Your readings are in range, but the water does not look right.';
+    if (score >= 60) return 'Some readings need attention, and the water does not look right.';
+  }
   if (swim.tone === 'wait' && score >= 60) return off === 1 ? 'One reading needs fixing before the next swim.' : 'A few readings need attention before the next swim.';
   if (score >= 80 && off === 0) return 'Your pool is in great shape — every reading we scored is on target.';
   if (score >= 80) return `Your pool is in great shape — ${off === 1 ? 'one small tweak' : `${off} small tweaks`}.`;
@@ -654,6 +665,9 @@ export function buildPlan(test, ctx, now = new Date()) {
   // A saved test keeps the score it had when it was logged, like the history.
   const score = test?.healthScore ?? calculateScore(test, ctx.sanitiser, ctx.saltRange, ctx.surface, { hasCover: ctx.hasCover });
   const rows = readingRows(test, ctx);
+  // What the owner said they can see. The readings cannot show it, so it goes first.
+  const look = lookView(test?.poolLook, !rows.some((r) => r.state === 'low' || r.state === 'high'));
+  if (look) watchouts.unshift(look.body);
   const swim = swimVerdict(test, score, ctx.climate.season, now);
   const lsi = lsiView(langelier({
     pH: num(test?.pH),
@@ -673,7 +687,8 @@ export function buildPlan(test, ctx, now = new Date()) {
     combined,
     fcAim: aim,
     saltRange: ctx.saltRange,
-    headline: headlineFor(score, rows, swim),
+    look,
+    headline: headlineFor(score, rows, swim, test?.poolLook),
     guidance: DOSE_PLAN_GUIDANCE,
   };
 }

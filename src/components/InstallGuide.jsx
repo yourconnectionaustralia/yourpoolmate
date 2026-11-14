@@ -34,7 +34,6 @@ export default function InstallGuide() {
     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     standalone,
     hasPrompt: !!prompt,
-    maxTouchPoints: typeof navigator !== 'undefined' ? navigator.maxTouchPoints : 0,
   });
 
   if (!shouldShowInstallGuide({ platform, visits, dismissedAt })) return null;

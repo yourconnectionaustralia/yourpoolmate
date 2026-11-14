@@ -9,7 +9,7 @@
 import { useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { compressImage } from '../lib/imageCompress.js';
-import { PRODUCTS, UNITS, formatAud, formatCanonical, hasPrice, matchProduct, productByKey } from '../lib/shed.js';
+import { OTHER_KEY, OTHER_UNITS, PRODUCTS, UNITS, formForItem, formatAud, formatCanonical, hasPrice, isOther, matchProduct, productByKey } from '../lib/shed.js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -33,11 +33,13 @@ export function NotReady({ title }) {
 function blankLine(productKey = 'liquid_chlorine') {
   const p = productByKey(productKey);
   const pack = p?.packs[0] ?? { amount: 1, unit: 'kg' };
-  return { productKey, packAmount: String(pack.amount), packUnit: pack.unit, packs: '1', priceAud: '' };
+  return { productKey, customName: '', packAmount: String(pack.amount), packUnit: pack.unit, packs: '1', priceAud: '' };
 }
 
 function lineProblem(l) {
-  if (!productByKey(l.productKey)) return 'Choose the product.';
+  if (isOther(l.productKey)) {
+    if (!String(l.customName || '').trim()) return 'Add the name of the product.';
+  } else if (!productByKey(l.productKey)) return 'Choose the product.';
   if (!(Number(l.packAmount) > 0)) return 'Add the pack size.';
   if (!(parseInt(l.packs, 10) >= 1)) return 'Add how many you bought.';
   if (l.priceAud !== '' && !(Number(l.priceAud) >= 0)) return 'Price needs to be a number.';
@@ -46,7 +48,7 @@ function lineProblem(l) {
 
 const toItem = (l, extra) => ({
   productKey: l.productKey,
-  label: productByKey(l.productKey)?.name ?? l.productKey,
+  label: isOther(l.productKey) ? String(l.customName).trim().slice(0, 120) : (productByKey(l.productKey)?.name ?? l.productKey),
   packAmount: Number(l.packAmount),
   packUnit: l.packUnit,
   packs: parseInt(l.packs, 10) || 1,
@@ -56,7 +58,9 @@ const toItem = (l, extra) => ({
 
 function LineFields({ line, onChange, idPrefix, showProduct = true }) {
   const p = productByKey(line.productKey);
-  const units = UNITS[p?.form ?? 'mass'];
+  const other = isOther(line.productKey);
+  // A listed product is either a powder or a liquid. "Other" could be either.
+  const units = other ? OTHER_UNITS : UNITS[p?.form ?? 'mass'];
   return (
     <div className="shed-line">
       {showProduct && (
@@ -67,6 +71,11 @@ function LineFields({ line, onChange, idPrefix, showProduct = true }) {
             className="input"
             value={line.productKey}
             onChange={(e) => {
+              if (isOther(e.target.value)) {
+                // On a receipt line, start from what the receipt says.
+                onChange({ ...line, productKey: OTHER_KEY, customName: line.customName || line.rawName || '' });
+                return;
+              }
               const next = productByKey(e.target.value);
               const pack = next?.packs[0];
               onChange({ ...line, productKey: e.target.value, ...(pack && !UNITS[next.form].includes(line.packUnit) ? { packAmount: String(pack.amount), packUnit: pack.unit } : {}) });
@@ -74,7 +83,21 @@ function LineFields({ line, onChange, idPrefix, showProduct = true }) {
           >
             {!line.productKey && <option value="">Choose the product</option>}
             {PRODUCTS.map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}
+            <option value={OTHER_KEY}>Other</option>
           </select>
+        </div>
+      )}
+      {other && (
+        <div className="input-group">
+          <label className="input-label" htmlFor={`${idPrefix}-name`}>What is it?</label>
+          <input
+            id={`${idPrefix}-name`}
+            className="input"
+            maxLength={120}
+            placeholder="e.g. Phosphate remover"
+            value={line.customName || ''}
+            onChange={(e) => onChange({ ...line, customName: e.target.value })}
+          />
         </div>
       )}
       {p && (
@@ -343,7 +366,6 @@ export default function ShedPage({ available, stock, low, onAdd, onDelete, onOpe
       ) : (
         <ul className="shed-list">
           {[...stock].reverse().map((s) => {
-            const p = productByKey(s.productKey);
             const pct = Math.round(s.ratio * 100);
             return (
               <li key={s.id} className="card-section shed-item">
@@ -360,7 +382,7 @@ export default function ShedPage({ available, stock, low, onAdd, onDelete, onOpe
                   <span style={{ width: `${pct}%` }} />
                 </div>
                 <div className="shed-item-foot">
-                  <span>About {formatCanonical(s.remaining, p?.form ?? 'mass')} left</span>
+                  <span>About {formatCanonical(s.remaining, formForItem(s))} left</span>
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => { if (window.confirm(`Take ${s.label} out of the shed? Doses already logged stay in your history.`)) onDelete(s.id); }}

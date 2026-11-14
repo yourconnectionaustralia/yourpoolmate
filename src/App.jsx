@@ -37,6 +37,8 @@ import { doseEventFor, retestPrompt } from './lib/doseLog.js';
 import { buildPlan, optionAmount, planContext, readingProblem, turnoverHours } from './lib/plan.js';
 import { drawForDose, hasPrice, lowStock, planShortfall, productKeyForDose, shedWithStock } from './lib/shed.js';
 import PlanPage, { nextStep } from './components/PlanPage.jsx';
+import { passedFor, readPassed, setPassed, writePassed } from './lib/passedSteps.js';
+import PoolLookQuestion from './components/PoolLookQuestion.jsx';
 import ShedPage from './components/ShedPage.jsx';
 import ShopPage from './components/ShopPage.jsx';
 import CostsPage from './components/CostsPage.jsx';
@@ -775,7 +777,7 @@ function useHomeGreeting(user) {
 
 function HealthScorePage({
   testData, poolProfile, events = [], onLogFirst, onLogTest, user, reminderOffer = null, careDue = [], onOpenCare, onOpenFixer,
-  plan, next, doneCount = 0, done = {}, skipped = {}, shopCount = 0, onAdded, onOpen, ctx, tests = [], low = [], pins = [], badges = {},
+  plan, next, doneCount = 0, done = {}, skipped = {}, passed = {}, shopCount = 0, onAdded, onOpen, ctx, tests = [], low = [], pins = [], badges = {},
 }) {
   const greeting = useHomeGreeting(user);
   const lastTest = testData?.createdAt;
@@ -864,6 +866,21 @@ function HealthScorePage({
         </div>
       )}
 
+      {/* What the owner said they could see. The readings cannot show green or
+          cloudy water, so this sits above the score and does not change it. */}
+      {plan.look && (
+        <div className={`callout ${plan.look.tone === 'alert' ? 'callout-alert' : 'callout-action'}`} role="status">
+          <span className="callout-icon" style={{ color: plan.look.tone === 'alert' ? 'var(--red)' : 'var(--amber)', display: 'inline-flex' }}>{Icon.alert}</span>
+          <div className="callout-body">
+            <strong>{plan.look.title}.</strong> {plan.look.body}
+            <p className="plan-small" style={{ margin: '6px 0 0' }}>{plan.look.scoreNote ? `${plan.look.scoreNote} ` : ''}From your last test, logged {formatRelative(lastTest)}.</p>
+            <div style={{ marginTop: 10 }}>
+              <button className="btn btn-primary btn-sm" onClick={onOpenFixer}>Open the problem fixer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Score card. The number is centred and is the focus of the screen,
           with the swim call and the next dose one tap underneath. Local
           conditions are typical-month averages, labelled as such on the
@@ -882,7 +899,9 @@ function HealthScorePage({
         <div className="param-tag-row score-hero-tags">
           {plan.rows.map(r => (
             <span key={r.key} className={`tag ${r.state === 'ok' ? 'tag-good' : r.state === 'none' ? 'tag-neutral' : 'tag-warn'}`}>
-              {r.state === 'ok' ? '✓' : r.state === 'low' ? '↓' : r.state === 'high' ? '↑' : '?'} {r.short}
+              {r.state === 'ok' ? '✓ ' : r.state === 'none' ? '? ' : ''}{r.short}
+              {/* The colour says "this one needs a change". Say it for screen readers too. */}
+              {(r.state === 'low' || r.state === 'high') && <span className="visually-hidden"> is {r.state}</span>}
             </span>
           ))}
         </div>
@@ -892,6 +911,7 @@ function HealthScorePage({
           doneCount={doneCount}
           done={done}
           skipped={skipped}
+          passed={passed}
           shopCount={shopCount}
           onAdded={onAdded}
           onOpenPlan={() => onOpen('plan')}
@@ -940,7 +960,7 @@ function HealthScorePage({
                 <td className="col-muted">{r.target}</td>
                 <td>
                   <span className={`tag ${r.state === 'ok' ? 'tag-good' : r.state === 'none' ? 'tag-neutral' : 'tag-warn'}`}>
-                    {r.state === 'ok' ? '✓ Good' : r.state === 'low' ? '↓ Low' : r.state === 'high' ? '↑ High' : '— No data'}
+                    {r.state === 'ok' ? '✓ Good' : r.state === 'low' ? 'Low' : r.state === 'high' ? 'High' : '— No data'}
                   </span>
                 </td>
               </tr>
@@ -997,6 +1017,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, onSpeakT
   };
   const [problem, setProblem] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
+  const [look, setLook] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Open the entry form when a nav "Log test" action requests it, then clear the trigger.
@@ -1049,6 +1070,8 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, onSpeakT
     // Catch typos (pH 74) before they become a dose for the wrong water.
     const issue = readingProblem(form);
     if (issue) { setProblem(issue.message); return; }
+    // The readings cannot show green or cloudy water, so we always ask.
+    if (!look) { setProblem('Choose how your pool looks first.'); return; }
     setProblem('');
     setSubmitting(true);
     // Untested fields stay null — they're skipped by the Health Score
@@ -1060,6 +1083,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, onSpeakT
       alkalinity: num(form.alkalinity),
       cyanuricAcid: num(form.cyanuricAcid),
       calciumHardness: num(form.calciumHardness),
+      poolLook: look,
       createdAt: new Date().toISOString(),
     };
     if (form.salt !== '')       data.salt = num(form.salt);
@@ -1070,6 +1094,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, onSpeakT
     setSubmitting(false);
     setShowForm(false);
     setForm(EMPTY_FORM);
+    setLook('');
   };
 
   return (
@@ -1115,13 +1140,14 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, onSpeakT
             <p className="plan-small">With total chlorine, the plan spots chloramines — the cause of the "chlorine smell" — and adds a shock step.</p>
             {fieldGrid(fieldsIn('extra'))}
           </details>
+          <PoolLookQuestion value={look} onChange={setLook} idPrefix="entry" />
           {problem && <p role="alert" className="test-editor-problem">{problem}</p>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
             <button
               className="btn btn-primary btn-sm"
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || !look}
             >
               {submitting ? (
                 <span className="dot-loader">
@@ -1155,7 +1181,7 @@ function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, onSpeakT
                     <td className="col-muted">{r.target}</td>
                     <td>
                       <span className={`tag ${r.state === 'ok' ? 'tag-good' : r.state === 'none' ? 'tag-neutral' : 'tag-warn'}`}>
-                        {r.state === 'ok' ? '✓ Good' : r.state === 'low' ? '↓ Low' : r.state === 'high' ? '↑ High' : '— No data'}
+                        {r.state === 'ok' ? '✓ Good' : r.state === 'low' ? 'Low' : r.state === 'high' ? 'High' : '— No data'}
                       </span>
                     </td>
                   </tr>
@@ -2648,6 +2674,8 @@ export default function App() {
   // the database has the tables; those screens then say so and nothing breaks.
   const [shed, setShed] = useState({ available: false, items: [] });
   const [shop, setShop] = useState({ available: false, items: [] });
+  // Plan steps the owner chose to skip, per test, kept on this device.
+  const [passedMap, setPassedMap] = useState(() => { try { return readPassed(localStorage); } catch { return {}; } });
   // Pinned shortcuts: saved to the account when the database allows it,
   // otherwise kept on this device.
   const [pins, setPins] = useState(() => {
@@ -2840,14 +2868,16 @@ export default function App() {
       if (i.status === 'needed' && i.source === 'skip' && i.testId === testData.id && i.stepKey) skipped[i.stepKey] = i;
     }
   }
-  const next = dosePlan ? nextStep(dosePlan, done, skipped) : null;
+  // Steps the owner chose to skip for this test.
+  const passed = passedFor(passedMap, testKey);
+  const next = dosePlan ? nextStep(dosePlan, done, skipped, passed) : null;
   const doneCount = dosePlan ? dosePlan.steps.filter((st) => done[st.key]).length : 0;
-  // Steps still to do — shown on the Plan tab badge.
-  const pendingActions = dosePlan ? dosePlan.steps.filter((st) => !done[st.key]).length : 0;
+  // Steps still to do — shown on the Plan tab badge. A skipped step is not "to do".
+  const pendingActions = dosePlan ? dosePlan.steps.filter((st) => !done[st.key] && !passed[st.key]).length : 0;
   const shopCount = shop.items.filter((i) => i.status !== 'bought').length;
   const low = shed.available ? lowStock(stock, doseEvents) : [];
   const shopSuggestions = dosePlan && shop.available
-    ? planShortfall({ plan: dosePlan, stock, doneKeys: new Set([...Object.keys(done), ...Object.keys(skipped)]), testId: testData?.id ?? null }).filter((r) => !r.covered)
+    ? planShortfall({ plan: dosePlan, stock, doneKeys: new Set([...Object.keys(done), ...Object.keys(skipped), ...Object.keys(passed)]), testId: testData?.id ?? null }).filter((r) => !r.covered)
     : [];
 
   // Show the test straight away, then confirm it reached the database. If the
@@ -3008,7 +3038,10 @@ export default function App() {
   const scoreOne = (t) => calculateScore(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface, { hasCover: poolProfile?.hasCover });
 
   const handleUpdateTest = async (data, { photo, removePhoto } = {}) => {
-    const saved = await db.updateTest(data.id, data, scoreOne(data));
+    // The editor does not carry how the pool looked, but it still counts towards
+    // the score, so a green test keeps its cap when a reading is fixed.
+    const poolLook = testHistory.find((t) => t.id === data.id)?.poolLook;
+    const saved = await db.updateTest(data.id, data, scoreOne(poolLook ? { ...data, poolLook } : data));
     let printoutPath = saved.printoutPath;
     if (photo) printoutPath = await db.savePrintout(user.id, data.id, photo);
     else if (removePhoto && printoutPath) { await db.removePrintout(data.id, printoutPath); printoutPath = null; }
@@ -3118,6 +3151,24 @@ export default function App() {
       stepTitle: step.action,
     });
     setShop((sh) => ({ ...sh, items: [item, ...sh.items] }));
+  };
+  // "Skip this step": leave it alone for now. It is not a dose, so nothing goes
+  // in the history. A step that was on the shopping list comes off it.
+  const passStep = async (step) => {
+    const listed = skipped[step.key];
+    if (listed) await removeShopItem(listed);
+    setPassedMap((m) => {
+      const next = setPassed(m, testKey, step.key, true);
+      writePassed(localStorage, next);
+      return next;
+    });
+  };
+  const unpassStep = (step) => {
+    setPassedMap((m) => {
+      const next = setPassed(m, testKey, step.key, false);
+      writePassed(localStorage, next);
+      return next;
+    });
   };
   const removeShopItem = async (item) => {
     await db.deleteShopItem(item.id);
@@ -3241,6 +3292,7 @@ export default function App() {
               doneCount={doneCount}
               done={done}
               skipped={skipped}
+              passed={passed}
               shopCount={Object.keys(skipped).length}
               onAdded={recordDose}
               onOpen={openView}
@@ -3278,12 +3330,15 @@ export default function App() {
               ctx={ctx}
               done={done}
               skipped={skipped}
+              passed={passed}
               stock={stock}
               shopAvailable={shop.available}
               onAdded={recordDose}
               onUndo={undoDose}
               onSkip={skipStep}
               onUnskip={removeShopItem}
+              onPass={passStep}
+              onUnpass={unpassStep}
               onOpen={openView}
               onLogTest={goLogTest}
               onOpenFixer={() => openView('fixer')}

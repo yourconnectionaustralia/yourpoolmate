@@ -3,6 +3,7 @@
 // capped on the server; nothing here is stored.
 
 import { doseLabel } from './plan.js';
+import { lookLabel, normaliseLook } from './poolLook.js';
 
 const fmtDate = (iso) => {
   const d = new Date(iso);
@@ -31,6 +32,9 @@ export function chatContext({ poolProfile, testData, plan, now = new Date() } = 
     if (readings.length) lines.push(`Latest test, ${fmtDate(testData.createdAt)}: ${readings.join('; ')}.`);
     if (plan.score != null) lines.push(`Health Score: ${plan.score}/100.`);
     if (plan.swim?.title) lines.push(`Swim call: ${plan.swim.title}.`);
+    // What the owner said they could see when they tested. Numbers cannot show green water.
+    const look = normaliseLook(testData.poolLook);
+    if (look && look !== 'unsure') lines.push(`How the pool looked: ${lookLabel(look)}.`);
     const steps = (plan.steps || []).map((s, i) => {
       const o = s.options?.[0];
       return `${i + 1}. ${s.action}${o ? `: ${doseLabel(o)}` : ''}`;

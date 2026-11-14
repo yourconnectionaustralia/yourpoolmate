@@ -14,6 +14,8 @@
 //   - Saltwater / mineral pools score salt as a weighted parameter — too low
 //     and the chlorinator stops producing, too high and equipment corrodes.
 
+import { scoreCapFor } from './poolLook.js';
+
 // Standard (non-salt) pools
 const WEIGHTS_DEFAULT = {
   freeChlor:       0.35,
@@ -128,6 +130,10 @@ function scoreStabiliser(value, hasCover) {
 // comes from the owner's chlorinator via saltRangeForEquipment() below.
 // `surface` is the pool profile surface. Omitted = hard-surface calcium band.
 // `hasCover` true = low or no stabiliser is not a fault (see scoreStabiliser).
+// Green or cloudy water (test.poolLook, from "How does your pool look?") holds
+// the score down after the readings are weighed: numbers in range cannot make
+// green water healthy. The edge function named at the top does not know the look, and only
+// scores the guest preview, so the cap lives here alone.
 export function calculateScore(test, sanitiserType, saltRange, surface, { hasCover = false } = {}) {
   if (!test) return 0;
   const weights = isSaltPool(sanitiserType) ? WEIGHTS_SALTWATER : WEIGHTS_DEFAULT;
@@ -155,7 +161,9 @@ export function calculateScore(test, sanitiserType, saltRange, surface, { hasCov
   }
 
   if (weightSum === 0) return 0;
-  return Math.round(total / weightSum);
+  const score = Math.round(total / weightSum);
+  const cap = scoreCapFor(test.poolLook);
+  return cap == null ? score : Math.min(score, cap);
 }
 
 // True when calculateScore has at least one reading to weigh. Missing,

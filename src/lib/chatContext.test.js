@@ -41,3 +41,11 @@ test('a test with nothing to add', () => {
   });
   assert.match(text, /Today's plan: nothing to add/);
 });
+
+test('how the pool looked is passed on when it is a problem', () => {
+  const plan = { score: 100, swim: { title: 'Hold off — the water is green' }, rows: [{ name: 'pH', value: 7.4, unit: '', state: 'ok', target: '7.2–7.6' }], steps: [] };
+  const base = { now: NOW, plan };
+  assert.match(chatContext({ ...base, testData: { createdAt: '2026-10-23T22:00:00Z', poolLook: 'green' } }), /How the pool looked: Green\./);
+  assert.doesNotMatch(chatContext({ ...base, testData: { createdAt: '2026-10-23T22:00:00Z', poolLook: 'unsure' } }), /How the pool looked/);
+  assert.doesNotMatch(chatContext({ ...base, testData: { createdAt: '2026-10-23T22:00:00Z' } }), /How the pool looked/);
+});

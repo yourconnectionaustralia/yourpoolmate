@@ -1739,6 +1739,21 @@ img, svg { display: block; max-width: 100%; }
 .season-hours { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 4px; }
 .plan-page .card-section, .plan-steps, .plan-watchout, .plan-all-added { margin-bottom: 16px; }
 
+/* How does your pool look? Asked before a new test is saved. */
+.look-question { border: none; padding: 0; margin: 20px 0 8px; min-width: 0; }
+.look-legend { padding: 0; font-size: 18px; font-weight: 700; color: var(--cc-depth); }
+.look-why { margin: 4px 0 12px; }
+.look-choices { display: flex; flex-direction: column; gap: 8px; }
+.look-choice {
+  display: flex; align-items: flex-start; gap: 12px; min-height: 52px; padding: 10px 14px;
+  border-radius: var(--radius-md); border: 1px solid var(--color-border-strong); background: var(--white); cursor: pointer;
+}
+.look-choice.is-on { border-color: var(--cc-ocean); background: var(--cc-mist); }
+.look-choice input { width: 22px; height: 22px; margin: 2px 0 0; flex: 0 0 auto; accent-color: var(--cc-ocean); cursor: pointer; }
+.look-choice-label { display: block; font-size: 17px; font-weight: 700; color: var(--cc-depth); }
+.look-choice-hint { display: block; font-size: 15px; line-height: 1.4; color: var(--cc-mid); margin-top: 2px; }
+.look-pick { margin: 8px 0 0; font-size: 16px; font-weight: 600; color: var(--amber); }
+
 /* Plan */
 .plan-progress-text { font-size: 18px; font-weight: 700; color: var(--cc-depth); margin: 0; }
 .plan-progress-bar { display: flex; gap: 6px; margin-top: 12px; }
@@ -1746,11 +1761,14 @@ img, svg { display: block; max-width: 100%; }
 .plan-progress-bar .is-done { background: var(--green); }
 .plan-progress-bar .is-next { background: var(--cc-ocean); }
 .plan-progress-bar .is-skipped { background: var(--amber); }
+.plan-progress-bar .is-passed { background: var(--gray-mid); }
 .plan-steps { list-style: none; padding: 0; margin: 0 0 16px; display: flex; flex-direction: column; gap: 12px; }
 .plan-step { background: var(--white); border: var(--border); border-radius: var(--radius-lg); padding: 18px; }
 .plan-step-next { border-color: var(--cc-ocean); box-shadow: 0 0 0 3px rgba(11,119,153,.14); }
 .plan-step-skipped { border-style: dashed; }
-.plan-step-done { display: flex; align-items: center; gap: 12px; }
+.plan-step-done, .plan-step-passed { display: flex; align-items: center; gap: 12px; }
+.plan-step-passed { border-style: dashed; }
+.plan-step-passed .plan-step-check { background: var(--gray-line); color: var(--cc-mid); }
 .plan-step-check {
   flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; background: var(--green-bg); color: var(--green);
   display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;

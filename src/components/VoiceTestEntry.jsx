@@ -13,6 +13,7 @@ import {
   formValuesFromTranscript,
   voiceReadingsFromForm,
 } from '../lib/parseVoiceReadings.js';
+import PoolLookQuestion from './PoolLookQuestion.jsx';
 
 const LANGS = ['en-AU', 'en-GB', 'en-US'];
 
@@ -71,6 +72,7 @@ export default function VoiceTestEntry({ onClose, onComplete }) {
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [values, setValues] = useState(blankVoiceForm);
+  const [look, setLook] = useState('');   // how the pool looks: required before saving
   const [error, setError] = useState('');
   const recRef = useRef(null);
   const langRef = useRef(LANGS[0]);
@@ -196,6 +198,7 @@ export default function VoiceTestEntry({ onClose, onComplete }) {
     stopListening();
     onComplete({
       ...voiceReadingsFromForm(values),
+      poolLook: look,
       createdAt: new Date().toISOString(),
     });
     onClose();
@@ -317,6 +320,7 @@ export default function VoiceTestEntry({ onClose, onComplete }) {
                 </div>
               ))}
             </div>
+            <PoolLookQuestion value={look} onChange={setLook} idPrefix="voice" />
           </>
         )}
 
@@ -333,7 +337,7 @@ export default function VoiceTestEntry({ onClose, onComplete }) {
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={handleUse}
-                disabled={!canSave}
+                disabled={!canSave || !look}
               >
                 Use these readings
               </button>

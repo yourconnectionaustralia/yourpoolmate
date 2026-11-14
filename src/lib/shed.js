@@ -33,6 +33,9 @@ export const PRODUCTS = [
   { key: 'thio', name: 'Chlorine remover', short: 'chlorine remover', dose: ['chlorine remover (sodium thiosulphate)'], form: 'mass',
     aliases: ['chlorine remover', 'thiosulphate', 'thiosulfate', 'dechlor', 'chlorine neutraliser'],
     packs: [{ amount: 1, unit: 'kg' }, { amount: 2, unit: 'kg' }] },
+  { key: 'oxidiser', name: 'Oxidiser (non-chlorine shock)', short: 'oxidiser', dose: [], form: 'mass',
+    aliases: ['oxidiser', 'oxidizer', 'non chlorine shock', 'non chlor shock', 'monopersulfate', 'monopersulphate', 'potassium monopersulfate', 'mps', 'oxy shock'],
+    packs: [{ amount: 1, unit: 'kg' }, { amount: 2, unit: 'kg' }, { amount: 4, unit: 'kg' }] },
   { key: 'stabiliser', name: 'Stabiliser (cyanuric acid)', short: 'stabiliser', dose: ['stabiliser / conditioner (cyanuric acid)'], form: 'mass',
     aliases: ['stabiliser', 'stabilizer', 'cyanuric', 'conditioner', 'cya', 'sunscreen'],
     packs: [{ amount: 2, unit: 'kg' }, { amount: 4, unit: 'kg' }] },
@@ -45,6 +48,19 @@ export const PRODUCTS = [
 ];
 
 export const productByKey = (key) => PRODUCTS.find((p) => p.key === key) ?? null;
+
+// "Other" is the catch-all choice in My Shed's product list. It is not in
+// PRODUCTS on purpose: the shopping list has its own "Something else", no dose
+// in the plan can use it, and receipt matching must never land on it. An Other
+// item keeps the name the owner typed as its label and its unit says whether
+// it is a powder (g, kg) or a liquid (mL, L).
+export const OTHER_KEY = 'other';
+export const isOther = (key) => key === OTHER_KEY;
+export const OTHER_UNITS = ['g', 'kg', 'mL', 'L'];
+export const formForUnit = (unit) => (unit === 'mL' || unit === 'L' ? 'volume' : 'mass');
+
+// Mass or volume for a shed item: a listed product knows, anything else goes by its unit.
+export const formForItem = (item) => productByKey(item?.productKey)?.form ?? formForUnit(item?.packUnit);
 
 // Which product a dose option (by its plan name) uses.
 export const productKeyForDose = (name) => PRODUCTS.find((p) => p.dose.includes(name))?.key ?? null;

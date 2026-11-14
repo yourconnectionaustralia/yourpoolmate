@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  OTHER_KEY,
+  PRODUCTS,
   buyQuantity,
   drawForDose,
   enoughInShed,
+  formForItem,
   formatAud,
+  isOther,
   lowStock,
   matchProduct,
   periodWindow,
@@ -165,4 +169,35 @@ test('score summary and rhythm for a window', () => {
   assert.equal(s.change, 20);
   assert.equal(s.greenShare, 50);
   assert.deepEqual(testingRhythm(tests, current), { count: 2, longestGapDays: 14 });
+});
+
+test('oxidiser is a product of its own, and not a chlorine dose', () => {
+  const ox = PRODUCTS.find((p) => p.key === 'oxidiser');
+  assert.ok(ox);
+  assert.equal(ox.form, 'mass');
+  assert.deepEqual(ox.dose, []);
+  assert.equal(matchProduct('Non Chlorine Shock 2kg')?.key, 'oxidiser');
+  assert.equal(matchProduct('Potassium monopersulfate 1kg')?.key, 'oxidiser');
+  // "shock" alone is still granular chlorine; the longer alias wins for the oxidiser.
+  assert.equal(matchProduct('Pool shock 2kg')?.key, 'cal_hypo');
+});
+
+test('"Other" is a catch-all that receipts and the plan never land on', () => {
+  assert.equal(isOther(OTHER_KEY), true);
+  assert.equal(isOther('hcl'), false);
+  assert.equal(PRODUCTS.some((p) => p.key === OTHER_KEY), false);
+  assert.equal(matchProduct('Some other product 5L'), null);
+  assert.equal(productKeyForDose('anything the owner typed'), null);
+});
+
+test('an Other item is a powder or a liquid by its unit; a listed product knows its own', () => {
+  assert.equal(formForItem({ productKey: OTHER_KEY, packUnit: 'L' }), 'volume');
+  assert.equal(formForItem({ productKey: OTHER_KEY, packUnit: 'mL' }), 'volume');
+  assert.equal(formForItem({ productKey: OTHER_KEY, packUnit: 'kg' }), 'mass');
+  assert.equal(formForItem({ productKey: 'hcl', packUnit: 'L' }), 'volume');
+  assert.equal(formForItem({ productKey: 'bicarb', packUnit: 'kg' }), 'mass');
+  // Stock for an Other liquid counts in mL, like any other liquid.
+  const stock = shedWithStock([{ id: 'x', productKey: OTHER_KEY, label: 'Phosphate remover', packAmount: 2, packUnit: 'L', packs: 1, boughtAt: '2026-11-01' }], []);
+  assert.equal(stock[0].total, 2000);
+  assert.equal(stock[0].remaining, 2000);
 });

@@ -20,6 +20,7 @@ import {
 } from '../lib/plan.js';
 import { enoughInShed, formatAud, latestUnitPrice, ownerPack, planShortfall, productKeyForDose } from '../lib/shed.js';
 import { fmtMass, fmtVol } from '../lib/dosing.js';
+import { nextOpenStep } from '../lib/passedSteps.js';
 
 const whenText = (iso) => {
   if (!iso) return '';
@@ -33,8 +34,9 @@ const whenText = (iso) => {
   return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
-export function nextStep(plan, done, skipped) {
-  return plan?.steps.find((s) => !done[s.key] && !skipped[s.key]) ?? null;
+// `skipped` = steps on the shopping list. `passed` = steps the owner chose to skip.
+export function nextStep(plan, done, skipped, passed = {}) {
+  return nextOpenStep(plan, done, skipped, passed);
 }
 
 function DifferentAmount({ step, option, test, ctx, stock, onLog, onBack, busy }) {
@@ -114,7 +116,7 @@ function DifferentAmount({ step, option, test, ctx, stock, onLog, onBack, busy }
   );
 }
 
-function StepCard({ step, index, total, isNext, record, skippedItem, test, ctx, stock, shopAvailable, onAdded, onUndo, onSkip, onUnskip }) {
+function StepCard({ step, index, total, isNext, record, skippedItem, passedStep, test, ctx, stock, shopAvailable, onAdded, onUndo, onSkip, onUnskip, onPass, onUnpass }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState('choose');
   const [pick, setPick] = useState(step.options[0]?.name);
@@ -156,6 +158,20 @@ function StepCard({ step, index, total, isNext, record, skippedItem, test, ctx, 
     );
   }
 
+  if (passedStep) {
+    return (
+      <article className="plan-step plan-step-passed" aria-label={`Step ${index + 1} of ${total}: ${step.action}, skipped`}>
+        <span className="plan-step-check" aria-hidden="true">–</span>
+        <div className="plan-step-main">
+          <h3 className="plan-step-title">{step.action}</h3>
+          <p className="plan-step-meta">Skipped. If it still matters, your next test will bring it back.</p>
+          {problem && <p role="alert" className="test-editor-problem">{problem}</p>}
+        </div>
+        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => run(() => onUnpass(step))}>Do it now</button>
+      </article>
+    );
+  }
+
   return (
     <article
       className={`plan-step${isNext ? ' plan-step-next' : ''}${skippedItem ? ' plan-step-skipped' : ''}`}
@@ -190,6 +206,7 @@ function StepCard({ step, index, total, isNext, record, skippedItem, test, ctx, 
                   I added {doseLabel(firstBuyable ?? option)}
                 </button>
                 <button className="btn btn-ghost btn-block" disabled={busy} onClick={() => run(() => onUnskip(skippedItem))}>Take it off the shopping list</button>
+                <button className="btn btn-ghost btn-block" disabled={busy} onClick={() => run(() => onPass(step))}>Skip this step</button>
               </div>
             </>
           ) : mode === 'amount' && firstBuyable ? (
@@ -233,6 +250,7 @@ function StepCard({ step, index, total, isNext, record, skippedItem, test, ctx, 
                     I haven't bought it yet — add to shopping list
                   </button>
                 )}
+                <button className="btn btn-ghost btn-block" disabled={busy} onClick={() => run(() => onPass(step))}>Skip this step</button>
               </div>
             </>
           )}
@@ -254,8 +272,8 @@ function StepCard({ step, index, total, isNext, record, skippedItem, test, ctx, 
   );
 }
 
-function ShedSummary({ plan, stock, done, testId, shopAvailable, onOpen }) {
-  const rows = planShortfall({ plan, stock, doneKeys: new Set(Object.keys(done)), testId });
+function ShedSummary({ plan, stock, done, passed = {}, testId, shopAvailable, onOpen }) {
+  const rows = planShortfall({ plan, stock, doneKeys: new Set([...Object.keys(done), ...Object.keys(passed)]), testId });
   if (!rows.length) return null;
   const toBuy = rows.filter((r) => !r.covered);
   const covered = rows.filter((r) => r.covered);
@@ -288,8 +306,8 @@ function ShedSummary({ plan, stock, done, testId, shopAvailable, onOpen }) {
 }
 
 export default function PlanPage({
-  test, plan, ctx, done, skipped, stock, shopAvailable,
-  onAdded, onUndo, onSkip, onUnskip, onOpen, onLogTest, onOpenFixer, retest,
+  test, plan, ctx, done, skipped, passed = {}, stock, shopAvailable,
+  onAdded, onUndo, onSkip, onUnskip, onPass, onUnpass, onOpen, onLogTest, onOpenFixer, retest,
 }) {
   if (!test || !plan) {
     return (
@@ -307,10 +325,13 @@ export default function PlanPage({
     );
   }
 
-  const next = nextStep(plan, done, skipped);
+  const next = nextStep(plan, done, skipped, passed);
   const addedCount = plan.steps.filter((s) => done[s.key]).length;
   const skippedCount = plan.steps.filter((s) => !done[s.key] && skipped[s.key]).length;
+  const passedCount = plan.steps.filter((s) => !done[s.key] && passed[s.key]).length;
   const allAdded = plan.steps.length > 0 && addedCount === plan.steps.length;
+  // Every step is either added or skipped, and something really went in.
+  const allHandled = !allAdded && addedCount > 0 && addedCount + passedCount === plan.steps.length;
 
   return (
     <div className="plan-page">
@@ -322,11 +343,11 @@ export default function PlanPage({
       {plan.steps.length > 0 ? (
         <section className="card-section plan-progress" aria-label="Progress">
           <p className="plan-progress-text">
-            {addedCount} of {plan.steps.length} added{skippedCount ? ` · ${skippedCount} on the shopping list` : ''}
+            {addedCount} of {plan.steps.length} added{skippedCount ? ` · ${skippedCount} on the shopping list` : ''}{passedCount ? ` · ${passedCount} skipped` : ''}
           </p>
           <div className="plan-progress-bar" aria-hidden="true">
             {plan.steps.map((s) => (
-              <span key={s.key} className={done[s.key] ? 'is-done' : next?.key === s.key ? 'is-next' : skipped[s.key] ? 'is-skipped' : ''} />
+              <span key={s.key} className={done[s.key] ? 'is-done' : next?.key === s.key ? 'is-next' : passed[s.key] ? 'is-passed' : skipped[s.key] ? 'is-skipped' : ''} />
             ))}
           </div>
           {plan.saltRange && (
@@ -341,10 +362,10 @@ export default function PlanPage({
         </div>
       )}
 
-      {allAdded && (
+      {(allAdded || allHandled) && (
         <section className="callout callout-success plan-all-added" aria-labelledby="all-added">
           <div className="callout-body">
-            <h2 id="all-added" className="plan-h2">All added</h2>
+            <h2 id="all-added" className="plan-h2">{allAdded ? 'All added' : 'Done for now'}</h2>
             <p>{retest?.body ?? 'Give the chemicals time to circulate, then test again in about 24 hours to confirm the new balance.'}</p>
             <button className="btn btn-primary" onClick={onLogTest}>Log the re-test</button>
           </div>
@@ -361,6 +382,7 @@ export default function PlanPage({
               isNext={next?.key === s.key}
               record={done[s.key]}
               skippedItem={skipped[s.key]}
+              passedStep={Boolean(passed[s.key])}
               test={test}
               ctx={ctx}
               stock={stock}
@@ -369,13 +391,15 @@ export default function PlanPage({
               onUndo={onUndo}
               onSkip={onSkip}
               onUnskip={onUnskip}
+              onPass={onPass}
+              onUnpass={onUnpass}
             />
           </li>
         ))}
       </ol>
 
       {plan.steps.length > 0 && (
-        <ShedSummary plan={plan} stock={stock} done={done} testId={test.id} shopAvailable={shopAvailable} onOpen={onOpen} />
+        <ShedSummary plan={plan} stock={stock} done={done} passed={passed} testId={test.id} shopAvailable={shopAvailable} onOpen={onOpen} />
       )}
 
       {plan.watchouts.map((w) => (

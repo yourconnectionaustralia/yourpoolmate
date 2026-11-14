@@ -10,7 +10,7 @@ import { periodWindow, scoreSummary, spendTotal, spendBuckets, formatAud } from 
 
 const SWIM_PILL = { good: 'Swim-ready', wait: 'Hold off', stale: 'Test first', unknown: 'Test first' };
 
-export function SwimCall({ plan, next, doneCount, done = {}, skipped = {}, shopCount, onAdded, onOpenPlan, onOpenShop, onLogTest }) {
+export function SwimCall({ plan, next, doneCount, done = {}, skipped = {}, passed = {}, shopCount, onAdded, onOpenPlan, onOpenShop, onLogTest }) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState('');
   const option = next?.options[0];
@@ -43,7 +43,7 @@ export function SwimCall({ plan, next, doneCount, done = {}, skipped = {}, shopC
               </p>
               <div className="plan-progress-bar" aria-hidden="true">
                 {plan.steps.map((s) => (
-                  <span key={s.key} className={done[s.key] ? 'is-done' : s.key === next.key ? 'is-next' : skipped[s.key] ? 'is-skipped' : ''} />
+                  <span key={s.key} className={done[s.key] ? 'is-done' : s.key === next.key ? 'is-next' : passed[s.key] ? 'is-passed' : skipped[s.key] ? 'is-skipped' : ''} />
                 ))}
               </div>
             </div>
@@ -65,8 +65,12 @@ export function SwimCall({ plan, next, doneCount, done = {}, skipped = {}, shopC
         </div>
       ) : plan.steps.length > 0 ? (
         <div className="swim-next">
-          <p className="swim-next-label">All {plan.steps.length} steps added</p>
-          <p className="swim-detail">Let the pump run, then test again in about 24 hours.</p>
+          <p className="swim-next-label">
+            {plan.steps.some((s) => passed[s.key] && !done[s.key]) ? 'That is the plan for now' : `All ${plan.steps.length} steps added`}
+          </p>
+          <p className="swim-detail">
+            {doneCount > 0 ? 'Let the pump run, then test again in about 24 hours.' : 'You skipped every step. Test again when you are ready and the plan will update.'}
+          </p>
           <button className="btn btn-primary btn-block" onClick={onLogTest}>Log the re-test</button>
         </div>
       ) : null}

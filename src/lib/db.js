@@ -3,6 +3,7 @@
 // All functions are user-scoped; RLS enforces isolation server-side.
 
 import { memberProfilePayload, validateMemberProfile } from './memberProfile.js';
+import { normaliseLook } from './poolLook.js';
 import { supabase } from './supabase';
 
 // Migrations are applied by hand, so a new table or column can be missing
@@ -46,6 +47,9 @@ export function rowToTest(r) {
     auditTracked: 'edited_at' in r,
     // Path of the printout photo in the private bucket (migration 019).
     printoutPath: r.printout_path ?? null,
+    // How the owner said the pool looked when they tested (migration 027).
+    // Absent on tests saved before then, and on past results typed in later.
+    ...(normaliseLook(r.pool_look) ? { poolLook: normaliseLook(r.pool_look) } : {}),
   };
 }
 
@@ -60,6 +64,7 @@ export async function loadTests(userId) {
 }
 
 function testInsertRow(userId, poolId, test, healthScore) {
+  const look = normaliseLook(test.poolLook);
   return {
     user_id: userId,
     pool_id: poolId || null,
@@ -76,12 +81,22 @@ function testInsertRow(userId, poolId, test, healthScore) {
     health_score:   Number.isFinite(healthScore) ? Math.round(healthScore) : null,
     source:         test.source || 'manual', // manual | ocr | voice | shop_import
     tested_at:      test.createdAt || new Date().toISOString(),
+    // Only sent when answered, so a test with no answer (a past result, a CSV
+    // import) never names a column that migration 027 may not have added yet.
+    ...(look ? { pool_look: look } : {}),
   };
 }
 
 export async function saveTest(userId, poolId, test, healthScore) {
-  const { data, error } = await supabase
-    .from('water_tests').insert(testInsertRow(userId, poolId, test, healthScore)).select('id').single();
+  const insert = (row) => supabase.from('water_tests').insert(row).select('id').single();
+  const row = testInsertRow(userId, poolId, test, healthScore);
+  let { data, error } = await insert(row);
+  // Migration 026 not run yet: save the readings without the answer rather than
+  // lose the test. The answer still counts on this device until the next reload.
+  if (error && 'pool_look' in row && isMissingSchema(error)) {
+    const { pool_look: _look, ...withoutLook } = row;
+    ({ data, error } = await insert(withoutLook));
+  }
   if (error) throw error;
   return data.id;
 }

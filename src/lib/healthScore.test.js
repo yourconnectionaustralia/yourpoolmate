@@ -125,3 +125,27 @@ test('salt up to 5000 scores full marks with no chlorinator band; above it does 
   const src = readFileSync(new URL('../../supabase/functions/calculate-health-score/index.ts', import.meta.url), 'utf8');
   assert.match(src, /salt:\s+\{ min: 3000, max: 5000 \}/);
 });
+
+test('green or cloudy water holds a perfect score down, and nothing else does', () => {
+  const chlorine = 'Chlorine (granular/liquid)';
+  assert.equal(calculateScore(BALANCED, chlorine), 100);
+  assert.equal(calculateScore({ ...BALANCED, poolLook: 'green' }, chlorine), 55);
+  assert.equal(calculateScore({ ...BALANCED, poolLook: 'cloudy' }, chlorine), 69);
+  for (const poolLook of ['clear', 'other', 'unsure']) {
+    assert.equal(calculateScore({ ...BALANCED, poolLook }, chlorine), 100);
+  }
+});
+
+test('the cap never raises a score that is already lower', () => {
+  const chlorine = 'Chlorine (granular/liquid)';
+  const poor = { freeChlor: 0.2, pH: 8.2, alkalinity: 30, cyanuricAcid: 120, calciumHardness: 900 };
+  const base = calculateScore(poor, chlorine);
+  assert.ok(base < 55);
+  assert.equal(calculateScore({ ...poor, poolLook: 'green' }, chlorine), base);
+  assert.equal(calculateScore({ ...poor, poolLook: 'cloudy' }, chlorine), base);
+});
+
+test('a test with no readings still scores 0 whatever the look', () => {
+  assert.equal(calculateScore({ poolLook: 'green' }, 'Chlorine (granular/liquid)'), 0);
+});
+
