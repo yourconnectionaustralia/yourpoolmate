@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { STRIP_CAVEAT, STRIP_NOT_READY, STRIP_TIPS, isStripReply, padTag, stripConfidenceTag, stripDateText, stripFailure, stripReview } from './stripScan.js';
+import { appSource } from '../testing/appSource.js';
 
 const reply = {
   kind: 'strip',
@@ -109,7 +110,7 @@ test('new copy uses no em or en dashes, which the app avoids in plain copy', () 
 // The strip reader is wired into the app next to the printout scanner. These
 // strings are what the other tests look for, so the new button must not remove them.
 test('the app still offers the printout scanner and voice entry beside the strip reader', () => {
-  const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
+  const app = appSource();
   assert.match(app, /Scan test results/);
   assert.match(app, /Speak results/);
   assert.match(app, /Read my test strip/);

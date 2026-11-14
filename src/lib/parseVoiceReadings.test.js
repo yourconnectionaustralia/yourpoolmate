@@ -6,6 +6,7 @@ import {
   parseVoiceReadings,
   voiceReadingsFromForm,
 } from './parseVoiceReadings.js';
+import { appSource } from '../testing/appSource.js';
 
 function heard(transcript) {
   return parseVoiceReadings(transcript);
@@ -129,7 +130,7 @@ test('a typed salt of zero is kept and a blank salt is omitted', () => {
 });
 
 test('live Water Tests path wires speak, voice source, and the scanner', () => {
-  const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
+  const app = appSource();
   const scanner = readFileSync(new URL('../components/WaterTestScanner.jsx', import.meta.url), 'utf8');
   const voice = readFileSync(new URL('../components/VoiceTestEntry.jsx', import.meta.url), 'utf8');
   const db = readFileSync(new URL('./db.js', import.meta.url), 'utf8');

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { blankValues, conflictMessage, daysOld, duplicateTest, hasReadings, mergeMeta, mergeScans, volumeNotice } from './scanMerge.js';
+import { appSource } from '../testing/appSource.js';
 
 const page1 = { readings: { free_chlorine: 1.2, ph: 7.4 }, confidence: 'high', notes: null };
 const page2 = { readings: { alkalinity: 95, cyanuric_acid: 40 }, confidence: 'medium', notes: 'page 2' };
@@ -84,7 +85,7 @@ test('a printout scanned twice is spotted: same day, same readings', () => {
 });
 
 test('the app files a dated printout in order and uses the printout pool size only as a suggestion', () => {
-  const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
+  const app = appSource();
   // History stays in date order, and an older printout never becomes the "current" test.
   assert.match(app, /sortTests\(\[\.\.\.h, data\]\)/);
   assert.match(app, /setActiveView\(isNewest \? 'health' : 'history'\)/);

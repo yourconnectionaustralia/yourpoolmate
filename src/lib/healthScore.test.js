@@ -7,6 +7,7 @@ import {
   includeCalciumInActions,
   isVinylLiner,
 } from './healthScore.js';
+import { appSource } from '../testing/appSource.js';
 
 const BALANCED = {
   freeChlor: 2,
@@ -65,7 +66,7 @@ test('in-range calcium matches across surfaces', () => {
 });
 
 test('live app greets only on the Health Score header and softens vinyl calcium', () => {
-  const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
+  const app = appSource();
   const chart = readFileSync(new URL('../components/WaterTrendChart.jsx', import.meta.url), 'utf8');
 
   const headers = app.match(/<p className="page-title">\{greeting\}<\/p>\s*<h1 className="page-title">Health Score<\/h1>/g);
