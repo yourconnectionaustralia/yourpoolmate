@@ -12,6 +12,7 @@ import {
   nextTemplate,
 } from "./lifecycle-rules.js"
 import { renderTemplate, resendPayload } from "./lifecycle-templates.js"
+import { renderMonthlyReport, renderWeeklyReminder } from "./recurring-templates.js"
 
 const DAY = 24 * 60 * 60 * 1000
 const NOW = new Date("2026-09-26T02:00:00.000Z")
@@ -241,9 +242,11 @@ test("L5 names the trial end date in Melbourne time, or falls back", () => {
   assert.match(undated.text, /ends in a few days\./)
 })
 
-test("footer carries the ABN, and priced emails say AUD once", () => {
+test("footer has no ABN, and priced emails say AUD once", () => {
   const l5 = renderTemplate("L5", { firstName: "James", foundingMember: true })
-  assert.match(l5.html, /ABN 61 264 129 127/)
+  assert.doesNotMatch(l5.html, /ABN/)
+  assert.doesNotMatch(l5.text, /ABN/)
+  assert.match(l5.html, /Your Pool Mate &middot; Australian owned/)
   assert.match(l5.text, /All prices are in Australian dollars\./)
   const l2 = renderTemplate("L2", { firstName: "James" })
   assert.equal(l2.text.includes("Australian dollars"), false)
@@ -262,4 +265,31 @@ test("test buttons open the test form; L4 and L5 show the record so far", () => 
   assert.ok(unknown.text.includes("If you've been adding tests"))
   assert.ok(renderTemplate("L5", { foundingMember: true, testCount: 1 }).text.includes("your 1 test, each with its date, stays saved"))
   assert.ok(renderTemplate("L5", { foundingMember: true }).text.includes("your test history stays saved"))
+})
+
+test("no email names a founder or shows an ABN, and none has a dash that is not a hyphen", () => {
+  const all = ["L1", "L2", "L3", "L4", "L5", "L6", "L7"].map((key) =>
+    renderTemplate(key, { firstName: "James", foundingMember: true, testCount: 3, plan: "founding_lifetime", amountCents: 7900, currency: "aud", trialEndsAt: "2026-11-19T14:00:00.000Z" }))
+  all.push(renderWeeklyReminder({ firstName: "James", reminderDay: 6, daysSinceTest: 9, tests: 3, lastScore: 82, unsubscribeUrl: "https://example.com/u" }))
+  all.push(renderMonthlyReport({ firstName: "James", monthName: "October", tests: 4, firstScore: 71, lastScore: 86, bestScore: 88, lowestScore: 71, doses: 5, lastReadings: null, unsubscribeUrl: "https://example.com/u" }))
+  for (const mail of all) {
+    const blob = `${mail.subject}\n${mail.preview}\n${mail.text}\n${mail.html}`
+    assert.doesNotMatch(blob, /founder/i, mail.subject)
+    assert.doesNotMatch(blob, /\bABN\b/, mail.subject)
+    assert.doesNotMatch(blob, /[\u2013\u2014]|&(mdash|ndash|#8212|#8211|#x2014|#x2013);/i, mail.subject)
+  }
+})
+
+test("L1 explains home and shop testing, L3 introduces Ask Mate and My Shed, L7 says it is not a big business", () => {
+  const l1 = renderTemplate("L1", { firstName: "James" })
+  assert.ok(l1.text.includes("test at home as well as at the pool shop"))
+  assert.ok(l1.text.includes("if you visit more than one shop, your records are split"))
+  assert.ok(l1.text.includes("keeps your pool in your control"))
+  const l3 = renderTemplate("L3", { firstName: "James" })
+  assert.ok(l3.text.includes("ASK MATE") && l3.text.includes("MY SHED"))
+  assert.equal(l3.text.includes("See your Health Score"), false)
+  assert.equal(l3.html.includes("See your Health Score"), false)
+  const l7 = renderTemplate("L7", { firstName: "James" })
+  assert.ok(l7.text.includes("isn't run by any big business"))
+  assert.equal(l7.text.includes("one-person"), false)
 })
