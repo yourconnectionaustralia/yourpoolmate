@@ -8,6 +8,7 @@ import {
   isStripeCheckoutUrl,
   offerCopy,
 } from './stripeCheckout.js'
+import { appSource } from '../testing/appSource.js';
 
 const STRIPE_URL = 'https://checkout.stripe.com/c/pay/cs_test_a1b2c3'
 
@@ -123,7 +124,7 @@ test('pricing failure stays price-neutral so checkout can still start', async ()
 })
 
 test('live App.jsx founding CTAs call create_session, not the marketing hash', () => {
-  const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8')
+  const app = appSource()
   assert.equal(app.includes('yourpoolmate.com.au/#checkout'), false)
   assert.equal(app.includes('yourpoolmate.com.au/#join'), false)
   assert.equal(app.includes('createCheckoutSession'), true)

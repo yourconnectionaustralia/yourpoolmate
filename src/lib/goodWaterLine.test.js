@@ -6,6 +6,7 @@ import {
   goodWaterLine,
   waterLooksGood,
 } from './goodWaterLine.js';
+import { appSource } from '../testing/appSource.js';
 
 // 3 Oct 2026 is still AEST. Clocks go forward at 2am on 4 Oct 2026.
 const YESTERDAY = new Date('2026-10-02T02:00:00Z'); // 2 Oct, 12:00 AEST
@@ -59,7 +60,7 @@ test('a missing test time still names a week, and the copy stays quiet', () => {
 });
 
 test('the home screen centres the score and does not invent local weather', () => {
-  const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
+  const app = appSource();
   const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8');
 
   assert.match(app, /score >= 80 \? 'score-ring-fill score-good'/);

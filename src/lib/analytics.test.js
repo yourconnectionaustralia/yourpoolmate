@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { analyticsScreen, pageViewParams, trackPageView } from './analytics.js';
+import { appSource } from '../testing/appSource.js';
 
 const ORIGIN = 'https://app.yourpoolmate.com.au';
 const MEASUREMENT_ID = 'G-ETWSG20K0R';
@@ -85,7 +86,7 @@ test('the app loads this measurement id once, with the cross-domain linker', () 
   assert.deepEqual(html.match(/G-[A-Z0-9]+/g), [MEASUREMENT_ID, MEASUREMENT_ID]);
   assert.equal(/AW-|GTM-|cookie banner|cookieconsent/i.test(html), false);
 
-  const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
+  const app = appSource();
   assert.equal(app.includes("import { analyticsScreen, trackPageView } from './lib/analytics.js'"), true);
   assert.equal(app.includes('trackPageView(analyticsScreen('), true);
   assert.equal(/react-router|createBrowserRouter|BrowserRouter/.test(app), false);

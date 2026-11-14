@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { emptyTestHeadline, EMPTY_TEST_HEADLINE } from './emptyTestHeadline.js';
 import { calculateScore, hasScorableReadings } from './healthScore.js';
+import { appSource } from '../testing/appSource.js';
 
 const BLANK = {
   freeChlor: null,
@@ -66,7 +67,7 @@ test('a measured zero still uses the scored warning, not the empty-test line', (
 });
 
 test('the home screen offers a test, not a warning, when nothing is scorable', () => {
-  const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
+  const app = appSource();
   const plan = readFileSync(new URL('./plan.js', import.meta.url), 'utf8');
   assert.match(app, /if \(!testData \|\| !plan \|\| emptyTestHeadline\(testData, poolProfile\?\.sanitiser\)\) \{/);
   assert.match(app, /Log your first test/);

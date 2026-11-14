@@ -7,8 +7,9 @@ import {
   chlorineRaiseDose,
   doseOptions,
 } from './dosing.js';
+import { appSource } from '../testing/appSource.js';
 
-const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
+const app = appSource();
 const plan = readFileSync(new URL('./plan.js', import.meta.url), 'utf8');
 
 function optionAmount(options, name) {

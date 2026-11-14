@@ -7,13 +7,14 @@ import {
   poolVolumeLitres,
   rectangularVolumeLitres,
 } from './poolVolume.js';
+import { appSource } from '../testing/appSource.js';
 
-const app = readFileSync(new URL('../App.jsx', import.meta.url), 'utf8');
+const app = appSource();
 
 test('setup and the volume gate both call the shared rectangle sum', () => {
   const calls = app.match(/rectangularVolumeLitres\(dims\.length, dims\.width, dims\.depth\)/g);
   assert.equal(calls?.length, 2);
-  assert.match(app, /import \{ rectangularVolumeLitres \} from '\.\/lib\/poolVolume\.js'/);
+  assert.match(app, /import \{ rectangularVolumeLitres \} from '(?:\.\.?\/)+lib\/poolVolume\.js'/);
   assert.doesNotMatch(app, /l \* w \* d \* 1000/);
 });
 
