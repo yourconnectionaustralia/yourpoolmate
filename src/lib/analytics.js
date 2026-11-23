@@ -18,6 +18,12 @@ const SCREENS = {
   equipment: { path: '/equipment', title: 'Equipment' },
   schedule: { path: '/schedule', title: 'Seasonal Tips' },
   profile: { path: '/profile', title: 'Profile' },
+  plan: { path: '/plan', title: 'Plan' },
+  shed: { path: '/shed', title: 'My Shed' },
+  shop: { path: '/shop', title: 'Shopping list' },
+  costs: { path: '/costs', title: 'Costs' },
+  fixer: { path: '/fixer', title: 'Problem fixer' },
+  chat: { path: '/ask-mate', title: 'Ask Mate' },
   'sign-in': { path: '/sign-in', title: 'Sign in' },
   'reset-password': { path: '/reset-password', title: 'Reset password' },
   'trial-ended': { path: '/trial-ended', title: 'Trial ended' },
@@ -80,5 +86,44 @@ export function trackPageView(screen, options = {}) {
   if (typeof gtag !== 'function') return false;
   state.last = screen;
   gtag('event', 'page_view', params);
+  return true;
+}
+
+// ── Conversion events ────────────────────────────────────────────────
+// A short allowlist of events and the only params each may carry. Every
+// param value is a fixed word from its own list, so no email, name, pool
+// reading, account id or free text can ever reach Analytics.
+// sign_up and begin_checkout are GA4 recommended event names; mark
+// sign_up, test_logged, begin_checkout and checkout_success as key events
+// in GA4 Admin.
+
+const EVENTS = {
+  sign_up: { method: ['email'] },
+  test_logged: { method: ['manual', 'ocr', 'voice', 'strip', 'import'] },
+  begin_checkout: {},
+  checkout_success: {},
+  ask_mate_question: {},
+  report_shared: { method: ['share_sheet', 'copy_link'] },
+  record_exported: { format: ['pdf', 'csv'] },
+};
+
+export function eventParams(name, params = {}) {
+  const spec = EVENTS[name];
+  if (!spec) return null;
+  const out = {};
+  for (const [key, allowed] of Object.entries(spec)) {
+    const value = params[key];
+    if (allowed.includes(value)) out[key] = value;
+  }
+  return out;
+}
+
+/** Queue one allowlisted event. Returns true when a hit was queued. */
+export function trackEvent(name, params = {}, options = {}) {
+  const clean = eventParams(name, params);
+  if (!clean) return false;
+  const gtag = options.gtag || defaultGtag();
+  if (typeof gtag !== 'function') return false;
+  gtag('event', name, clean);
   return true;
 }

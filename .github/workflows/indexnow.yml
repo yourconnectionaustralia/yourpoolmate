@@ -1,0 +1,24 @@
+# Ping IndexNow after the marketing site changes on main, so Bing (and the
+# AI answers built on it) pick up new and edited guides quickly. Waits a few
+# minutes for Cloudflare Pages to finish deploying first. No secrets needed.
+name: IndexNow ping
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'marketing/**'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Wait for Cloudflare Pages to deploy
+        run: sleep 240
+      - name: Submit sitemap URLs
+        run: node scripts/indexnow.mjs

@@ -3,6 +3,7 @@
 // pool-chat edge function, which is the only thing that writes them.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { trackEvent } from '../lib/analytics.js';
 
 const STARTERS = [
   'Why is my pool cloudy?',
@@ -23,7 +24,10 @@ async function readInvokeError(error) {
 
 async function callChat(body) {
   const { data, error } = await supabase.functions.invoke('pool-chat', { body });
-  if (!error) return data;
+  if (!error) {
+    trackEvent('ask_mate_question');
+    return data;
+  }
   const parsed = await readInvokeError(error);
   const err = new Error(parsed?.error || "That didn't go through. Check your connection and try again.");
   err.details = parsed;

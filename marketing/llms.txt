@@ -1,0 +1,30 @@
+# Your Pool Mate
+
+> Australian pool water app and free guides. Your Pool Mate tells residential pool owners exactly what chemicals to add for their pool's litres, gives a Health Score out of 100 and a safe-to-swim call, reads test strips and pool shop printouts from a photo, and keeps a dated water test record for equipment and builder warranties. 30-day free trial; the first 300 members can keep it for life for $79 AUD, then $49 AUD a year.
+
+Ranges used across the site and app: free chlorine 1.0–3.0 ppm (about 3 ppm in an uncovered outdoor pool with stabiliser, 1.5–2.0 ppm in a covered pool), pH 7.2–7.6, total alkalinity 80–120 ppm, stabiliser (cyanuric acid) 30–50 ppm, calcium hardness 200–400 ppm, salt as the chlorinator manual says (often 3,000–5,000 ppm). Liquid chlorine (about 12.5%) raises free chlorine by about 1 ppm per 8 mL per 1,000 litres.
+
+## Guides
+
+- [Pool water guides (hub, with ideal ranges)](https://yourpoolmate.com.au/guides/): ideal pool water ranges for Australian pools and links to every guide
+- [How to read your pool shop water test](https://yourpoolmate.com.au/guides/how-to-read-pool-water-test-results/): what each reading means, its ideal range, and the order to fix them
+- [Pool warranties and your water records](https://yourpoolmate.com.au/guides/pool-warranty-water-records-australia/): why equipment and surface warranties can hinge on water chemistry, and what records to keep
+- [Green pool: how to fix it](https://yourpoolmate.com.au/guides/green-pool-how-to-fix/): step-by-step shock, brush and filter method, and how to stop it coming back
+- [Cloudy pool water: causes and fixes](https://yourpoolmate.com.au/guides/cloudy-pool-water-causes-fixes/): the five common causes and what to do in order
+- [Pool chlorine too high or too low](https://yourpoolmate.com.au/guides/pool-chlorine-level-too-high-or-low/): the right free chlorine level and how to correct it
+- [Pool pH and alkalinity](https://yourpoolmate.com.au/guides/pool-ph-and-alkalinity/): ideal ranges, which to fix first, and which products raise or lower each
+
+## Free tools
+
+- [Pool volume calculator](https://yourpoolmate.com.au/tools/pool-volume-calculator/): litres from shape and depth
+- [Chlorine dose calculator](https://yourpoolmate.com.au/tools/chlorine-dose-calculator/): how much liquid or granular chlorine to add for a target ppm
+
+## The app
+
+- [Your Pool Mate home](https://yourpoolmate.com.au/): features, pricing and FAQ
+- [Start the free trial](https://app.yourpoolmate.com.au/): installable web app for iPhone, Android and computers
+
+## Optional
+
+- [Privacy policy](https://yourpoolmate.com.au/privacy)
+- [Terms](https://yourpoolmate.com.au/terms)

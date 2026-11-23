@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { createCheckoutSession } from '../../lib/stripeCheckout.js';
+import { trackEvent } from '../../lib/analytics.js';
 
 // ─────────────────────────────────────────────────────────────────
 // IN-APP CHECKOUT
@@ -9,6 +10,19 @@ import { createCheckoutSession } from '../../lib/stripeCheckout.js';
 // Price ID, and we never send the user to the marketing site.
 // ─────────────────────────────────────────────────────────────────
 export const CHECKOUT_RETURN_KEY = 'ypm_checkout_return';
+const CHECKOUT_TRACKED_KEY = 'ypm_checkout_tracked';
+
+// One checkout_success per return from Stripe. The return status is kept in
+// sessionStorage for StrictMode, so a reload would otherwise count it twice.
+export function trackCheckoutSuccessOnce() {
+  try {
+    if (sessionStorage.getItem(CHECKOUT_TRACKED_KEY)) return;
+    sessionStorage.setItem(CHECKOUT_TRACKED_KEY, '1');
+  } catch {
+    /* private mode: send anyway */
+  }
+  trackEvent('checkout_success');
+}
 
 // Read ?checkout=success|cancelled once. The value is stashed so a
 // StrictMode remount (dev) still shows the note after the query is stripped.
@@ -59,6 +73,7 @@ export function CheckoutButton({ label, className, style, block }) {
     if (busy) return;
     setBusy(true);
     setError('');
+    trackEvent('begin_checkout');
     try {
       const origin = window.location.origin;
       const url = await createCheckoutSession(supabase, {

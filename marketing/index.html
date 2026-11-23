@@ -21,6 +21,10 @@
   <meta property="og:url" content="https://yourpoolmate.com.au/" />
   <meta property="og:image" content="https://yourpoolmate.com.au/app-health-score.webp" />
   <link rel="canonical" href="https://yourpoolmate.com.au/" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+  <meta property="og:site_name" content="Your Pool Mate" />
+  <meta property="og:locale" content="en_AU" />
+  <meta name="twitter:card" content="summary_large_image" />
 
   <script>
     // Sep 2026 model: no payment on this page. Everyone starts a 30-day free
@@ -35,6 +39,81 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Structured data: who we are, the site, and the app (entity signals for search and AI answers) -->
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://yourpoolmate.com.au/#org",
+      "name": "Your Pool Mate",
+      "url": "https://yourpoolmate.com.au/",
+      "logo": "https://yourpoolmate.com.au/app-health-score.webp",
+      "email": "hello@yourpoolmate.com.au",
+      "areaServed": "AU",
+      "description": "Australian pool water app: exact chemical doses for your litres, a safe-to-swim call, test strip and pool shop printout scanning, and a dated water record for warranties."
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://yourpoolmate.com.au/#site",
+      "url": "https://yourpoolmate.com.au/",
+      "name": "Your Pool Mate",
+      "inLanguage": "en-AU",
+      "publisher": {
+        "@id": "https://yourpoolmate.com.au/#org"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://yourpoolmate.com.au/#app",
+      "name": "Your Pool Mate",
+      "url": "https://app.yourpoolmate.com.au/",
+      "applicationCategory": "LifestyleApplication",
+      "operatingSystem": "iOS, Android, Web (installable PWA)",
+      "inLanguage": "en-AU",
+      "publisher": {
+        "@id": "https://yourpoolmate.com.au/#org"
+      },
+      "featureList": [
+        "Pool Health Score out of 100",
+        "Safe-to-swim call",
+        "Exact chemical doses for your pool's litres",
+        "Reads test strips and pool shop printouts from a photo",
+        "Ask Mate pool chat",
+        "Dated water test record with PDF and spreadsheet export"
+      ],
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "30-day free trial",
+          "price": "0",
+          "priceCurrency": "AUD"
+        },
+        {
+          "@type": "Offer",
+          "name": "Founding lifetime access (first 300 members)",
+          "price": "79",
+          "priceCurrency": "AUD"
+        },
+        {
+          "@type": "Offer",
+          "name": "Annual",
+          "price": "49",
+          "priceCurrency": "AUD",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "49",
+            "priceCurrency": "AUD",
+            "billingDuration": "P1Y"
+          }
+        }
+      ]
+    }
+  ]
+}
+  </script>
 
   <!-- Structured data: FAQPage (GEO answers + product FAQ) -->
   <script type="application/ld+json">
@@ -467,6 +546,7 @@
       <a href="#warranty">Warranty record</a>
       <a href="#pricing">Pricing</a>
       <a href="#questions">Questions</a>
+      <a href="/guides/">Guides</a>
       <a class="btn btn-sun js-start" href="https://app.yourpoolmate.com.au">Start free</a>
     </nav>
   </div>
@@ -811,6 +891,7 @@
         <div class="a"><p>Pool builder and equipment warranties can ask for evidence the water was looked after, and a dated record helps when you sell the house. Pool shops rarely give you a copy you can keep. Your Pool Mate saves every test and dose with its date, shows when a reading was corrected, and exports a PDF, a spreadsheet or a share link.</p></div>
       </details>
     </div>
+    <p class="center" style="margin-top:24px"><a class="btn btn-line" href="/guides/">Read the full pool water guides</a></p>
   </div>
 </section>
 
@@ -892,6 +973,7 @@
     </a>
     <span>© 2026 Your Pool Mate · Australian owned</span>
     <nav class="footer-links" aria-label="Footer">
+      <a href="/guides/">Pool guides</a>
       <a href="/tools/pool-volume-calculator/">Pool volume</a>
       <a href="/tools/chlorine-dose-calculator/">Chlorine dose</a>
       <a href="/privacy.html">Privacy</a>
@@ -942,5 +1024,6 @@
     }
   }
 </script>
+<script src="/site-analytics.js" defer></script>
 </body>
 </html>

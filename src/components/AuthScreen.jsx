@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import styles from './AuthScreen.module.css'
 import { PoolIcon } from './PoolIcon.jsx'
+import { trackEvent } from '../lib/analytics.js'
 import {
   MIN_PASSWORD_LENGTH,
   PASSWORD_RULES_ERROR,
@@ -212,8 +213,11 @@ export default function AuthScreen() {
       setAlreadyExists(true)
     } else if (data?.user && !data?.session) {
       // Genuine new signup, email confirmation required.
+      trackEvent('sign_up', { method: 'email' })
       setConfirmSent(true)
       setCooldown(RESEND_COOLDOWN_SECONDS)
+    } else if (data?.session) {
+      trackEvent('sign_up', { method: 'email' })
     }
     // If data.session exists, onAuthStateChange fires SIGNED_IN and the app
     // automatically moves past AuthScreen — no action needed here.

@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { buildRecord, eventsCsv, recordFileName, testsCsv } from '../lib/recordExport.js';
+import { trackEvent } from '../lib/analytics.js';
 
 function saveBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -64,6 +65,7 @@ export default function RecordExport({ owner, pool, equipment, tests, events, sc
       const { buildRecordPdf } = await import('../lib/recordPdf.js');
       const blob = await buildRecordPdf(m, { photos });
       saveBlob(blob, recordFileName('water-record', 'pdf'));
+      trackEvent('record_exported', { format: 'pdf' });
       if (skipped) setProblem(`Your record downloaded, but ${skipped} printout photo${skipped === 1 ? '' : 's'} couldn't be added. Try again, or leave photos out.`);
     } catch (err) {
       console.error('Record export failed:', err);
@@ -80,6 +82,7 @@ export default function RecordExport({ owner, pool, equipment, tests, events, sc
       const body = kind === 'tests' ? testsCsv(m) : eventsCsv(m);
       saveBlob(new Blob([body], { type: 'text/csv;charset=utf-8' }),
         recordFileName(kind === 'tests' ? 'water-tests' : 'events', 'csv'));
+      trackEvent('record_exported', { format: 'csv' });
     } catch (err) {
       console.error('CSV export failed:', err);
       setProblem("Couldn't build the spreadsheet. Try again.");

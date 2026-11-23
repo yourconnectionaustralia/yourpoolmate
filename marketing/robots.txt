@@ -1,4 +1,41 @@
+# Your Pool Mate — yourpoolmate.com.au
+# Search engines and AI answer engines are welcome to read and cite the
+# guides and tools. The app (app.yourpoolmate.com.au) is a separate host
+# with its own rules.
+
 User-agent: *
+Allow: /
+
+# AI search and answer engines (named so a blanket rule elsewhere never
+# shuts them out by accident)
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Bingbot
 Allow: /
 
 Sitemap: https://yourpoolmate.com.au/sitemap.xml
