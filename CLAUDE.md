@@ -200,6 +200,8 @@ The guest onboarding trigger exists but is **not wired into the app flow**. New 
 - Shed / shopping list / costs logic: `src/lib/shed.js`. Stock left is always computed (bought − dose draws), never stored.
 - Share link: `src/lib/reportLink.js` + `/report` route in `src/main.jsx` (report data after `#`, never sent to a server).
 - Screens: `PlanPage`, `ShedPage`, `ShopPage`, `CostsPage`, `HomeCards`, `ReportView`, `ShareReport` in `src/components/`.
+- Analytics: GA4 `G-ETWSG20K0R` on site and app. App page views and allowlisted conversion events in `src/lib/analytics.js` (`trackEvent`); site "Start free" clicks in `marketing/site-analytics.js`. Never send personal data or free text.
+- SEO/GEO: guides live in `marketing/guides/<slug>/index.html` (hub at `/guides/`). A new guide must be added to `marketing/sitemap.xml`, `marketing/llms.txt` and the hub; `src/lib/marketingGuides.test.js` checks this. Strategy, setup steps and Facebook Group routine: `docs/SEO_GEO_STRATEGY.md`.
 - The staging Worker (`yourpoolmate-x-staging`) is a separate Next.js prototype with browser storage. Do not deploy it as the live app.
 
 ## KNOWN RESOLVED BUGS (do not re-introduce)

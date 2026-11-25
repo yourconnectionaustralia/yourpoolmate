@@ -36,7 +36,7 @@
 <header class="site-nav" id="site-nav">
   <div class="inner">
     <a class="brand" href="/"><span class="brand-mark"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.6" stroke="white" stroke-width="1.4"/><path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/></svg></span>Your Pool Mate</a>
-    <button class="btn btn-sun" type="button" onclick="startFree()">Start free</button>
+    <button class="btn btn-sun" type="button" data-cta="tool_nav" onclick="startFree()">Start free</button>
   </div>
 </header>
 
@@ -95,12 +95,13 @@
 <section class="related" aria-labelledby="related-title">
   <h2 id="related-title">Not sure of your litres?</h2>
   <a href="/tools/pool-volume-calculator/"><span aria-hidden="true" style="font-size:30px">📏</span><div>Pool volume calculator<span>Work it out from the shape and depth</span></div><span class="arrow" aria-hidden="true">→</span></a>
+  <a href="/guides/pool-chlorine-level-too-high-or-low/"><span aria-hidden="true" style="font-size:30px">📘</span><div>Chlorine too high or too low?<span>What level to aim for, and what to do</span></div><span class="arrow" aria-hidden="true">→</span></a>
 </section>
 
 <section class="trial" aria-labelledby="trial-title">
   <h2 id="trial-title">A dose plan for the whole test</h2>
   <p>Your Pool Mate lines chlorine up with pH, alkalinity and the rest of the test, in the right order for your pool, and keeps the record. The trial is free for 30 days.</p>
-  <button class="btn-cta" type="button" onclick="startFree()">Start free — 30-day trial</button>
+  <button class="btn-cta" type="button" data-cta="tool_trial" onclick="startFree()">Start free — 30-day trial</button>
 </section>
 </div>
 </main>
@@ -110,6 +111,7 @@
     <a class="brand" href="/"><span class="brand-mark"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.6" stroke="white" stroke-width="1.4"/><path d="M2.45 9 Q 5.2 7.7 8 9 T 13.55 9 A 5.6 5.6 0 0 1 2.45 9 Z" fill="white"/></svg></span>Your Pool Mate</a>
     <span>© 2026 Your Pool Mate · Australian owned</span>
     <nav class="footer-links" aria-label="Footer">
+      <a href="/guides/">Pool guides</a>
       <a href="/tools/pool-volume-calculator/">Pool volume</a>
       <a href="/tools/chlorine-dose-calculator/" aria-current="page">Chlorine dose</a>
       <a href="/privacy.html">Privacy</a>
@@ -202,5 +204,6 @@ form.addEventListener('submit', (event) => {
   });
 });
 </script>
+<script src="/site-analytics.js" defer></script>
 </body>
 </html>

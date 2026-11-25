@@ -1,0 +1,70 @@
+/* Pool guides: the /guides/ hub and each article. Layered on /site.css
+   (tokens, nav, band, footer). Body text stays --ink on white (15.6:1),
+   secondary text --mid (6.1:1). Every link and button is at least 44px tall. */
+
+.article { max-width: 1160px; margin: -56px auto 0; padding: 0 20px; position: relative; z-index: 2; display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 32px; align-items: start; }
+.article-body { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+
+.byline { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 16px; color: rgba(255,255,255,.9); margin-top: 6px; }
+
+/* The answer up front: what a search result or an AI answer quotes. */
+.quick { background: var(--white); border-radius: 24px; padding: 26px 28px; box-shadow: var(--shadow); border-top: 6px solid var(--sun); }
+.quick h2 { font-size: 15px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: var(--ocean); margin-bottom: 10px; }
+.quick p { font-size: 19px; line-height: 1.6; }
+.quick ul { margin-top: 12px; padding-left: 22px; display: grid; gap: 6px; }
+.quick li::marker { color: var(--ocean); }
+
+.prose { background: var(--white); border: 1px solid var(--line); border-radius: 20px; padding: 28px 30px; }
+.prose h2 { font-size: 26px; line-height: 1.22; letter-spacing: -.5px; color: var(--depth); margin: 0 0 12px; }
+.prose h3 { font-size: 20px; line-height: 1.3; color: var(--depth); margin: 22px 0 8px; }
+.prose p + p, .prose p + ul, .prose ul + p, .prose p + ol, .prose ol + p, .prose table + p, .prose p + table { margin-top: 12px; }
+.prose ul, .prose ol { padding-left: 24px; display: grid; gap: 8px; }
+.prose li::marker { color: var(--ocean); font-weight: 700; }
+.prose a { color: var(--ocean); font-weight: 600; text-underline-offset: 3px; }
+.prose strong { color: var(--depth); }
+
+.table-wrap { overflow-x: auto; margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; }
+.prose table { width: 100%; border-collapse: collapse; font-size: 17px; min-width: 520px; }
+.prose th, .prose td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.prose thead th { background: var(--mist); color: var(--depth); font-weight: 800; }
+.prose tbody tr:last-child td { border-bottom: 0; }
+
+.tip { margin-top: 14px; background: var(--mist); border-radius: 14px; padding: 14px 16px; color: var(--depth); }
+.warn { margin-top: 14px; background: var(--amber-bg); color: var(--amber); border-radius: 14px; padding: 14px 16px; font-weight: 600; }
+
+.faq-list details { border-top: 1px solid var(--line); }
+.faq-list details:first-of-type { border-top: 0; }
+.faq-list summary { cursor: pointer; min-height: 56px; display: flex; align-items: center; font-weight: 700; color: var(--depth); font-size: 18px; padding: 8px 0; }
+.faq-list details p { padding: 0 0 14px; }
+
+.app-cta { background: var(--grad-hero); color: var(--white); border-radius: 24px; padding: 28px 30px; }
+.app-cta h2 { color: var(--white); font-size: 26px; letter-spacing: -.5px; margin-bottom: 10px; line-height: 1.2; }
+.app-cta p { color: rgba(255,255,255,.93); margin-bottom: 18px; }
+
+.more { background: var(--mist); border-radius: 24px; padding: 26px 28px; }
+.more h2 { font-size: 22px; color: var(--depth); margin-bottom: 12px; }
+.more ul { list-style: none; display: grid; gap: 10px; }
+.more a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 12px 16px; background: var(--white); border-radius: 14px; color: var(--depth); font-weight: 700; text-decoration: none; }
+.more a:hover { box-shadow: var(--shadow); }
+.more a span[aria-hidden] { color: var(--ocean); font-size: 22px; }
+
+.sources { font-size: 16px; color: var(--mid); }
+.sources a { color: var(--ocean); }
+
+/* Hub: grid of guide cards */
+.hub { max-width: 1160px; margin: -56px auto 0; padding: 0 20px; position: relative; z-index: 2; display: grid; gap: 20px; }
+.hub > * { min-width: 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 16px; }
+.guide-card { display: flex; flex-direction: column; gap: 8px; background: var(--white); border: 1px solid var(--line); border-radius: 20px; padding: 22px; text-decoration: none; color: var(--ink); min-height: 44px; transition: transform .15s, box-shadow .15s; }
+.guide-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.guide-card b { font-size: 20px; line-height: 1.3; color: var(--depth); }
+.guide-card span { color: var(--mid); font-size: 16px; }
+.guide-card .go { margin-top: auto; color: var(--ocean); font-weight: 700; }
+
+@media (max-width: 900px) {
+  .article { grid-template-columns: minmax(0, 1fr); }
+  .article .toc { display: none; }
+}
+@media (max-width: 480px) {
+  .quick, .prose, .app-cta, .more { padding: 22px 20px; }
+}

@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://yourpoolmate.com.au/</loc></url>
-  <url><loc>https://yourpoolmate.com.au/privacy</loc></url>
-  <url><loc>https://yourpoolmate.com.au/terms</loc></url>
-  <url><loc>https://yourpoolmate.com.au/tools/pool-volume-calculator/</loc></url>
-  <url><loc>https://yourpoolmate.com.au/tools/chlorine-dose-calculator/</loc></url>
+  <url><loc>https://yourpoolmate.com.au/</loc><lastmod>2026-11-23</lastmod></url>
+  <url><loc>https://yourpoolmate.com.au/guides/</loc><lastmod>2026-11-23</lastmod></url>
+  <url><loc>https://yourpoolmate.com.au/guides/how-to-read-pool-water-test-results/</loc><lastmod>2026-11-23</lastmod></url>
+  <url><loc>https://yourpoolmate.com.au/guides/pool-warranty-water-records-australia/</loc><lastmod>2026-11-23</lastmod></url>
+  <url><loc>https://yourpoolmate.com.au/guides/green-pool-how-to-fix/</loc><lastmod>2026-11-23</lastmod></url>
+  <url><loc>https://yourpoolmate.com.au/guides/cloudy-pool-water-causes-fixes/</loc><lastmod>2026-11-23</lastmod></url>
+  <url><loc>https://yourpoolmate.com.au/guides/pool-chlorine-level-too-high-or-low/</loc><lastmod>2026-11-23</lastmod></url>
+  <url><loc>https://yourpoolmate.com.au/guides/pool-ph-and-alkalinity/</loc><lastmod>2026-11-23</lastmod></url>
+  <url><loc>https://yourpoolmate.com.au/tools/pool-volume-calculator/</loc><lastmod>2026-11-23</lastmod></url>
+  <url><loc>https://yourpoolmate.com.au/tools/chlorine-dose-calculator/</loc><lastmod>2026-11-23</lastmod></url>
 </urlset>

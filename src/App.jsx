@@ -19,7 +19,7 @@ import ProblemFixer from './components/ProblemFixer.jsx';
 import { careDueNow, careEventFor, careList } from './lib/equipmentCare.js';
 import { prefsFromRow, wantsTestForm, withoutTestParam } from './lib/reminderPrefs.js';
 import { calculateScore, isSaltPool, saltRangeForEquipment } from './lib/healthScore.js';
-import { analyticsScreen, trackPageView } from './lib/analytics.js';
+import { analyticsScreen, trackPageView, trackEvent } from './lib/analytics.js';
 import { cleanNav } from './lib/navSlots.js';
 import { chatContext } from './lib/chatContext.js';
 import AskMate from './components/AskMate.jsx';
@@ -35,7 +35,7 @@ import CostsPage from './components/CostsPage.jsx';
 import { cleanPins, togglePin } from './components/HomeCards.jsx';
 import { supabase } from './lib/supabase.js';
 import { fetchCheckoutPricing, offerCopy } from './lib/stripeCheckout.js';
-import { CHECKOUT_RETURN_KEY, CheckoutButton, CheckoutReturnNote, captureCheckoutReturn } from './app/checkout/Checkout.jsx';
+import { CHECKOUT_RETURN_KEY, CheckoutButton, CheckoutReturnNote, captureCheckoutReturn, trackCheckoutSuccessOnce } from './app/checkout/Checkout.jsx';
 import { DEFAULT_POOL } from './app/data/poolOptions.js';
 import { getAUSeason } from './app/data/season.js';
 import { hasVolume, scoreFor } from './app/helpers.js';
@@ -253,6 +253,7 @@ export default function App() {
   // beat that write, so retry briefly before asking the user to refresh.
   useEffect(() => {
     if (checkoutReturn !== 'success' || !user?.id) return undefined;
+    trackCheckoutSuccessOnce();
     let cancelled = false;
     const timers = [1500, 4000].map((ms) => setTimeout(() => {
       if (!cancelled) loadAll(user.id);
@@ -363,6 +364,7 @@ export default function App() {
       return next;
     });
     persistTest(data, pool);
+    trackEvent('test_logged', { method: data.source || 'manual' });
     // An older printout lands in the Chemistry log at its real date.
     setActiveView(isNewest ? 'health' : 'history');
   };
@@ -503,6 +505,7 @@ export default function App() {
     try {
       const saved = await db.saveTestsBulk(user.id, poolProfile?.id, tests, scoreOne);
       setHistorySorted([...testHistory, ...saved.map(asRow)]);
+      if (saved.length) trackEvent('test_logged', { method: 'import' });
       return saved.length;
     } catch (err) {
       if (err?.saved?.length) setHistorySorted([...testHistory, ...err.saved.map(asRow)]);

@@ -87,7 +87,7 @@ test('the app loads this measurement id once, with the cross-domain linker', () 
   assert.equal(/AW-|GTM-|cookie banner|cookieconsent/i.test(html), false);
 
   const app = appSource();
-  assert.equal(app.includes("import { analyticsScreen, trackPageView } from './lib/analytics.js'"), true);
+  assert.equal(app.includes("import { analyticsScreen, trackPageView, trackEvent } from './lib/analytics.js'"), true);
   assert.equal(app.includes('trackPageView(analyticsScreen('), true);
   assert.equal(/react-router|createBrowserRouter|BrowserRouter/.test(app), false);
 });
@@ -106,4 +106,43 @@ test('marketing pages keep the tag already on main and gain no second id', () =>
     assert.equal(html.includes("gtag('set', 'linker'"), false);
     assert.deepEqual(html.match(/G-[A-Z0-9]+/g), [MEASUREMENT_ID, MEASUREMENT_ID]);
   }
+});
+
+test('every in-app view has a virtual path', () => {
+  for (const view of ['plan', 'shed', 'shop', 'costs', 'fixer', 'chat']) {
+    assert.equal(pageViewParams(view, ORIGIN).page_path.startsWith('/'), true);
+  }
+});
+
+test('conversion events are allowlisted and carry only fixed words', async () => {
+  const { eventParams, trackEvent } = await import('./analytics.js');
+  const calls = [];
+  const gtag = (...args) => calls.push(args);
+
+  assert.equal(trackEvent('sign_up', { method: 'email', email: 'a@b.com' }, { gtag }), true);
+  assert.equal(trackEvent('test_logged', { method: 'ocr' }, { gtag }), true);
+  assert.equal(trackEvent('test_logged', { method: 'free text here' }, { gtag }), true);
+  assert.equal(trackEvent('record_exported', { format: 'pdf', pool: 'Smith pool' }, { gtag }), true);
+  assert.equal(trackEvent('not_an_event', {}, { gtag }), false);
+  assert.equal(trackEvent('begin_checkout', {}, {}), typeof window !== 'undefined');
+
+  assert.deepEqual(calls, [
+    ['event', 'sign_up', { method: 'email' }],
+    ['event', 'test_logged', { method: 'ocr' }],
+    ['event', 'test_logged', {}],
+    ['event', 'record_exported', { format: 'pdf' }],
+  ]);
+  assert.equal(eventParams('nope'), null);
+});
+
+test('the funnel events are wired where they happen', () => {
+  const app = appSource();
+  const read = (f) => readFileSync(new URL(`../components/${f}`, import.meta.url), 'utf8');
+  assert.match(app, /trackEvent\('test_logged'/);
+  assert.match(app, /trackEvent\('begin_checkout'\)/);
+  assert.match(app, /trackCheckoutSuccessOnce\(\)/);
+  assert.match(read('AuthScreen.jsx'), /trackEvent\('sign_up'/);
+  assert.match(read('AskMate.jsx'), /trackEvent\('ask_mate_question'\)/);
+  assert.match(read('ShareReport.jsx'), /trackEvent\('report_shared'/);
+  assert.match(read('RecordExport.jsx'), /trackEvent\('record_exported'/);
 });

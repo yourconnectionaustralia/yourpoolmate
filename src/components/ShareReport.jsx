@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { buildReport, reportUrl } from '../lib/reportLink.js';
+import { trackEvent } from '../lib/analytics.js';
 
 export default function ShareReport({ pool, tests, events, scoreFn, saltRange }) {
   const [status, setStatus] = useState('');
@@ -19,10 +20,12 @@ export default function ShareReport({ pool, tests, events, scoreFn, saltRange })
     try {
       if (navigator.share) {
         await navigator.share({ title: `${pool?.name || 'Pool'} water report`, url });
+        trackEvent('report_shared', { method: 'share_sheet' });
         setStatus('');
         return;
       }
       await navigator.clipboard.writeText(url);
+      trackEvent('report_shared', { method: 'copy_link' });
       setStatus('Link copied. Paste it into an email or message.');
     } catch {
       setStatus('Copy the link below.');

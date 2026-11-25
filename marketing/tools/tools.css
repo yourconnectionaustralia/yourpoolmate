@@ -79,3 +79,4 @@
   #diameter-field:not([hidden]) { grid-column: auto; }
   .explain, .trial, .related { padding: 24px 20px; }
 }
+.related a + a { margin-top: 10px; }

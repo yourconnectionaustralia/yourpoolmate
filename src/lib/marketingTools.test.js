@@ -82,14 +82,14 @@ test('sitemap and robots ship with the marketing folder', () => {
   const robots = readFileSync(new URL('../../marketing/robots.txt', import.meta.url), 'utf8');
   for (const loc of [
     'https://yourpoolmate.com.au/',
-    'https://yourpoolmate.com.au/privacy',
-    'https://yourpoolmate.com.au/terms',
+    'https://yourpoolmate.com.au/guides/',
     'https://yourpoolmate.com.au/tools/pool-volume-calculator/',
     'https://yourpoolmate.com.au/tools/chlorine-dose-calculator/',
   ]) {
     assert.match(sitemap, new RegExp(`<loc>${loc.replace(/[/.]/g, '\\$&')}</loc>`));
   }
-  assert.equal((sitemap.match(/<loc>/g) || []).length, 5);
+  // Privacy and terms are noindex, so they stay out of the sitemap.
+  assert.equal(/\/privacy|\/terms/.test(sitemap), false);
   assert.match(robots, /User-agent: \*/);
   assert.match(robots, /Allow: \//);
   assert.match(robots, /Sitemap: https:\/\/yourpoolmate\.com\.au\/sitemap\.xml/);
