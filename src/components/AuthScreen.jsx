@@ -63,6 +63,37 @@ function BrandMark({ size = 56 }) {
   )
 }
 
+// 50/50 split: the form on the left, a brand panel on the right.
+// On phones the brand panel is hidden and the form fills the screen.
+function AuthLayout({ children }) {
+  return (
+    <div className={styles.split}>
+      <main className={styles.formSide}>
+        <div className={styles.formInner}>{children}</div>
+      </main>
+      <aside className={styles.brandSide} aria-label="About Your Pool Mate">
+        <div className={styles.brandInner}>
+          <div className={styles.brandLogo}>
+            <svg width="40" height="40" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+              <circle cx="24" cy="24" r="17" fill="none" stroke="#fff" strokeWidth="3.2" />
+              <path d="M7.3 27 Q 15.65 23 24 27 T 40.7 27 A 17 17 0 0 1 7.3 27 Z" fill="#fff" />
+            </svg>
+            <span>Your Pool Mate</span>
+          </div>
+          <h2 className={styles.brandHeading}>Your pool. Your mate. Your water, sorted.</h2>
+          <ul className={styles.brandProps}>
+            <li>Know your pool's health at a glance</li>
+            <li>Exactly what chemicals to add, and how much</li>
+            <li>Timestamped records that protect your pool warranty</li>
+            <li>Scan your pool shop test and it fills itself in</li>
+          </ul>
+          <p className={styles.brandNote}>30 days free. No credit card.</p>
+        </div>
+      </aside>
+    </div>
+  )
+}
+
 // Text only on purpose: Google's own "G" button artwork has to come from
 // Google's branding guidelines, so it is not drawn here.
 function GoogleButton({ onClick, disabled }) {
@@ -327,7 +358,7 @@ export default function AuthScreen() {
   if (recoveryMode) {
     if (passwordUpdated) {
       return (
-        <div className={styles.wrap}>
+        <AuthLayout>
           <div className={styles.formWrap}>
             <div className={styles.successIcon}><PoolIcon name="checkCircle" size={44} /></div>
             <h2 className={styles.formHeading}>Password updated</h2>
@@ -335,11 +366,11 @@ export default function AuthScreen() {
               Your password has been changed. You're all set — loading your pool mate…
             </p>
           </div>
-        </div>
+        </AuthLayout>
       )
     }
     return (
-      <div className={styles.wrap}>
+      <AuthLayout>
         <div className={styles.formWrap}>
           <h2 className={styles.formHeading}>Set a new password</h2>
           <p className={styles.formSubtext}>Choose a new password for your account.</p>
@@ -375,14 +406,14 @@ export default function AuthScreen() {
             </button>
           </form>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   // ── Account already exists (Supabase sent no email) ────────
   if (alreadyExists) {
     return (
-      <div className={styles.wrap}>
+      <AuthLayout>
         <div className={styles.formWrap}>
           <div className={styles.successIcon}><PoolIcon name="userCheck" size={44} /></div>
           <h2 className={styles.formHeading}>You've already got an account</h2>
@@ -407,14 +438,14 @@ export default function AuthScreen() {
             </button>
           </div>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   // ── Email confirmation required ────────────────────────────
   if (confirmSent) {
     return (
-      <div className={styles.wrap}>
+      <AuthLayout>
         <div className={styles.formWrap}>
           <div className={styles.successIcon}><PoolIcon name="mail" size={44} /></div>
           <h2 className={styles.formHeading}>Check your email</h2>
@@ -464,14 +495,14 @@ export default function AuthScreen() {
             </button>
           </p>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   // ── Magic link sent ────────────────────────────────────────
   if (magicSent) {
     return (
-      <div className={styles.wrap}>
+      <AuthLayout>
         <div className={styles.formWrap}>
           <div className={styles.successIcon}><PoolIcon name="mail" size={44} /></div>
           <h2 className={styles.formHeading}>Check your email</h2>
@@ -489,14 +520,14 @@ export default function AuthScreen() {
             Back to sign in
           </button>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   // ── Reset link sent ────────────────────────────────────────
   if (resetSent) {
     return (
-      <div className={styles.wrap}>
+      <AuthLayout>
         <div className={styles.formWrap}>
           <div className={styles.successIcon}><PoolIcon name="mail" size={44} /></div>
           <h2 className={styles.formHeading}>Check your email</h2>
@@ -514,14 +545,14 @@ export default function AuthScreen() {
             Back to sign in
           </button>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   // ── Trial start screen ─────────────────────────────────────
   if (mode === 'start') {
     return (
-      <div className={styles.wrap}>
+      <AuthLayout>
         <div className={styles.card}>
           <div className={styles.hero}>
             <div className={styles.logoHalo}><BrandMark size={52} /></div>
@@ -578,14 +609,14 @@ export default function AuthScreen() {
 
           <LegalLine />
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   // ── Forgot password form ───────────────────────────────────
   if (mode === 'reset') {
     return (
-      <div className={styles.wrap}>
+      <AuthLayout>
         <div className={styles.formWrap}>
           <button className={styles.backBtn} onClick={() => { resetFlowState(); setMode('login') }} aria-label="Back">
             Back
@@ -620,7 +651,7 @@ export default function AuthScreen() {
             <button className={styles.linkBtn} onClick={() => { resetFlowState(); setMode('login') }}>Sign in</button>
           </p>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
@@ -630,7 +661,7 @@ export default function AuthScreen() {
   // to do nothing and handleMagicLink was unreachable.
   if (mode === 'magic') {
     return (
-      <div className={styles.wrap}>
+      <AuthLayout>
         <div className={styles.formWrap}>
           <button className={styles.backBtn} onClick={() => { resetFlowState(); setMode('login') }} aria-label="Back">
             Back
@@ -666,14 +697,14 @@ export default function AuthScreen() {
             <button className={styles.linkBtn} onClick={() => { resetFlowState(); setMode('login') }}>Sign in</button>
           </p>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   // ── Sign up form ───────────────────────────────────────────
   if (mode === 'signup') {
     return (
-      <div className={styles.wrap}>
+      <AuthLayout>
         <div className={styles.formWrap}>
           <button className={styles.backBtn} onClick={() => { resetFlowState(); setMode('start') }} aria-label="Back">
             Back
@@ -756,13 +787,13 @@ export default function AuthScreen() {
             <button className={styles.linkBtn} onClick={() => { resetFlowState(); setMode('login') }}>Sign in</button>
           </p>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   // ── Login form ─────────────────────────────────────────────
   return (
-    <div className={styles.wrap}>
+    <AuthLayout>
       <div className={styles.formWrap}>
         <button className={styles.backBtn} onClick={() => { resetFlowState(); setMode('start') }} aria-label="Back">
           Back
@@ -829,6 +860,6 @@ export default function AuthScreen() {
           <button className={styles.linkBtn} onClick={() => { resetFlowState(); setMode('signup') }}>Start free trial</button>
         </p>
       </div>
-    </div>
+    </AuthLayout>
   )
 }

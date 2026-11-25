@@ -1,61 +1,132 @@
 /* File: src/components/AuthScreen.module.css */
-/* Crystal Clear — Albert Sans, water gradient, white card on a soft water wash.
-   Phone first: the card gets more room on small screens, more air on larger ones. */
+/* Simple 50/50 split: plain white form column, water-gradient brand panel. */
 
-.wrap {
+/* ── 50/50 split ───────────────────────────────────────────
+   Left: a plain white column holding the form. Right: the brand panel.
+   Below 900px the brand panel hides and the form fills the screen. */
+.split {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 100dvh;
+  background: var(--white);
+}
+
+.formSide {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100dvh;
-  background:
-    radial-gradient(120% 55% at 50% 0%, #D6EEF6 0%, rgba(214, 238, 246, 0) 70%),
-    var(--gray-bg);
-  padding: max(var(--space-6), env(safe-area-inset-top)) var(--space-3)
+  padding: max(var(--space-6), env(safe-area-inset-top)) var(--space-4)
            max(var(--space-6), env(safe-area-inset-bottom));
 }
 
-/* Centred card holds the start screen; .formWrap holds every form state.
-   Both share one look: white, soft shadow, a thin water-gradient edge on top. */
-.card,
-.formWrap {
-  position: relative;
-  overflow: hidden;
+.formInner {
   width: 100%;
+  max-width: 400px;
+}
+
+.brandSide { display: none; }
+
+@media (min-width: 900px) {
+  .split { grid-template-columns: 1fr 1fr; }
+
+  .brandSide {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    padding: var(--space-10) var(--space-8);
+    background: var(--grad-water);
+    color: var(--white);
+  }
+
+  /* Two soft circles for depth, nothing busy. */
+  .brandSide::before,
+  .brandSide::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.07);
+    pointer-events: none;
+  }
+  .brandSide::before { width: 520px; height: 520px; right: -180px; top: -160px; }
+  .brandSide::after  { width: 360px; height: 360px; left: -120px; bottom: -140px; }
+
+  /* The brand panel carries the selling points on desktop. */
+  .formInner .valueProps,
+  .formInner .trialBadge { display: none; }
+}
+
+.brandInner {
+  position: relative;
   max-width: 440px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  background: var(--white);
-  border: 1px solid var(--gray-line);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-card);
+  gap: var(--space-6);
 }
 
-.card::before,
-.formWrap::before {
+.brandLogo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 700;
+  font-size: 1.125rem;
+}
+
+.brandHeading {
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 3.2vw, 2.75rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+  color: var(--white);
+}
+
+.brandProps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: 1.0625rem;
+  line-height: 1.4;
+}
+
+.brandProps li {
+  position: relative;
+  padding-left: 30px;
+}
+
+.brandProps li::before {
   content: '';
   position: absolute;
-  inset: 0 0 auto 0;
-  height: 4px;
-  background: var(--grad-water);
+  left: 0;
+  top: 0.3em;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 12px no-repeat;
 }
 
-.card {
-  gap: var(--space-6);
-  padding: var(--space-8) var(--space-5) var(--space-6);
+.brandNote {
+  font-weight: 600;
+  font-size: 1rem;
+  opacity: 0.9;
 }
 
+/* Every state (start screen and forms) sits flat in the white column. */
+.card,
 .formWrap {
-  gap: var(--space-4);
-  padding: var(--space-6) var(--space-5);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-@media (min-width: 480px) {
-  .wrap { padding-left: var(--space-4); padding-right: var(--space-4); }
-  .card { padding: var(--space-10) var(--space-8) var(--space-8); }
-  .formWrap { padding: var(--space-8); }
-}
+.card { gap: var(--space-6); }
+.formWrap { gap: var(--space-4); }
 
 /* ── Hero ──────────────────────────────────────────────────── */
 .hero {
