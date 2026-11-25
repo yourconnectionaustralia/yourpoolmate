@@ -1,23 +1,21 @@
 # Your Pool Mate — yourpoolmate.com.au
 # Search engines and AI answer engines are welcome to read and cite the
-# guides and tools. The app (app.yourpoolmate.com.au) is a separate host
-# with its own rules.
+# guides and tools. Crawlers that only collect content to train AI models
+# are not. The app (app.yourpoolmate.com.au) is a separate host with its
+# own rules.
+#
+# Cloudflare prepends its own managed rules to this file. The lists below
+# agree with them, so no crawler gets a different answer from each half.
 
 User-agent: *
 Allow: /
 
-# AI search and answer engines (named so a blanket rule elsewhere never
-# shuts them out by accident)
+# AI search and answer engines: these fetch pages to answer a question and
+# link back to the source. Named so a blanket rule never shuts them out.
 User-agent: OAI-SearchBot
 Allow: /
 
 User-agent: ChatGPT-User
-Allow: /
-
-User-agent: GPTBot
-Allow: /
-
-User-agent: ClaudeBot
 Allow: /
 
 User-agent: Claude-SearchBot
@@ -29,13 +27,54 @@ Allow: /
 User-agent: PerplexityBot
 Allow: /
 
-User-agent: Google-Extended
-Allow: /
-
-User-agent: Applebot-Extended
+User-agent: Perplexity-User
 Allow: /
 
 User-agent: Bingbot
 Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+# AI training crawlers: blocked. Blocking these does not remove the site
+# from Google, Bing, ChatGPT search, Claude or Perplexity answers.
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: meta-externalagent
+Disallow: /
+
+User-agent: cohere-ai
+Disallow: /
+
+User-agent: MistralAI-Training
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
 
 Sitemap: https://yourpoolmate.com.au/sitemap.xml

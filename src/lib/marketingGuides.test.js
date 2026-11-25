@@ -69,10 +69,15 @@ test('internal links on guide pages point at files that exist', () => {
   }
 });
 
-test('robots.txt lets AI answer engines read the site', () => {
+test('robots.txt lets search and AI answer engines in, and keeps AI training crawlers out', () => {
   const robots = read('robots.txt');
-  for (const bot of ['OAI-SearchBot', 'GPTBot', 'ClaudeBot', 'PerplexityBot', 'Google-Extended']) {
-    assert.match(robots, new RegExp(`User-agent: ${bot}\\nAllow: /`));
+  assert.match(robots, /User-agent: \*\nAllow: \//);
+  for (const bot of ['OAI-SearchBot', 'ChatGPT-User', 'Claude-SearchBot', 'Claude-User', 'PerplexityBot', 'Bingbot', 'Googlebot']) {
+    assert.match(robots, new RegExp(`User-agent: ${bot}\\nAllow: /`), bot);
+    assert.doesNotMatch(robots, new RegExp(`User-agent: ${bot}\\nDisallow`), bot);
   }
-  assert.equal(/Disallow: \/\s*$/m.test(robots), false);
+  for (const bot of ['GPTBot', 'ClaudeBot', 'Google-Extended', 'Applebot-Extended', 'CCBot']) {
+    assert.match(robots, new RegExp(`User-agent: ${bot}\\nDisallow: /`), bot);
+    assert.doesNotMatch(robots, new RegExp(`User-agent: ${bot}\\nAllow`), bot);
+  }
 });

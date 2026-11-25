@@ -32,7 +32,7 @@ Nothing personal is sent: every param is a fixed word from an allowlist (`src/li
 - Each guide: answer-first "short answer" box, question-style headings, tables, FAQ, Article + Breadcrumb + FAQ structured data, updated date, related links, CTA.
 - Homepage: Organization, WebSite and SoftwareApplication structured data (prices included, **no ratings**, because we have no reviews yet and must never invent them). "Guides" in the nav and footer.
 - `sitemap.xml` with `lastmod`; privacy and terms removed (they're `noindex`).
-- `robots.txt` names AI crawlers (OAI-SearchBot, GPTBot, ClaudeBot, PerplexityBot, Google-Extended…) and allows them.
+- `robots.txt` allows search and AI answer crawlers (Googlebot, Bingbot, OAI-SearchBot, ChatGPT-User, Claude-SearchBot, PerplexityBot) and blocks AI training crawlers (GPTBot, ClaudeBot, Google-Extended, Applebot-Extended, CCBot and others). It matches Cloudflare's managed robots.txt, which Cloudflare puts in front of ours.
 - `llms.txt`: a plain summary of the site for AI tools, with the ranges and every guide.
 - IndexNow: `.github/workflows/indexnow.yml` pings Bing a few minutes after any marketing change. Bing's index feeds ChatGPT search and Copilot.
 
@@ -40,7 +40,7 @@ Nothing personal is sent: every param is a fixed word from an allowlist (`src/li
 
 ## 2. Your one-off setup jobs (about 45 minutes, in this order)
 
-1. **Cloudflare: check AI crawlers aren't blocked.** Cloudflare dashboard → yourpoolmate.com.au → *AI Crawl Control* (or *Security → Bots*). If "Block AI bots" or a managed robots.txt is on, turn it off for this site. Otherwise robots.txt says yes but Cloudflare says no, and ChatGPT and Perplexity can't read the guides.
+1. **Cloudflare: let the answer engines through, keep training blocked.** Cloudflare dashboard → yourpoolmate.com.au → *AI Crawl Control* → *Crawlers*. Training crawlers (GPTBot, ClaudeBot, Google-Extended…) stay blocked. Set the *AI Search* and *AI Assistant* crawlers (PerplexityBot, OAI-SearchBot, ChatGPT-User, Claude-SearchBot) to Allow. Leave *Bot Preference Sync* on: it adds the training blocks and `ai-train=no` to robots.txt, which agrees with ours.
 2. **Google Search Console.** search.google.com/search-console → add property `yourpoolmate.com.au` (Domain type, verify with a DNS TXT record in Cloudflare) → Sitemaps → submit `https://yourpoolmate.com.au/sitemap.xml`. Then URL Inspection → *Request indexing* for `/guides/` and each guide.
 3. **Bing Webmaster Tools.** bing.com/webmasters → *Import from Google Search Console* (one click). Submit the sitemap there too.
 4. **GA4 key events.** GA4 → Admin → Events → mark `sign_up`, `test_logged`, `begin_checkout`, `checkout_success` and `start_free_click` as key events (they appear 24–48 hours after the deploy).
