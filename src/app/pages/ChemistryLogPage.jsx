@@ -4,6 +4,7 @@ import WaterTrendChart from '../../components/WaterTrendChart.jsx';
 import { isCareEvent } from '../../lib/equipmentCare.js';
 import RecordExport from '../../components/RecordExport.jsx';
 import { calciumBand } from '../../lib/healthScore.js';
+import { conditionSummary } from '../../lib/poolState.js';
 import ShareReport from '../../components/ShareReport.jsx';
 import { fmtReading, formatDate, scoreFor } from '../helpers.js';
 import { Icon } from '../icons.jsx';
@@ -32,6 +33,7 @@ function eventMeta(type) {
     new_equipment:   { color: 'var(--color-sky)', label: 'New equipment' },
     drain_refill:    { color: 'var(--blue)',      label: 'Drain / refill' },
     treatment:       { color: 'var(--green)',     label: 'Treatment' },
+    job_note:        { color: 'var(--color-sky)', label: 'Jobs done' },
     custom:          { color: 'var(--gray-mid)',  label: 'Event' },
   }[type] || { color: 'var(--gray-mid)', label: 'Event' };
 }
@@ -264,6 +266,7 @@ export function ChemistryLogPage({ history, events = [], equipment = [], poolPro
                 <div className="test-row-readings">
                   Chlorine {fmtReading(t.freeChlor, 'ppm')} · pH {fmtReading(t.pH, '')} · Alkalinity {fmtReading(t.alkalinity, 'ppm')}
                 </div>
+                {conditionSummary(t) && <div className="test-row-readings">{conditionSummary(t)}</div>}
                 {t.editedAt && (
                   <div className="test-row-edited">
                     Edited {formatDate(t.editedAt)}.{originalSummary(t.originalReadings) ? ` First saved as ${originalSummary(t.originalReadings)}.` : ''}

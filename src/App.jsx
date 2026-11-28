@@ -4,6 +4,8 @@ import WaterTestScanner from './components/WaterTestScanner.jsx';
 import VoiceTestEntry from './components/VoiceTestEntry.jsx';
 import AuthScreen from './components/AuthScreen.jsx';
 import GuestOnboarding from './components/GuestOnboarding.jsx';
+import AfterTestCard from './components/AfterTestCard.jsx';
+import { jobEventFor, jobsFor, notesForTest, saltShopItem, saltStatus } from './lib/jobsDone.js';
 import AppTour from './components/AppTour.jsx';
 import LoadingScreen from './components/LoadingScreen.jsx';
 import AppSkeleton from './components/AppSkeleton.jsx';
@@ -653,10 +655,37 @@ export default function App() {
     const saved = await db.addEvent(user.id, poolProfile?.id, event);
     setEvents(e => [...e, saved]);
   };
+  // "What I did": the jobs done after the latest test, as one note in the history.
+  const saveJobNote = async (fields) => {
+    const event = jobEventFor({ ...fields, testId: testData?.id ?? null });
+    if (!event) return;
+    const saved = await db.addEvent(user.id, poolProfile?.id, event);
+    setEvents(e => [...e, saved]);
+  };
   const handleDeleteEvent = (id) => {
     setEvents(e => e.filter(x => x.id !== id));
     db.deleteEvent(id).catch(err => console.error('Failed to delete event:', err));
   };
+
+  // Pool salt, from the reading on the latest test. Needs the shopping list (migration 021).
+  const salt = testData && shop.available
+    ? saltStatus({ pool: poolProfile, test: testData, plan: dosePlan, stock, done, shopItems: shop.items })
+    : null;
+  const remindSalt = async () => {
+    await addShopItem(saltShopItem(salt, testData));
+    if (passed.salt) unpassStep({ key: 'salt' });
+  };
+  const afterTest = testData ? (
+    <AfterTestCard
+      key={testData.createdAt}
+      jobs={jobsFor(poolProfile, equipment)}
+      notes={notesForTest(events, testData)}
+      salt={salt}
+      onSaveNote={saveJobNote}
+      onRemindSalt={remindSalt}
+      onOpenLog={() => openView('history')}
+    />
+  ) : null;
 
   const membershipCopy = offerCopy(pricing);
 
@@ -667,7 +696,7 @@ export default function App() {
   if (recoveryMode) return <AuthScreen />;
   if (!session) return <AuthScreen />;
   if (trialExpired && !isPremium) {
-    return <TrialExpiredScreen pricing={pricing} checkoutReturn={checkoutReturn} />;
+    return <TrialExpiredScreen pricing={pricing} checkoutReturn={checkoutReturn} onSignOut={signOut} />;
   }
   // Signed in, trial fine, data still arriving: draw the app's own layout in
   // grey (skeleton) instead of a spinner. Same early return as before, so
@@ -727,6 +756,8 @@ export default function App() {
               ctx={ctx}
               tests={testHistory.map((t) => ({ ...t, healthScore: scoreFor(t, poolProfile?.sanitiser, saltRange, poolProfile?.surface, poolProfile?.hasCover) }))}
               low={low}
+              afterTest={afterTest}
+              toBuy={shop.items}
               pins={pins}
               badges={{ shop: shopCount, plan: pendingActions }}
               careDue={careDueNow(equipment, poolProfile, events)}
@@ -771,6 +802,7 @@ export default function App() {
               onLogTest={goLogTest}
               onOpenFixer={() => openView('fixer')}
               retest={retestPrompt(events, testData?.createdAt)}
+              afterTest={afterTest}
             />
           )}
           {activeView === 'shed' && (
@@ -994,6 +1026,7 @@ export default function App() {
           shopCount={shopCount}
           nav={navSlots}
           onEditNav={() => setNavEditorOpen(true)}
+          onSignOut={signOut}
         />
       )}
       {navEditorOpen && (

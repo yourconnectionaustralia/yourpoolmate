@@ -5,6 +5,7 @@
 // PDF is in recordPdf.js. Nothing here talks to the network.
 
 import { isCareEvent } from './equipmentCare.js';
+import { conditionSummary } from './poolState.js';
 
 const TZ = 'Australia/Melbourne';
 
@@ -38,7 +39,7 @@ export function sourceLabel(source) {
 
 const EVENT_LABELS = {
   dose: 'Dose added', shock: 'Shock dose', green_treatment: 'Green-pool treatment', treatment: 'Treatment',
-  drain_refill: 'Drain / refill', new_equipment: 'New equipment', custom: 'Note',
+  drain_refill: 'Drain / refill', new_equipment: 'New equipment', job_note: 'Jobs done', custom: 'Note',
 };
 export const eventLabel = (type) => EVENT_LABELS[type] || (isCareEvent(type) ? 'Equipment care' : 'Note');
 
@@ -66,6 +67,8 @@ export function testRows(tests, scoreFn) {
     .map((t) => {
       const notes = [sourceLabel(t.source)];
       if (t.printoutPath) notes.push('Printout photo on file');
+      const conditions = conditionSummary(t);
+      if (conditions) notes.push(conditions);
       if (t.editedAt) {
         const first = originalText(t.originalReadings);
         notes.push(`Edited ${formatDay(t.editedAt)}${first ? `. First saved as ${first}` : ''}`);

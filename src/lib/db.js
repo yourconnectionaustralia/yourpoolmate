@@ -4,6 +4,7 @@
 
 import { memberProfilePayload, validateMemberProfile } from './memberProfile.js';
 import { normaliseLook } from './poolLook.js';
+import { normaliseCover, normaliseWaterLevel } from './poolState.js';
 import { supabase } from './supabase';
 
 // Migrations are applied by hand, so a new table or column can be missing
@@ -50,6 +51,9 @@ export function rowToTest(r) {
     // How the owner said the pool looked when they tested (migration 027).
     // Absent on tests saved before then, and on past results typed in later.
     ...(normaliseLook(r.pool_look) ? { poolLook: normaliseLook(r.pool_look) } : {}),
+    // Water level and cover when tested (migration 028). Absent the same way.
+    ...(normaliseWaterLevel(r.water_level) ? { waterLevel: normaliseWaterLevel(r.water_level) } : {}),
+    ...(normaliseCover(r.cover_state) ? { coverState: normaliseCover(r.cover_state) } : {}),
   };
 }
 
@@ -65,6 +69,8 @@ export async function loadTests(userId) {
 
 function testInsertRow(userId, poolId, test, healthScore) {
   const look = normaliseLook(test.poolLook);
+  const waterLevel = normaliseWaterLevel(test.waterLevel);
+  const coverState = normaliseCover(test.coverState);
   return {
     user_id: userId,
     pool_id: poolId || null,
@@ -82,20 +88,28 @@ function testInsertRow(userId, poolId, test, healthScore) {
     source:         test.source || 'manual', // manual | ocr | voice | shop_import
     tested_at:      test.createdAt || new Date().toISOString(),
     // Only sent when answered, so a test with no answer (a past result, a CSV
-    // import) never names a column that migration 027 may not have added yet.
+    // import) never names a column that a migration may not have added yet.
     ...(look ? { pool_look: look } : {}),
+    ...(waterLevel ? { water_level: waterLevel } : {}),
+    ...(coverState ? { cover_state: coverState } : {}),
   };
 }
 
+// Answer columns by migration, newest first: 028, then 027.
+const ANSWER_COLUMNS = [['water_level', 'cover_state'], ['pool_look']];
+
 export async function saveTest(userId, poolId, test, healthScore) {
   const insert = (row) => supabase.from('water_tests').insert(row).select('id').single();
-  const row = testInsertRow(userId, poolId, test, healthScore);
+  let row = testInsertRow(userId, poolId, test, healthScore);
   let { data, error } = await insert(row);
-  // Migration 026 not run yet: save the readings without the answer rather than
-  // lose the test. The answer still counts on this device until the next reload.
-  if (error && 'pool_look' in row && isMissingSchema(error)) {
-    const { pool_look: _look, ...withoutLook } = row;
-    ({ data, error } = await insert(withoutLook));
+  // A migration not run yet: save the readings without the newest answers
+  // rather than lose the test, then without the older one if need be. The
+  // answers still count on this device until the next reload.
+  for (const columns of ANSWER_COLUMNS) {
+    if (!error || !isMissingSchema(error)) break;
+    if (!columns.some((c) => c in row)) continue;
+    row = Object.fromEntries(Object.entries(row).filter(([k]) => !columns.includes(k)));
+    ({ data, error } = await insert(row));
   }
   if (error) throw error;
   return data.id;
@@ -331,6 +345,8 @@ export function rowToEvent(r) {
 }
 
 function doseDetailRow(event) {
+  // A "What I did" note keeps the test it followed.
+  if (event.type === 'job_note') return event.testId ? { test_id: event.testId } : {};
   if (event.type !== 'dose') return {};
   const n = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v) * 10) / 10 : null);
   return {

@@ -307,7 +307,7 @@ function ShedSummary({ plan, stock, done, passed = {}, testId, shopAvailable, on
 
 export default function PlanPage({
   test, plan, ctx, done, skipped, passed = {}, stock, shopAvailable,
-  onAdded, onUndo, onSkip, onUnskip, onPass, onUnpass, onOpen, onLogTest, onOpenFixer, retest,
+  onAdded, onUndo, onSkip, onUnskip, onPass, onUnpass, onOpen, onLogTest, onOpenFixer, retest, afterTest = null,
 }) {
   if (!test || !plan) {
     return (
@@ -372,6 +372,10 @@ export default function PlanPage({
         </section>
       )}
 
+      {plan.beforeYouAdd.map((w) => (
+        <p key={w} className="plan-watchout">{w}</p>
+      ))}
+
       <ol className="plan-steps">
         {plan.steps.map((s, i) => (
           <li key={s.key}>
@@ -405,6 +409,8 @@ export default function PlanPage({
       {plan.watchouts.map((w) => (
         <p key={w} className="plan-watchout">{w}</p>
       ))}
+
+      {afterTest}
 
       {plan.lsi && (
         <section className="card-section" aria-label="Balance index">
