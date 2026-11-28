@@ -1,5 +1,5 @@
 // File: src/context/AuthContext.jsx
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { getCaptchaToken, primeCaptcha } from '../lib/captcha.js'
 import { shouldSyncName } from '../lib/authName.js'
@@ -16,6 +16,12 @@ export function AuthProvider({ children }) {
   // landed here via a #access_token=...&type=recovery link). Drives
   // AuthScreen's "set a new password" view.
   const [recoveryMode, setRecoveryMode] = useState(false)
+  // The account whose status has been checked once. Supabase sends SIGNED_IN
+  // again each time the app comes back to the front; those re-checks are quiet.
+  const checkedUserId = useRef(null)
+  // Goes up on sign-out, so a check still in flight can't mark the account
+  // as checked after it has gone.
+  const signOutCount = useRef(0)
 
   useEffect(() => {
     // Safety net: never let the app hang on the spinner. If auth init stalls
@@ -64,6 +70,8 @@ export function AuthProvider({ children }) {
         }
 
         if (event === 'SIGNED_OUT') {
+          checkedUserId.current = null
+          signOutCount.current += 1
           setTrialExpired(false)
           setHasPoolProfile(null)
           setRecoveryMode(false)
@@ -76,31 +84,58 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function checkUserStatus(user) {
-    setLoading(true)
+    // Only the first check for an account covers the screen. Showing the
+    // loading screen again on every return to the app made people wait on the
+    // server each time, and closed whatever they were halfway through.
+    const quiet = checkedUserId.current === user.id
+    const startedAt = signOutCount.current
+    if (!quiet) setLoading(true)
     try {
-      // Check trial status
-      const trialStart = new Date(user.created_at)
-      const now = new Date()
+      // Both lookups at once: neither needs the other's answer.
+      const [
+        { data: profile, error: profileError },
+        { data: poolProfile, error: poolError }
+      ] = await Promise.all([
+        // Has the user paid, and when does the trial end?
+        supabase
+          .from('user_profiles')
+          .select('is_premium, trial_ends_at, first_name, last_name')
+          .eq('id', user.id)
+          .single(),
+        // Is there a pool profile (drives the onboarding trigger)?
+        // maybeSingle() so "no rows" is a clean null instead of a PGRST116
+        // error, letting us tell "no profile yet" apart from "lookup failed".
+        supabase
+          .from('pool_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+      ])
 
-      // Check if user has paid (premium tier)
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('is_premium, trial_ends_at, first_name, last_name')
-        .eq('id', user.id)
-        .single()
+      // A failed quiet re-check keeps what we already know. Reading a network
+      // error as "not premium" could put a paying member on the paywall.
+      if (!(quiet && profileError)) {
+        const trialStart = new Date(user.created_at)
+        const now = new Date()
+        const isPremium = profile?.is_premium ?? false
+        // 30-day free trial (matches migration 004 / current pricing).
+        // Only used as a fallback when trial_ends_at isn't set on the
+        // profile yet — the real source of truth is the DB column.
+        const trialEndsAt = profile?.trial_ends_at
+          ? new Date(profile.trial_ends_at)
+          : new Date(trialStart.getTime() + 30 * 24 * 60 * 60 * 1000)
 
-      const isPremium = profile?.is_premium ?? false
-      // 30-day free trial (matches migration 004 / current pricing).
-      // Only used as a fallback when trial_ends_at isn't set on the
-      // profile yet — the real source of truth is the DB column.
-      const trialEndsAt = profile?.trial_ends_at
-        ? new Date(profile.trial_ends_at)
-        : new Date(trialStart.getTime() + 30 * 24 * 60 * 60 * 1000)
+        setTrialExpired(!isPremium && now > trialEndsAt)
+      }
 
-      if (!isPremium && now > trialEndsAt) {
-        setTrialExpired(true)
+      if (poolError) {
+        // A network blip must not be read as "this user has no pool" —
+        // that pushed existing users into the onboarding sheet. Stay at
+        // null (unknown) so the modal doesn't fire on a failed lookup.
+        console.error('Pool profile lookup failed:', poolError)
+        if (!quiet) setHasPoolProfile(null)
       } else {
-        setTrialExpired(false)
+        setHasPoolProfile(!!poolProfile)
       }
 
       // A brand-new account arrives with a name (sign-up form, or Google).
@@ -114,29 +149,11 @@ export function AuthProvider({ children }) {
           .eq('id', user.id)
         if (nameError) console.warn('Saving the sign-up name failed:', nameError)
       }
-
-      // Check if user has a pool profile (drives onboarding trigger).
-      // maybeSingle() so "no rows" is a clean null instead of a PGRST116
-      // error, letting us tell "no profile yet" apart from "lookup failed".
-      const { data: poolProfile, error: poolError } = await supabase
-        .from('pool_profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (poolError) {
-        // A network blip must not be read as "this user has no pool" —
-        // that pushed existing users into the onboarding sheet. Stay at
-        // null (unknown) so the modal doesn't fire on a failed lookup.
-        console.error('Pool profile lookup failed:', poolError)
-        setHasPoolProfile(null)
-      } else {
-        setHasPoolProfile(!!poolProfile)
-      }
     } catch (err) {
       console.error('Error checking user status:', err)
-      setHasPoolProfile(null)
+      if (!quiet) setHasPoolProfile(null)
     } finally {
+      if (signOutCount.current === startedAt) checkedUserId.current = user.id
       setLoading(false)
     }
   }
