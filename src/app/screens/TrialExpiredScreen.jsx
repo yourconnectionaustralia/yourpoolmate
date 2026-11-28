@@ -5,7 +5,7 @@ import { CheckoutButton, CheckoutReturnNote } from '../checkout/Checkout.jsx';
 // ─────────────────────────────────────────────────────────────────
 // TRIAL EXPIRED BLOCK SCREEN
 // ─────────────────────────────────────────────────────────────────
-export function TrialExpiredScreen({ pricing, checkoutReturn }) {
+export function TrialExpiredScreen({ pricing, checkoutReturn, onSignOut }) {
   const copy = offerCopy(pricing);
   return (
     <div style={{
@@ -42,6 +42,9 @@ export function TrialExpiredScreen({ pricing, checkoutReturn }) {
         <div style={{ fontSize: 17, color: 'var(--gray-light)', marginTop: 10 }}>
           {copy.footnote}
         </div>
+        <button type="button" className="btn btn-ghost" onClick={onSignOut} style={{ marginTop: 16, minHeight: 44 }}>
+          Sign out
+        </button>
       </div>
     </div>
   );

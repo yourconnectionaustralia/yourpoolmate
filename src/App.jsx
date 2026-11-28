@@ -667,7 +667,7 @@ export default function App() {
   if (recoveryMode) return <AuthScreen />;
   if (!session) return <AuthScreen />;
   if (trialExpired && !isPremium) {
-    return <TrialExpiredScreen pricing={pricing} checkoutReturn={checkoutReturn} />;
+    return <TrialExpiredScreen pricing={pricing} checkoutReturn={checkoutReturn} onSignOut={signOut} />;
   }
   // Signed in, trial fine, data still arriving: draw the app's own layout in
   // grey (skeleton) instead of a spinner. Same early return as before, so
@@ -994,6 +994,7 @@ export default function App() {
           shopCount={shopCount}
           nav={navSlots}
           onEditNav={() => setNavEditorOpen(true)}
+          onSignOut={signOut}
         />
       )}
       {navEditorOpen && (

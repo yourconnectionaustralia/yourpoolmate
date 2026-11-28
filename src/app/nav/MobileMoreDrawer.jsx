@@ -6,7 +6,7 @@ import { Icon } from '../icons.jsx';
 // ─────────────────────────────────────────────────────────────────
 // MOBILE MORE DRAWER (slide-up sheet)
 // ─────────────────────────────────────────────────────────────────
-export function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feedbackNoteCount = 0, pins = [], onTogglePin, pinNotice, shopCount = 0, nav = [], onEditNav }) {
+export function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedback, feedbackNoteCount = 0, pins = [], onTogglePin, pinNotice, shopCount = 0, nav = [], onEditNav, onSignOut }) {
   const sheetRef = useRef(null);
   const grabRef = useRef(null);
 
@@ -179,6 +179,16 @@ export function MobileMoreDrawer({ activeView, onNav, onClose, onHelp, onFeedbac
             <span className="mobile-drawer-badge">{feedbackNoteCount}</span>
           )}
         </button>
+        {onSignOut && (
+          <button
+            type="button"
+            className="mobile-drawer-item"
+            onClick={() => { onClose(); onSignOut(); }}
+          >
+            <span className="mobile-drawer-icon">{Icon.signOut}</span>
+            <span>Sign out</span>
+          </button>
+        )}
       </div>
     </>
   );
