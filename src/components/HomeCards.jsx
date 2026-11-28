@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { doseLabel, isBuyable } from '../lib/plan.js';
-import { periodWindow, scoreSummary, spendTotal, spendBuckets, formatAud } from '../lib/shed.js';
+import { periodWindow, scoreSummary, spendTotal, spendBuckets, formatAud, productName } from '../lib/shed.js';
 
 const SWIM_PILL = { good: 'Swim-ready', wait: 'Hold off', stale: 'Test first', unknown: 'Test first' };
 
@@ -49,6 +49,9 @@ export function SwimCall({ plan, next, doneCount, done = {}, skipped = {}, passe
             </div>
           )}
           <p className="swim-next-label">Next · {next.action}</p>
+          {(plan.beforeYouAdd ?? []).map((w) => (
+            <p key={w} className="swim-detail">{w}</p>
+          ))}
           <button className="btn btn-primary btn-block swim-dose" disabled={busy} onClick={add}>
             {isBuyable(option) ? `I added ${doseLabel(option)}` : `Done: ${doseLabel(option)}`}
           </button>
@@ -161,6 +164,29 @@ export function LowStock({ items, onOpen }) {
         <div style={{ marginTop: 10 }}>
           <button className="btn btn-primary btn-sm" onClick={() => onOpen('shop')}>Add to the shopping list</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// What is still to be bought, on the home screen so it is not forgotten.
+export function ToBuy({ items = [], onOpen }) {
+  const needed = items.filter((i) => i.status !== 'bought');
+  if (!needed.length) return null;
+  return (
+    <div className="callout callout-action to-buy">
+      <div className="callout-body">
+        <strong>Reminder to buy</strong>
+        <ul className="to-buy-list">
+          {needed.slice(0, 3).map((i) => (
+            <li key={i.id}>
+              {i.quantityLabel ? `${i.quantityLabel} ` : ''}{productName(i.productKey, i.product)}
+              {i.stepTitle && <span className="to-buy-why">{i.stepTitle}</span>}
+            </li>
+          ))}
+        </ul>
+        {needed.length > 3 && <p className="to-buy-why">and {needed.length - 3} more</p>}
+        <button className="btn btn-primary btn-sm" onClick={() => onOpen('shop')}>Open the shopping list</button>
       </div>
     </div>
   );

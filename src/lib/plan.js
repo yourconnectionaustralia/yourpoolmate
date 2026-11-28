@@ -15,6 +15,7 @@ import { doseOptions } from './dosing.js';
 import { safetyLineFor, DOSE_PLAN_GUIDANCE } from './dosingSafety.js';
 import { calculateScore, calciumBand, includeCalciumInActions, isSaltPool } from './healthScore.js';
 import { isMurkyLook, lookView, murkySwimCall } from './poolLook.js';
+import { conditionWatchouts } from './poolState.js';
 
 export { DOSE_PLAN_GUIDANCE };
 
@@ -680,6 +681,8 @@ export function buildPlan(test, ctx, now = new Date()) {
   return {
     steps,
     watchouts,
+    // Water level and cover: read these before adding anything.
+    beforeYouAdd: conditionWatchouts(test, steps.length > 0),
     swim,
     score,
     rows,

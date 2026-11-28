@@ -57,6 +57,7 @@ function eventStyle(type) {
     case 'new_equipment':   return { color: 'var(--color-sky)',  code: 'E', label: 'New equipment' };
     case 'drain_refill':    return { color: 'var(--blue)',       code: 'D', label: 'Drain / refill' };
     case 'treatment':       return { color: 'var(--green)',      code: 'T', label: 'Treatment' };
+    case 'job_note':        return { color: 'var(--color-sky)',  code: 'J', label: 'Jobs done' };
     default:
       if (isCareEvent(type)) return { color: 'var(--color-sky)', code: 'C', label: 'Equipment care' };
       return { color: 'var(--gray-mid)',   code: '•', label: 'Event' };

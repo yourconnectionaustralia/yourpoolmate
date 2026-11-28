@@ -14,6 +14,7 @@ import {
   voiceReadingsFromForm,
 } from '../lib/parseVoiceReadings.js';
 import PoolLookQuestion from './PoolLookQuestion.jsx';
+import PoolStateQuestions from './PoolStateQuestions.jsx';
 
 const LANGS = ['en-AU', 'en-GB', 'en-US'];
 
@@ -73,6 +74,8 @@ export default function VoiceTestEntry({ onClose, onComplete }) {
   const [transcript, setTranscript] = useState('');
   const [values, setValues] = useState(blankVoiceForm);
   const [look, setLook] = useState('');   // how the pool looks: required before saving
+  const [waterLevel, setWaterLevel] = useState('');   // required too
+  const [coverState, setCoverState] = useState('');   // required too
   const [error, setError] = useState('');
   const recRef = useRef(null);
   const langRef = useRef(LANGS[0]);
@@ -199,6 +202,8 @@ export default function VoiceTestEntry({ onClose, onComplete }) {
     onComplete({
       ...voiceReadingsFromForm(values),
       poolLook: look,
+      waterLevel,
+      coverState,
       createdAt: new Date().toISOString(),
     });
     onClose();
@@ -321,6 +326,7 @@ export default function VoiceTestEntry({ onClose, onComplete }) {
               ))}
             </div>
             <PoolLookQuestion value={look} onChange={setLook} idPrefix="voice" />
+            <PoolStateQuestions waterLevel={waterLevel} onWaterLevel={setWaterLevel} coverState={coverState} onCoverState={setCoverState} idPrefix="voice" />
           </>
         )}
 
@@ -337,7 +343,7 @@ export default function VoiceTestEntry({ onClose, onComplete }) {
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={handleUse}
-                disabled={!canSave || !look}
+                disabled={!canSave || !look || !waterLevel || !coverState}
               >
                 Use these readings
               </button>

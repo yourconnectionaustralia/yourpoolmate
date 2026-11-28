@@ -27,6 +27,7 @@ import { STRIP_CAVEAT, STRIP_NOT_READY, STRIP_TIPS, isStripReply, stripConfidenc
 import { isoFromDateInput, toDateInput } from '../lib/testFields.js';
 import { getCaptchaToken } from '../lib/captcha.js';
 import PoolLookQuestion from './PoolLookQuestion.jsx';
+import PoolStateQuestions from './PoolStateQuestions.jsx';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -106,6 +107,8 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
   const [testDate, setTestDate] = useState(() => toDateInput(new Date().toISOString()));
   const [dateSource, setDateSource] = useState('today'); // 'printout' | 'today' | 'you'
   const [look, setLook] = useState('');              // how the pool looks: required before saving
+  const [waterLevel, setWaterLevel] = useState('');  // required too
+  const [coverState, setCoverState] = useState('');  // required too
   const [printoutVolumeL, setPrintoutVolumeL] = useState(null);
   const fileRef = useRef(null);      // camera
   const galleryRef = useRef(null);   // photo library, several at once
@@ -238,6 +241,8 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
       // The date on the printout, or today. The same midday rule as Add a past result.
       createdAt: isoFromDateInput(testDate > todayInput ? todayInput : testDate, new Date().toISOString()),
       poolLook: look,
+      waterLevel,
+      coverState,
       source: 'ocr',
     };
     // Held for the pool-size prompt when Pool setup has no volume yet. Not saved.
@@ -403,6 +408,7 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
               ))}
             </div>
             <PoolLookQuestion value={look} onChange={setLook} idPrefix="scan" />
+            <PoolStateQuestions waterLevel={waterLevel} onWaterLevel={setWaterLevel} coverState={coverState} onCoverState={setCoverState} idPrefix="scan" />
             <div className="input-group" style={{ marginBottom: 16 }}>
               <label className="input-label" htmlFor="scan-date">Date of test</label>
               <input
@@ -472,7 +478,7 @@ export default function WaterTestScanner({ onClose, onComplete, poolVolumeL = nu
             </>
           )}
           {(state === 'review' || state === 'adding') && (
-            <button className="btn btn-primary btn-sm" disabled={state === 'adding' || !look} onClick={handleUse}>
+            <button className="btn btn-primary btn-sm" disabled={state === 'adding' || !look || !waterLevel || !coverState} onClick={handleUse}>
               Use these readings
             </button>
           )}

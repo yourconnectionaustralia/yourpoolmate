@@ -6,7 +6,7 @@ import { scoreChange } from '../../lib/scoreChange.js';
 import { testPrompt } from '../../lib/testPrompt.js';
 import { retestPrompt } from '../../lib/doseLog.js';
 import { turnoverHours } from '../../lib/plan.js';
-import { LowStock, Shortcuts, SwimCall, ThirtyDays, ThisMonth } from '../../components/HomeCards.jsx';
+import { LowStock, Shortcuts, SwimCall, ThirtyDays, ThisMonth, ToBuy } from '../../components/HomeCards.jsx';
 import { fmtReading, formatRelative, melbourneGreeting } from '../helpers.js';
 import { Icon } from '../icons.jsx';
 import { HealthScoreRing } from '../visuals.jsx';
@@ -28,6 +28,7 @@ function useHomeGreeting(user) {
 export function HealthScorePage({
   testData, poolProfile, events = [], onLogFirst, onLogTest, user, reminderOffer = null, careDue = [], onOpenCare, onOpenFixer,
   plan, next, doneCount = 0, done = {}, skipped = {}, passed = {}, shopCount = 0, onAdded, onOpen, ctx, tests = [], low = [], pins = [], badges = {},
+  afterTest = null, toBuy = [],
 }) {
   const greeting = useHomeGreeting(user);
   const lastTest = testData?.createdAt;
@@ -57,6 +58,7 @@ export function HealthScorePage({
             <button className="btn btn-primary" onClick={onLogTest || onLogFirst}>Log your first test</button>
           </div>
         </div>
+        <ToBuy items={toBuy} onOpen={onOpen} />
         <Shortcuts pins={pins} onOpen={onOpen} badges={badges} />
         {/* Green or cloudy before the first test? The fixer works without one. */}
         <button className="fixer-link" style={{ marginTop: 16 }} onClick={onOpenFixer}>
@@ -169,6 +171,11 @@ export function HealthScorePage({
           onLogTest={onLogTest || onLogFirst}
         />
       </div>
+
+      {/* The swim card already sends them to the list when the plan is only waiting on a shop run. */}
+      {(next || shopCount === 0) && <ToBuy items={toBuy} onOpen={onOpen} />}
+
+      {afterTest}
 
       <LowStock items={low} onOpen={onOpen} />
 

@@ -10,6 +10,9 @@
 import { melbourneDayNumber } from './goodWaterLine.js';
 
 export const CARE_PREFIX = 'care_';
+// A "What I did" note (lib/jobsDone.js): the jobs ticked are its title.
+export const JOB_NOTE_TYPE = 'job_note';
+export const JOB_SEPARATOR = ' · ';
 export const SOON_DAYS = 3; // "due soon" window before the day it is due
 
 export const CARE_TASKS = [
@@ -87,7 +90,8 @@ export function lastDone(events, task) {
   const type = careEventType(task.key);
   let best = null;
   for (const e of events || []) {
-    if (e.type !== type) continue;
+    const inNote = e.type === JOB_NOTE_TYPE && String(e.title || '').split(JOB_SEPARATOR).includes(task.doneTitle);
+    if (e.type !== type && !inNote) continue;
     const t = new Date(e.date).getTime();
     if (Number.isFinite(t) && (best === null || t > best)) best = t;
   }

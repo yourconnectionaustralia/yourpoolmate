@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { isSaltPool } from '../../lib/healthScore.js';
 import { readingProblem } from '../../lib/plan.js';
 import PoolLookQuestion from '../../components/PoolLookQuestion.jsx';
+import PoolStateQuestions from '../../components/PoolStateQuestions.jsx';
 import { fmtReading, formatDate } from '../helpers.js';
 import { Icon } from '../icons.jsx';
 
@@ -34,6 +35,8 @@ export function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, o
   const [problem, setProblem] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
   const [look, setLook] = useState('');
+  const [waterLevel, setWaterLevel] = useState('');
+  const [coverState, setCoverState] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Open the entry form when a nav "Log test" action requests it, then clear the trigger.
@@ -88,6 +91,7 @@ export function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, o
     if (issue) { setProblem(issue.message); return; }
     // The readings cannot show green or cloudy water, so we always ask.
     if (!look) { setProblem('Choose how your pool looks first.'); return; }
+    if (!waterLevel || !coverState) { setProblem('Answer the water level and cover questions first.'); return; }
     setProblem('');
     setSubmitting(true);
     // Untested fields stay null — they're skipped by the Health Score
@@ -100,6 +104,8 @@ export function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, o
       cyanuricAcid: num(form.cyanuricAcid),
       calciumHardness: num(form.calciumHardness),
       poolLook: look,
+      waterLevel,
+      coverState,
       createdAt: new Date().toISOString(),
     };
     if (form.salt !== '')       data.salt = num(form.salt);
@@ -111,6 +117,8 @@ export function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, o
     setShowForm(false);
     setForm(EMPTY_FORM);
     setLook('');
+    setWaterLevel('');
+    setCoverState('');
   };
 
   return (
@@ -157,13 +165,14 @@ export function WaterTestsPage({ testData, onLogTest, onScanTest, onScanStrip, o
             {fieldGrid(fieldsIn('extra'))}
           </details>
           <PoolLookQuestion value={look} onChange={setLook} idPrefix="entry" />
+          <PoolStateQuestions waterLevel={waterLevel} onWaterLevel={setWaterLevel} coverState={coverState} onCoverState={setCoverState} idPrefix="entry" />
           {problem && <p role="alert" className="test-editor-problem">{problem}</p>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
             <button
               className="btn btn-primary btn-sm"
               onClick={handleSubmit}
-              disabled={submitting || !look}
+              disabled={submitting || !look || !waterLevel || !coverState}
             >
               {submitting ? (
                 <span className="dot-loader">
